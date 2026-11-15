@@ -11,6 +11,15 @@ from storage import get_canvas_state, save_canvas_state, log_activity
 from terminal_manager import append_terminal_log, get_or_init_terminal_session
 from ai_engine import run_maestri_canvas_agent
 from remote_bridge import push_mobile_notification
+from project_builder import (
+    PROJECTS_ROOT,
+    is_project_build_intent,
+    _slugify,
+    scaffold_database_layer,
+    scaffold_backend_layer,
+    scaffold_frontend_layer,
+    launch_generated_project,
+)
 
 
 EXTERNAL_CLIS = [
@@ -318,6 +327,71 @@ def run_maestro_mode(goal: str) -> Dict[str, Any]:
             + "\n".join([f"├─ 🤖 Delegando para [{w['name']}] ({w.get('model', 'free:openai')})" for w in workers])
         ),
     )
+
+    if is_project_build_intent(goal):
+        slug = _slugify(goal)
+        project_dir = PROJECTS_ROOT / slug
+        w_db = workers[0]
+        w_be = workers[1] if len(workers) > 1 else workers[0]
+        w_fe = workers[2] if len(workers) > 2 else workers[-1]
+
+        db_info = scaffold_database_layer(project_dir, goal)
+        db_msg = f"✔ Banco SQLite criado em {db_info['file']} | Tabelas: {', '.join(db_info['tables'])} ({db_info['seed_count']} itens iniciais)"
+        w_db["last_output"] = db_msg
+        append_terminal_log(w_db["id"], f"aura-agent❯ Criar Banco de Dados ({slug})", db_msg)
+
+        be_info = scaffold_backend_layer(project_dir, goal)
+        be_msg = f"✔ Backend FastAPI criado em {be_info['file']} | Rotas: {', '.join(be_info['endpoints'])}"
+        w_be["last_output"] = be_msg
+        append_terminal_log(w_be["id"], f"aura-agent❯ Criar Backend FastAPI ({slug})", be_msg)
+
+        fe_info = scaffold_frontend_layer(project_dir, goal)
+        launch_info = launch_generated_project(project_dir)
+        fe_msg = (
+            f"✔ Frontend criado em {fe_info['file']}\n"
+            f"✔ Servidor local {'ONLINE' if launch_info['ok'] else 'iniciado'} em: {launch_info['url']} (PID {launch_info['pid']})"
+        )
+        w_fe["last_output"] = fe_msg
+        append_terminal_log(w_fe["id"], f"aura-agent❯ Criar Frontend & Iniciar Servidor ({slug})", fe_msg)
+
+        elapsed = round(time.time() - t0, 2)
+        consolidated_text = (
+            f"✔ [PROJETO CONSTRUÍDO & RODANDO em {elapsed}s]\n"
+            f"📁 Pasta do Projeto: {project_dir}\n"
+            f"🌐 URL Local (Front + Back + SQLite): {launch_info['url']}\n"
+            f"🗄 Banco de Dados: {project_dir / 'app.db'} (tabelas: products, orders)\n"
+            f"📄 Arquivos: database.py, app.py, static/index.html\n\n"
+            f"═══ ENTREGAS DOS AGENTES ═══\n"
+            f"• [{w_db['name']}]: {db_msg}\n"
+            f"• [{w_be['name']}]: {be_msg}\n"
+            f"• [{w_fe['name']}]: {fe_msg}"
+        )
+        maestro_node["last_output"] = consolidated_text
+        save_canvas_state(nodes, edges)
+        append_terminal_log(maestro_node["id"], "aura-maestro❯ [CONSOLIDAÇÃO FINAL]", consolidated_text)
+        log_activity("MAESTRO", f"Projeto '{slug}' construído e rodando em {launch_info['url']}")
+        try:
+            push_mobile_notification(
+                title="Projeto Pronto & Rodando!",
+                body=f"{slug} está online em {launch_info['url']} ({project_dir})",
+                category="MAESTRI",
+                agent_name="Maestro Orquestrador",
+            )
+        except Exception:
+            pass
+        return {
+            "ok": True,
+            "elapsed_sec": elapsed,
+            "maestro_node_id": maestro_node["id"],
+            "project_dir": str(project_dir),
+            "url": launch_info["url"],
+            "workers": [
+                {"node_id": w_db["id"], "name": w_db["name"], "output": db_msg, "provider": "AURA Project Builder"},
+                {"node_id": w_be["id"], "name": w_be["name"], "output": be_msg, "provider": "AURA Project Builder"},
+                {"node_id": w_fe["id"], "name": w_fe["name"], "output": fe_msg, "provider": "AURA Project Builder"},
+            ],
+            "consolidated": consolidated_text,
+        }
 
     worker_results: List[Dict[str, Any]] = []
 
