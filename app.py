@@ -91,6 +91,15 @@ from automation_engine import (
     get_pomodoro_status,
 )
 from ai_engine import process_chat_message, run_maestri_canvas_agent
+from maestri_orchestrator import (
+    ipc_check,
+    ipc_ask,
+    ipc_spawn,
+    run_maestro_mode,
+    detect_installed_clis,
+    detect_runmaestro,
+    launch_or_open_runmaestro,
+)
 from updater import (
     get_update_status,
     check_for_updates,
@@ -398,6 +407,55 @@ def api_run_canvas_agent(req: CanvasRunAgentRequest):
         terminal_cmd=req.terminal_cmd,
         upstream_outputs=req.upstream_outputs,
     )
+
+
+class MaestroGoalRequest(BaseModel):
+    goal: str
+
+
+class IpcAskRequest(BaseModel):
+    target: str
+    prompt: str
+
+
+class IpcSpawnRequest(BaseModel):
+    name: str
+    role: str
+    prompt: str = ""
+    model: str = "free:openai"
+
+
+@app.post("/api/canvas/maestro-run")
+def api_canvas_maestro_run(req: MaestroGoalRequest):
+    return run_maestro_mode(req.goal)
+
+
+@app.get("/api/canvas/ipc/check")
+def api_canvas_ipc_check():
+    return ipc_check()
+
+
+@app.post("/api/canvas/ipc/ask")
+def api_canvas_ipc_ask(req: IpcAskRequest):
+    return ipc_ask(req.target, req.prompt)
+
+
+@app.post("/api/canvas/ipc/spawn")
+def api_canvas_ipc_spawn(req: IpcSpawnRequest):
+    return ipc_spawn(req.name, req.role, req.prompt, req.model)
+
+
+@app.get("/api/maestri/clis")
+def api_maestri_clis():
+    return {
+        "clis": detect_installed_clis(),
+        "runmaestro": detect_runmaestro(),
+    }
+
+
+@app.post("/api/maestri/runmaestro/launch")
+def api_launch_runmaestro():
+    return launch_or_open_runmaestro()
 
 
 # --- Terminal (Unified Agent Prompt + Shell Execution) ---

@@ -631,6 +631,21 @@
           </div>
         </div>
 
+        <!-- Modo Maestro (IPC Inter-Agentes) + CLIs Reais + RunMaestro -->
+        <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:7px 12px; background:rgba(9,14,28,0.92); border-bottom:1px solid var(--border-subtle);">
+          <span style="font-size:11px; font-weight:700; color:var(--emerald); display:flex; align-items:center; gap:5px;">
+            <i data-lucide="cpu" class="lucide"></i> MODO MAESTRO:
+          </span>
+          <input type="text" id="maestroGoalInput" placeholder="Digite um objetivo para o Maestro delegar aos agentes em paralelo (ex: listar repos do GitHub e auditar sistema)..." style="flex:1; min-width:240px; padding:5px 10px; font-size:11.5px;" onkeydown="if(event.key==='Enter') runMaestroModeNow();" />
+          <button class="btn btn-glow" style="padding:5px 11px; font-size:11.5px;" onclick="runMaestroModeNow()">
+            <i data-lucide="zap" class="lucide"></i> Executar Maestro
+          </button>
+          <span id="maestriClisBar" style="font-size:10.5px; color:var(--text-muted); display:flex; align-items:center; gap:5px;">CLIs: carregando...</span>
+          <button class="btn" style="padding:5px 10px; font-size:11px;" onclick="launchRunMaestroNow()" title="Abrir ou baixar RunMaestro/Maestro">
+            <i data-lucide="external-link" class="lucide"></i> RunMaestro
+          </button>
+        </div>
+
         <div class="canvas-viewport" id="canvasViewport">
           <div class="canvas-world" id="canvasWorld">
             <svg class="edges-svg" id="edgesSvg"></svg>
@@ -2605,11 +2620,54 @@
       window.location.href = '/api/updates/download-bundle';
     }
 
+    async function loadMaestriClis() {
+      try {
+        const res = await fetch('/api/maestri/clis');
+        const d = await res.json();
+        const bar = document.getElementById('maestriClisBar');
+        if (bar && Array.isArray(d.clis)) {
+          const active = d.clis.filter(c => c.installed).map(c => c.cmd);
+          bar.innerHTML = 'CLIs ativas: ' + (active.length
+            ? active.slice(0, 8).map(c => `<code style="background:rgba(56,189,248,0.14);color:var(--cyan);padding:1px 5px;border-radius:4px;">${c}</code>`).join(' ')
+            : 'nenhuma');
+        }
+      } catch (e) {}
+    }
+
+    async function runMaestroModeNow() {
+      const inp = document.getElementById('maestroGoalInput');
+      const goal = (inp ? inp.value : '').trim();
+      if (!goal) {
+        showToast('Digite um objetivo para o Modo Maestro executar.');
+        return;
+      }
+      showToast(`<strong>Modo Maestro iniciado:</strong> delegando "${goal}" aos agentes...`);
+      const res = await fetch('/api/canvas/maestro-run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ goal })
+      });
+      const d = await res.json();
+      if (d.ok) {
+        showToast(`<strong>Modo Maestro concluído em ${d.elapsed_sec}s!</strong> Confira os terminais dos blocos.`);
+        await loadCanvasState();
+      } else {
+        showToast(`Erro no Modo Maestro: ${d.error || 'falha'}`);
+      }
+    }
+
+    async function launchRunMaestroNow() {
+      const res = await fetch('/api/maestri/runmaestro/launch', { method: 'POST' });
+      const d = await res.json();
+      showToast(d.message || 'RunMaestro verificado.');
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
       refreshIcons();
       initCanvasInteractions();
       loadSystemSettings();
       loadUpdateStatus();
+      loadMaestriClis();
       loadCanvasState();
       refreshSystemStats();
       loadQuickApps();
