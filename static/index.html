@@ -2621,17 +2621,23 @@
     }
 
     async function loadMaestriClis() {
+      const bar = document.getElementById('maestriClisBar');
       try {
         const res = await fetch('/api/maestri/clis');
+        if (!res.ok) {
+          if (bar) bar.textContent = 'CLIs: reinicie a AURA (nova rota)';
+          return;
+        }
         const d = await res.json();
-        const bar = document.getElementById('maestriClisBar');
         if (bar && Array.isArray(d.clis)) {
           const active = d.clis.filter(c => c.installed).map(c => c.cmd);
           bar.innerHTML = 'CLIs ativas: ' + (active.length
             ? active.slice(0, 8).map(c => `<code style="background:rgba(56,189,248,0.14);color:var(--cyan);padding:1px 5px;border-radius:4px;">${c}</code>`).join(' ')
             : 'nenhuma');
         }
-      } catch (e) {}
+      } catch (e) {
+        if (bar) bar.textContent = 'CLIs: indisponível';
+      }
     }
 
     async function runMaestroModeNow() {
