@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AURA OS 5.0 HUD</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    :root {
+      --bg-pill: #060a15;
+      --bg-drawer: #070c18;
+      --bg-card: rgba(18, 27, 49, 0.9);
+      --border: rgba(56, 189, 248, 0.45);
+      --border-subtle: rgba(148, 163, 184, 0.18);
+      --cyan: #38bdf8;
+      --indigo: #818cf8;
+      --violet: #c084fc;
+      --emerald: #34d399;
+      --amber: #fbbf24;
+      --rose: #fb7185;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; user-select: none; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.35); border-radius: 99px; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: var(--bg-pill);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    .hud-shell {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      background: var(--bg-pill);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      overflow: hidden;
+    }
+
+    .lucide { width: 13.5px; height: 13.5px; stroke-width: 2.2; flex-shrink: 0; }
+
+    /* Top Dynamic Island Pill Bar (Always visible, 50px height) */
+    .top-island {
+      height: 50px;
+      min-height: 50px;
+      max-height: 50px;
+      padding: 0 11px;
+      background: linear-gradient(90deg, #060a15 0%, #0d1730 50%, #060a15 100%);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    body.expanded .top-island {
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .brand-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 11px;
+      border-radius: 99px;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(129, 140, 248, 0.18));
+      border: 1px solid rgba(56, 189, 248, 0.48);
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+    .brand-pill:hover {
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.35);
+    }
+
+    .orb-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan);
+      flex-shrink: 0;
+      animation: pulseDot 2s infinite;
+    }
+    @keyframes pulseDot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.25); opacity: 0.75; }
+    }
+
+    .brand-text {
+      font-size: 11.5px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      color: #fff;
+    }
+
+    /* Telemetry Center */
+    .telemetry-bar {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .metric-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(15, 23, 42, 0.9);
+      padding: 4px 8px;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+      white-space: nowrap;
+    }
+
+    .mini-bar {
+      width: 28px;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 99px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .mini-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--cyan), var(--indigo));
+      transition: width 0.3s;
+    }
+
+    /* Right Controls on Island */
+    .island-actions {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .hud-btn {
+      background: rgba(23, 34, 61, 0.88);
+      color: var(--text);
+      border: 1px solid var(--border-subtle);
+      padding: 5px 9px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+      transition: all 0.16s;
+    }
+    .hud-btn:hover {
+      border-color: var(--cyan);
+      background: rgba(56, 189, 248, 0.18);
+      color: #fff;
+    }
+    .hud-btn-primary {
+      background: linear-gradient(135deg, var(--cyan), var(--indigo));
+      color: #04070e;
+      font-weight: 700;
+      border: none;
+    }
+    .hud-btn-danger:hover {
+      border-color: var(--rose);
+      color: var(--rose);
+      background: rgba(251, 113, 133, 0.15);
+    }
+
+    /* Expanded Drawer Area (Hidden when compact) */
+    .drawer {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      padding: 11px 13px;
+      background: radial-gradient(circle at 50% 0%, #101b38 0%, var(--bg-drawer) 70%);
+      overflow: hidden;
+    }
+
+    body.expanded .drawer {
+      display: flex;
+    }
+
+    .sub-tabs {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 5px;
+      background: rgba(9, 14, 28, 0.92);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid var(--border-subtle);
+      margin-bottom: 9px;
+      flex-shrink: 0;
+    }
+
+    .sub-tab {
+      padding: 6px 6px;
+      border-radius: 7px;
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--muted);
+      background: transparent;
+      border: 1px solid transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .sub-tab.active {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(129, 140, 248, 0.2));
+      color: var(--cyan);
+      border-color: rgba(56, 189, 248, 0.38);
+    }
+
+    .sub-page {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      overflow-y: auto;
+      gap: 8px;
+    }
+    .sub-page.active {
+      display: flex;
+    }
+
+    /* Inputs & Logs */
+    .input-row {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    input[type="text"], select {
+      background: rgba(8, 12, 24, 0.95);
+      border: 1px solid var(--border-subtle);
+      color: #fff;
+      padding: 8px 11px;
+      border-radius: 8px;
+      font-size: 12px;
+      outline: none;
+      user-select: text;
+    }
+    input[type="text"]:focus, select:focus {
+      border-color: var(--cyan);
+    }
+
+    .log-feed {
+      flex: 1;
+      background: rgba(5, 8, 17, 0.92);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 12px;
+      line-height: 1.5;
+      overflow-y: auto;
+      user-select: text;
+    }
+
+    .terminal-box {
+      flex: 1;
+      background: #03050a;
+      border: 1px solid rgba(52, 211, 153, 0.35);
+      border-radius: 10px;
+      padding: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+      color: #34d399;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      user-select: text;
+    }
+
+    .grid-deck {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+    }
+    .deck-tile {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 9px;
+      padding: 9px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      transition: all 0.15s;
+    }
+    .deck-tile:hover {
+      border-color: var(--cyan);
+      background: rgba(56, 189, 248, 0.16);
+      transform: translateY(-1px);
+    }
+
+    .drawer-footer {
+      padding-top: 7px;
+      margin-top: 5px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10.5px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="hud-shell">
+    <!-- Top Compact Pill (Dynamic Island) -->
+    <div class="top-island" id="topIslandBar">
+      <div class="brand-pill" onclick="toggleDrawer()" title="Clique para expandir ou recolher o painel">
+        <span class="orb-dot"></span>
+        <span class="brand-text">AURA 5.0</span>
+      </div>
+
+      <div class="telemetry-bar" onclick="toggleDrawer()" title="Clique para expandir o painel">
+        <div class="metric-chip">
+          <i data-lucide="cpu" class="lucide" style="color:var(--cyan);"></i>
+          <span id="hudCpu">0%</span>
+          <div class="mini-bar"><div class="mini-fill" id="hudCpuBar" style="width:0%"></div></div>
+        </div>
+        <div class="metric-chip">
+          <i data-lucide="database" class="lucide" style="color:var(--indigo);"></i>
+          <span id="hudRam">0%</span>
+          <div class="mini-bar"><div class="mini-fill" id="hudRamBar" style="width:0%"></div></div>
+        </div>
+        <div class="metric-chip" style="color:var(--amber);" id="hudPomoChip">
+          <i data-lucide="timer" class="lucide"></i>
+          <span id="hudPomoText">FOCO</span>
+        </div>
+        <div class="metric-chip" style="color:var(--violet);">
+          <i data-lucide="brain" class="lucide"></i>
+          <span id="hudXp">NV 1</span>
+        </div>
+      </div>
+
+      <div class="island-actions">
+        <button class="hud-btn" onclick="toggleDrawer()" id="btnExpandToggle">
+          <i data-lucide="chevron-down" class="lucide"></i> Painel
+        </button>
+        <button class="hud-btn" onclick="quickShot()" title="Capturar Tela">
+          <i data-lucide="camera" class="lucide"></i>
+        </button>
+        <button class="hud-btn hud-btn-primary" onclick="openMaestriApp()" title="Abrir Quadro Maestri 2D Completo">
+          <i data-lucide="workflow" class="lucide"></i> Maestri
+        </button>
+        <button class="hud-btn hud-btn-danger" onclick="hideHudToTray()" title="Ocultar para a Bandeja do Sistema">
+          <i data-lucide="minus" class="lucide"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Expanded Drawer -->
+    <div class="drawer" id="drawerArea">
+      <div class="sub-tabs">
+        <button class="sub-tab active" onclick="switchSubTab('sub-ai', this)">
+          <i data-lucide="sparkles" class="lucide"></i> IA & Voz
+        </button>
+        <button class="sub-tab" onclick="switchSubTab('sub-term', this)">
+          <i data-lucide="terminal" class="lucide"></i> Terminal
+        </button>
+        <button class="sub-tab" onclick="switchSubTab('sub-clip', this); loadHudClipboard();">
+          <i data-lucide="clipboard-list" class="lucide"></i> Clipboard & Foco
+        </button>
+        <button class="sub-tab" onclick="switchSubTab('sub-sys', this)">
+          <i data-lucide="sliders" class="lucide"></i> Sistema & Energia
+        </button>
+        <button class="sub-tab" onclick="switchSubTab('sub-remote', this)">
+          <i data-lucide="smartphone" class="lucide"></i> Celular 4G/5G
+        </button>
+      </div>
+
+      <!-- SUB-TAB 1: AI & Voice Command -->
+      <div class="sub-page active" id="sub-ai">
+        <div class="input-row">
+          <select id="hudModelSelect" style="width: 170px;">
+            <option value="free:openai">Grátis: GPT-4o Mini</option>
+            <option value="free:mistral">Grátis: Mistral Small 3</option>
+            <option value="free:qwen-coder">Grátis: Qwen 2.5 Coder</option>
+            <option value="free:deepseek">Grátis: DeepSeek R1/V3</option>
+          </select>
+          <input type="text" id="hudChatInput" placeholder="Comande o PC, ensine um hábito ou pergunte à IA..." style="flex:1;" onkeydown="if(event.key==='Enter') sendHudChat()" />
+          <button class="hud-btn hud-btn-primary" onclick="sendHudChat()">
+            <i data-lucide="send" class="lucide"></i> Enviar
+          </button>
+        </div>
+
+        <div style="display:flex; gap:5px; flex-wrap:wrap; flex-shrink:0;">
+          <button class="hud-btn" onclick="quickCmd('Como está o PC?')"><i data-lucide="activity" class="lucide"></i> Status PC</button>
+          <button class="hud-btn" onclick="quickCmd('Ative o modo dev')"><i data-lucide="code-2" class="lucide"></i> Modo Dev</button>
+          <button class="hud-btn" onclick="quickCmd('Ative o modo faxina')"><i data-lucide="trash-2" class="lucide"></i> Modo Faxina</button>
+          <button class="hud-btn" onclick="quickCmd('Listar minhas tarefas')"><i data-lucide="check-square" class="lucide"></i> Tarefas</button>
+          <button class="hud-btn" onclick="hudClipAi('resumir')"><i data-lucide="clipboard-check" class="lucide"></i> Resumir Ctrl+C</button>
+        </div>
+
+        <div class="log-feed" id="hudLogFeed">
+          <div style="color:var(--cyan);font-weight:700;margin-bottom:4px;">AURA OS 5.0 — Ultimate Edition em Segundo Plano</div>
+          <div style="color:var(--muted);">• Notificações no celular ativadas para Maestri, Automações e Timer Pomodoro.<br>• Atalho Global: pressione <code>Ctrl + Shift + A</code> a qualquer momento.</div>
+        </div>
+      </div>
+
+      <!-- SUB-TAB 2: Live Embedded Terminal -->
+      <div class="sub-page" id="sub-term">
+        <div class="input-row">
+          <input type="text" id="hudTermInput" placeholder="Digite qualquer comando de terminal (ex: dir, ls, git status, python --version)..." style="flex:1;font-family:'JetBrains Mono',monospace;" onkeydown="if(event.key==='Enter') runHudTerminal()" />
+          <button class="hud-btn hud-btn-primary" onclick="runHudTerminal()">
+            <i data-lucide="play" class="lucide"></i> Executar
+          </button>
+        </div>
+        <div class="terminal-box" id="hudTermOutput">$ Sessão de Terminal Rápido AURA pronta. Digite um comando acima.</div>
+      </div>
+
+      <!-- SUB-TAB 3: Smart Clipboard + Pomodoro Focus Timer -->
+      <div class="sub-page" id="sub-clip">
+        <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:10px;padding:9px 11px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-shrink:0;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <i data-lucide="timer" class="lucide" style="color:var(--amber);"></i>
+            <span style="font-size:11.5px;font-weight:700;">Timer Pomodoro (Notifica no Celular):</span>
+            <strong id="hudPomoBig" style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--cyan);">00:00</strong>
+          </div>
+          <div style="display:flex;gap:5px;">
+            <button class="hud-btn hud-btn-primary" onclick="startHudPomo(25, 'Pomodoro 25m')">25m Foco</button>
+            <button class="hud-btn" onclick="startHudPomo(50, 'Deep Work 50m')">50m Deep</button>
+            <button class="hud-btn" onclick="startHudPomo(5, 'Pausa Curta')">5m Pausa</button>
+            <button class="hud-btn hud-btn-danger" onclick="stopHudPomo()">Parar</button>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:5px;flex-shrink:0;">
+          <button class="hud-btn" onclick="hudClipAi('resumir')"><i data-lucide="file-text" class="lucide"></i> IA: Resumir Copiado</button>
+          <button class="hud-btn" onclick="hudClipAi('explicar')"><i data-lucide="code" class="lucide"></i> IA: Explicar Código</button>
+          <button class="hud-btn" onclick="hudClipAi('traduzir')"><i data-lucide="languages" class="lucide"></i> IA: Traduzir Copiado</button>
+          <button class="hud-btn" onclick="loadHudClipboard()"><i data-lucide="refresh-cw" class="lucide"></i> Atualizar</button>
+        </div>
+
+        <div class="log-feed" id="hudClipList" style="display:flex;flex-direction:column;gap:6px;">
+          <small style="color:var(--muted);">Carregando histórico da Área de Transferência...</small>
+        </div>
+      </div>
+
+      <!-- SUB-TAB 4: System Deck & Power Control -->
+      <div class="sub-page" id="sub-sys">
+        <div class="grid-deck">
+          <div class="deck-tile" onclick="quickCmd('Ative o modo dev')"><i data-lucide="code-2" class="lucide" style="color:var(--cyan);"></i> Rotina Dev</div>
+          <div class="deck-tile" onclick="quickCmd('Ative o modo estudo')"><i data-lucide="book-open" class="lucide" style="color:var(--indigo);"></i> Rotina Estudo</div>
+          <div class="deck-tile" onclick="quickCmd('Ative o modo faxina')"><i data-lucide="sparkles" class="lucide" style="color:var(--emerald);"></i> Faxina Total</div>
+          <div class="deck-tile" onclick="hudMedia('vol_up')"><i data-lucide="volume-2" class="lucide" style="color:var(--cyan);"></i> Volume +</div>
+          <div class="deck-tile" onclick="hudMedia('vol_down')"><i data-lucide="volume-1" class="lucide" style="color:var(--cyan);"></i> Volume -</div>
+          <div class="deck-tile" onclick="hudMedia('play_pause')"><i data-lucide="play" class="lucide" style="color:var(--emerald);"></i> Play / Pause</div>
+          <div class="deck-tile" onclick="hudOpen('calculadora')"><i data-lucide="calculator" class="lucide" style="color:var(--violet);"></i> Calculadora</div>
+          <div class="deck-tile" onclick="hudOpen('vscode')"><i data-lucide="terminal" class="lucide" style="color:var(--cyan);"></i> VS Code</div>
+          <div class="deck-tile" onclick="hudOpen('downloads')"><i data-lucide="folder" class="lucide" style="color:var(--amber);"></i> Downloads</div>
+          <div class="deck-tile" onclick="hudPower('lock')"><i data-lucide="lock" class="lucide" style="color:var(--amber);"></i> Bloquear Tela</div>
+          <div class="deck-tile" onclick="hudPower('sleep')"><i data-lucide="moon" class="lucide" style="color:var(--indigo);"></i> Suspender PC</div>
+          <div class="deck-tile" onclick="hudPower('cancel_shutdown')"><i data-lucide="shield-check" class="lucide" style="color:var(--emerald);"></i> Cancelar Deslig.</div>
+        </div>
+      </div>
+
+      <!-- SUB-TAB 5: Remote 4G/5G Mobile & Autostart -->
+      <div class="sub-page" id="sub-remote">
+        <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:10px;padding:12px;display:flex;align-items:center;gap:14px;">
+          <img id="hudQrImg" src="" alt="QR" style="width:105px;height:105px;border-radius:8px;background:#fff;padding:4px;" />
+          <div style="display:flex;flex-direction:column;gap:5px;user-select:text;">
+            <div style="font-size:11px;font-weight:700;color:var(--cyan);">ACESSO REMOTO CELULAR (WI-FI & 4G/5G INTERNET):</div>
+            <code id="hudRemoteUrl" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--emerald);">Carregando túnel...</code>
+            <div style="font-size:11px;color:var(--muted);">Canal Push Global (ntfy.sh): <strong id="hudNtfyTopic" style="color:#fff;">--</strong></div>
+            <div style="display:flex;gap:6px;margin-top:4px;">
+              <button class="hud-btn hud-btn-primary" onclick="testPushNotification()"><i data-lucide="bell" class="lucide"></i> Testar Notificação no Celular</button>
+              <button class="hud-btn" onclick="toggleAutostartHud()"><i data-lucide="power" class="lucide"></i> Alternar Autostart</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="drawer-footer">
+        <span id="hudFooterStatus">AURA OS 5.0 • Pool IA Gratuita + Automações + Push Mobile Ativos</span>
+        <button class="hud-btn" style="padding:2px 8px;font-size:10.5px;" onclick="setDrawerState(false)">Recolher ▲</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    if (window.lucide) lucide.createIcons();
+    let isExpanded = false;
+
+    async function setDrawerState(expanded, notifyBackend = true) {
+      isExpanded = Boolean(expanded);
+      document.body.classList.toggle('expanded', isExpanded);
+      const btn = document.getElementById('btnExpandToggle');
+      if (btn) {
+        btn.innerHTML = isExpanded
+          ? '<i data-lucide="chevron-up" class="lucide"></i> Recolher'
+          : '<i data-lucide="chevron-down" class="lucide"></i> Painel';
+        if (window.lucide) lucide.createIcons();
+      }
+      if (notifyBackend) {
+        try {
+          if (window.pywebview && window.pywebview.api && window.pywebview.api.set_expanded) {
+            await window.pywebview.api.set_expanded(isExpanded);
+          } else {
+            await fetch('/api/hud/control', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: isExpanded ? 'expand' : 'collapse' })
+            });
+          }
+        } catch (e) {}
+      }
+    }
+
+    async function toggleDrawer() {
+      await setDrawerState(!isExpanded, true);
+    }
+
+    async function hideHudToTray() {
+      try {
+        if (window.pywebview && window.pywebview.api && window.pywebview.api.hide_to_tray) {
+          await window.pywebview.api.hide_to_tray();
+        } else {
+          await fetch('/api/hud/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'hide' })
+          });
+        }
+      } catch (e) {}
+    }
+
+    async function openMaestriApp() {
+      try {
+        if (window.pywebview && window.pywebview.api && window.pywebview.api.open_full_app) {
+          await window.pywebview.api.open_full_app();
+        } else {
+          await fetch('/api/hud/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'open_app' })
+          });
+        }
+      } catch (e) {
+        window.open('/', '_blank');
+      }
+    }
+
+    function switchSubTab(pageId, btnEl) {
+      document.querySelectorAll('.sub-page').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.sub-tab').forEach(el => el.classList.remove('active'));
+      document.getElementById(pageId).classList.add('active');
+      if (btnEl) btnEl.classList.add('active');
+    }
+
+    async function refreshHudTelemetry() {
+      try {
+        const r = await fetch('/api/system/stats');
+        const d = await r.json();
+        const cpu = Math.round(d.cpu.percent);
+        const ram = Math.round(d.ram.percent);
+        document.getElementById('hudCpu').textContent = cpu + '%';
+        document.getElementById('hudCpuBar').style.width = cpu + '%';
+        document.getElementById('hudRam').textContent = ram + '%';
+        document.getElementById('hudRamBar').style.width = ram + '%';
+
+        if (d.pomodoro) {
+          const pomoText = d.pomodoro.active ? d.pomodoro.formatted : 'FOCO';
+          document.getElementById('hudPomoText').textContent = pomoText;
+          const bigEl = document.getElementById('hudPomoBig');
+          if (bigEl) bigEl.textContent = d.pomodoro.formatted;
+        }
+
+        if (d.remote) {
+          const qrUrl = d.remote.active_qr_url;
+          const urlEl = document.getElementById('hudRemoteUrl');
+          if (urlEl.textContent !== qrUrl) {
+            urlEl.textContent = qrUrl;
+            document.getElementById('hudQrImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(qrUrl)}`;
+          }
+          document.getElementById('hudNtfyTopic').textContent = d.remote.cloud_channel;
+        }
+      } catch (e) {}
+
+      try {
+        const mr = await fetch('/api/memory');
+        const md = await mr.json();
+        document.getElementById('hudXp').textContent = `NV ${md.level}`;
+      } catch (e) {}
+    }
+
+    function appendHudLog(sender, text) {
+      const box = document.getElementById('hudLogFeed');
+      const div = document.createElement('div');
+      div.style.marginTop = '8px';
+      div.style.paddingTop = '8px';
+      div.style.borderTop = '1px solid rgba(148,163,184,0.12)';
+      div.innerHTML = `<strong style="color:var(--cyan);">${sender}:</strong> ${text.replace(/\n/g, '<br>')}`;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    async function sendHudChat() {
+      const inp = document.getElementById('hudChatInput');
+      const msg = inp.value.trim();
+      if (!msg) return;
+      inp.value = '';
+      const model = document.getElementById('hudModelSelect').value;
+      appendHudLog('Você', msg);
+
+      const r = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg, preferred_model: model })
+      });
+      const d = await r.json();
+      appendHudLog(d.provider || 'AURA', d.reply);
+    }
+
+    async function quickCmd(cmd) {
+      if (!isExpanded) await setDrawerState(true, true);
+      switchSubTab('sub-ai', document.querySelectorAll('.sub-tab')[0]);
+      document.getElementById('hudChatInput').value = cmd;
+      sendHudChat();
+    }
+
+    async function runHudTerminal() {
+      const inp = document.getElementById('hudTermInput');
+      const cmd = inp.value.trim();
+      if (!cmd) return;
+      inp.value = '';
+      const out = document.getElementById('hudTermOutput');
+      out.textContent += `\n\n[AGORA] aura-agent❯ ${cmd}\n⚙ [INICIANDO AGENTE] Trabalhando no terminal...`;
+      out.scrollTop = out.scrollHeight;
+
+      const r = await fetch('/api/terminal/input', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          node_id: 'hud-term',
+          raw_input: cmd,
+          agent_name: 'HUD Terminal Agente',
+          mode: 'auto'
+        })
+      });
+      const d = await r.json();
+      const sess = d.terminal_session || d.session;
+      if (sess && sess.history) {
+        out.textContent = sess.history.map(h => `[${h.ts}] ${h.cmd}\n${h.output}`).join('\n\n────────────────────────────────────────\n\n');
+        out.scrollTop = out.scrollHeight;
+      }
+    }
+
+    async function startHudPomo(minutes, label) {
+      await fetch('/api/pomodoro/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ minutes, label })
+      });
+      refreshHudTelemetry();
+    }
+
+    async function stopHudPomo() {
+      await fetch('/api/pomodoro/stop', { method: 'POST' });
+      refreshHudTelemetry();
+    }
+
+    async function loadHudClipboard() {
+      const r = await fetch('/api/clipboard');
+      const d = await r.json();
+      const box = document.getElementById('hudClipList');
+      const items = d.history || [];
+      if (!items.length) {
+        box.innerHTML = '<small style="color:var(--muted);">Nenhum item copiado ainda. Copie qualquer texto (Ctrl+C) e ele aparecerá aqui.</small>';
+        return;
+      }
+      box.innerHTML = items.slice(0, 10).map(item => `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;background:rgba(15,23,42,0.85);border:1px solid var(--border-subtle);border-radius:7px;">
+          <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:11px;">
+            <span style="color:var(--cyan);font-weight:700;">[${item.category}]</span> ${item.content.replace(/</g, '&lt;').slice(0, 90)}
+          </div>
+          <button class="hud-btn" style="padding:3px 7px;font-size:10px;" onclick="copyBackClip(${JSON.stringify(item.content).replace(/"/g, '&quot;')})">Copiar</button>
+        </div>
+      `).join('');
+    }
+
+    async function copyBackClip(text) {
+      await fetch('/api/clipboard/copy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+    }
+
+    async function hudClipAi(task) {
+      if (!isExpanded) await setDrawerState(true, true);
+      switchSubTab('sub-ai', document.querySelectorAll('.sub-tab')[0]);
+      appendHudLog('Clipboard IA', `Processando área de transferência (${task})...`);
+      const r = await fetch('/api/clipboard/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task })
+      });
+      const d = await r.json();
+      appendHudLog(d.provider || 'AURA', d.reply);
+    }
+
+    async function quickShot() {
+      const r = await fetch('/api/system/screenshot', { method: 'POST' });
+      const d = await r.json();
+      if (!isExpanded) await setDrawerState(true, true);
+      appendHudLog('Captura', d.message);
+    }
+
+    async function hudMedia(action) {
+      await fetch('/api/system/media', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      });
+    }
+
+    async function hudOpen(target) {
+      await fetch('/api/system/open', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target })
+      });
+    }
+
+    async function hudPower(action) {
+      const r = await fetch('/api/system/power', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, delay_minutes: 30 })
+      });
+      const d = await r.json();
+      appendHudLog('Energia', d.message);
+    }
+
+    async function testPushNotification() {
+      await fetch('/api/mobile/test-notification', { method: 'POST' });
+      appendHudLog('Mobile Push', 'Notificação enviada para o seu celular!');
+    }
+
+    async function toggleAutostartHud() {
+      const r = await fetch('/api/system/autostart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enable: true })
+      });
+      const d = await r.json();
+      appendHudLog('2º Plano', d.message);
+    }
+
+    refreshHudTelemetry();
+    setInterval(refreshHudTelemetry, 2000);
+  </script>
+</body>
+</html>

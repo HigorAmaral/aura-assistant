@@ -1,0 +1,23 @@
+# Runtime & user data (never overwrite during auto-update)
+aura_data.db
+aura_data.db-*
+*.db
+*.sqlite
+*.sqlite3
+.env
+.aura_version.json
+update_state.json
+*.log
+
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+
+# Build / Release artifacts
+build/
+dist/
+release/
+*.spec

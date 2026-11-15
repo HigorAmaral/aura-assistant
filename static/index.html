@@ -1,0 +1,2628 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AURA OS 4.0 — Maestri 2D Terminal Canvas & Assistente PC</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    :root {
+      --bg-deep: #04070e;
+      --bg-surface: rgba(11, 17, 32, 0.82);
+      --bg-card: rgba(18, 27, 48, 0.66);
+      --bg-card-hover: rgba(28, 41, 71, 0.82);
+      --bg-input: rgba(7, 11, 22, 0.92);
+      --border-subtle: rgba(148, 163, 184, 0.14);
+      --border-glow: rgba(56, 189, 248, 0.48);
+      --cyan: #38bdf8;
+      --indigo: #818cf8;
+      --violet: #c084fc;
+      --emerald: #34d399;
+      --amber: #fbbf24;
+      --rose: #fb7185;
+      --text-primary: #f8fafc;
+      --text-secondary: #cbd5e1;
+      --text-muted: #64748b;
+      --radius-lg: 16px;
+      --radius-md: 11px;
+      --shadow-card: 0 14px 34px -8px rgba(0, 0, 0, 0.65), inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.24); border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--cyan); }
+
+    body {
+      background-color: var(--bg-deep);
+      background-image:
+        radial-gradient(circle at 10% 15%, rgba(56, 189, 248, 0.13) 0%, transparent 40%),
+        radial-gradient(circle at 88% 12%, rgba(129, 140, 248, 0.13) 0%, transparent 40%),
+        radial-gradient(circle at 50% 90%, rgba(192, 132, 252, 0.09) 0%, transparent 45%);
+      color: var(--text-primary);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .lucide { width: 15px; height: 15px; stroke-width: 2; flex-shrink: 0; }
+
+    /* Header */
+    header {
+      height: 62px;
+      padding: 0 22px;
+      background: rgba(5, 9, 19, 0.88);
+      backdrop-filter: blur(22px);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 30;
+    }
+
+    .brand { display: flex; align-items: center; gap: 13px; }
+    .orb-wrap { position: relative; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; }
+    .orb-ring {
+      position: absolute; inset: 0; border-radius: 50%;
+      background: conic-gradient(from 0deg, var(--cyan), var(--indigo), var(--violet), var(--cyan));
+      animation: spinOrb 4s linear infinite; filter: blur(3px);
+    }
+    .orb-core {
+      position: relative; width: 30px; height: 30px; border-radius: 50%;
+      background: #070b16; border: 1.5px solid var(--cyan);
+      display: flex; align-items: center; justify-content: center; color: var(--cyan);
+    }
+    @keyframes spinOrb { to { transform: rotate(360deg); } }
+
+    .brand-title h1 {
+      font-size: 16px; font-weight: 800; letter-spacing: 0.5px;
+      background: linear-gradient(90deg, #fff, var(--cyan), var(--indigo));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .badge-tag {
+      font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 99px;
+      background: rgba(56, 189, 248, 0.14); border: 1px solid rgba(56, 189, 248, 0.38);
+      color: var(--cyan); -webkit-text-fill-color: var(--cyan);
+    }
+    .brand-title small { font-size: 11px; color: var(--text-muted); }
+
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+
+    .pill-info {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      padding: 5px 11px; border-radius: 99px;
+      background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-subtle);
+      color: var(--text-secondary); display: flex; align-items: center; gap: 7px;
+    }
+
+    .xp-pill {
+      font-size: 11.5px; font-weight: 700; padding: 5px 12px; border-radius: 99px;
+      background: rgba(192, 132, 252, 0.12); border: 1px solid rgba(192, 132, 252, 0.38);
+      color: var(--violet); display: flex; align-items: center; gap: 6px; cursor: pointer;
+    }
+
+    .status-pill {
+      font-size: 11.5px; font-weight: 600; padding: 5px 12px; border-radius: 99px;
+      background: rgba(52, 211, 153, 0.11); border: 1px solid rgba(52, 211, 153, 0.35);
+      color: var(--emerald); display: flex; align-items: center; gap: 6px;
+    }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--emerald); box-shadow: 0 0 8px var(--emerald); }
+
+    /* Buttons */
+    .btn {
+      background: rgba(28, 39, 64, 0.75); color: var(--text-primary);
+      border: 1px solid var(--border-subtle); padding: 7px 12px;
+      border-radius: var(--radius-md); font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: all 0.18s ease;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn:hover { background: var(--bg-card-hover); border-color: var(--border-glow); transform: translateY(-1px); }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--cyan), var(--indigo));
+      color: #04070e; font-weight: 700; border: none;
+    }
+    .btn-glow {
+      background: rgba(56, 189, 248, 0.13); border: 1px solid rgba(56, 189, 248, 0.42); color: var(--cyan);
+    }
+    .btn-danger {
+      background: rgba(251, 113, 133, 0.12); color: var(--rose); border-color: rgba(251, 113, 133, 0.3);
+    }
+
+    /* Main Split Layout */
+    .workspace { flex: 1; display: grid; grid-template-columns: 360px 1fr; overflow: hidden; }
+
+    /* Left Sidebar: Chat & Voice */
+    .chat-sidebar {
+      background: var(--bg-surface); backdrop-filter: blur(22px);
+      border-right: 1px solid var(--border-subtle);
+      display: flex; flex-direction: column; height: 100%; overflow: hidden;
+    }
+    .chat-header {
+      padding: 12px 16px; border-bottom: 1px solid var(--border-subtle);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .chat-header h2 {
+      font-size: 12px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.6px; color: var(--cyan); display: flex; align-items: center; gap: 7px;
+    }
+    .quick-prompts {
+      padding: 8px 12px; display: flex; gap: 6px; overflow-x: auto; border-bottom: 1px solid var(--border-subtle);
+    }
+    .chip {
+      white-space: nowrap; font-size: 11px; font-weight: 600; padding: 5px 10px;
+      border-radius: 99px; background: rgba(56, 189, 248, 0.09);
+      border: 1px solid rgba(56, 189, 248, 0.22); color: var(--text-secondary);
+      cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+    }
+    .chip:hover { background: rgba(56, 189, 248, 0.22); color: #fff; border-color: var(--cyan); }
+
+    .chat-messages {
+      flex: 1; padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 11px;
+    }
+    .msg {
+      max-width: 93%; padding: 11px 13px; border-radius: 13px; font-size: 12.5px; line-height: 1.5;
+      word-wrap: break-word;
+    }
+    .msg-assistant {
+      align-self: flex-start; background: var(--bg-card); border: 1px solid var(--border-subtle);
+      border-top-left-radius: 4px; box-shadow: var(--shadow-card);
+    }
+    .msg-user {
+      align-self: flex-end; background: linear-gradient(135deg, #0284c7, #4f46e5);
+      color: #fff; border-top-right-radius: 4px;
+    }
+    .tool-badge {
+      display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; margin-right: 4px;
+      padding: 2px 7px; font-family: 'JetBrains Mono', monospace; font-size: 10px;
+      border-radius: 5px; background: rgba(52, 211, 153, 0.14);
+      border: 1px solid rgba(52, 211, 153, 0.35); color: var(--emerald);
+    }
+    .chat-input-area {
+      padding: 11px; border-top: 1px solid var(--border-subtle);
+      background: rgba(5, 9, 19, 0.88); display: flex; gap: 7px; align-items: center;
+    }
+    .chat-input-area input {
+      flex: 1; background: var(--bg-input); border: 1px solid var(--border-subtle);
+      color: var(--text-primary); padding: 9px 12px; border-radius: var(--radius-md);
+      font-size: 12.5px; outline: none;
+    }
+    .chat-input-area input:focus { border-color: var(--cyan); }
+
+    .btn-mic {
+      width: 36px; height: 36px; border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle); background: var(--bg-card);
+      color: var(--text-primary); cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .btn-mic.listening {
+      background: rgba(251, 113, 133, 0.25); border-color: var(--rose); color: var(--rose);
+      box-shadow: 0 0 14px rgba(251, 113, 133, 0.5);
+    }
+
+    /* Right Content Area */
+    .main-area { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+    .nav-tabs {
+      display: flex; gap: 6px; padding: 9px 18px;
+      border-bottom: 1px solid var(--border-subtle); background: rgba(8, 13, 25, 0.72);
+      overflow-x: auto;
+    }
+    .tab-btn {
+      padding: 7px 13px; border-radius: var(--radius-md); font-size: 12px; font-weight: 600;
+      color: var(--text-muted); background: transparent; border: 1px solid transparent;
+      cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;
+    }
+    .tab-btn:hover { color: var(--text-primary); background: rgba(255, 255, 255, 0.04); }
+    .tab-btn.active {
+      color: #fff; background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(129, 140, 248, 0.2));
+      border-color: rgba(56, 189, 248, 0.48);
+    }
+
+    .tab-content { flex: 1; padding: 18px 20px; overflow-y: auto; display: none; position: relative; }
+    .tab-content.active { display: block; }
+    #tab-maestri.active { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* --- MAESTRI 2D INFINITE WORKSPACE CANVAS (WITH LIVE TERMINALS) --- */
+    .canvas-toolbar {
+      padding: 9px 16px;
+      background: rgba(6, 10, 20, 0.94);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex; align-items: center; justify-content: space-between;
+      z-index: 10;
+    }
+    .canvas-viewport {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background-color: #03060c;
+      background-image:
+        linear-gradient(rgba(148, 163, 184, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.04) 1px, transparent 1px),
+        radial-gradient(rgba(56, 189, 248, 0.18) 1px, transparent 1px);
+      background-size: 120px 120px, 120px 120px, 24px 24px;
+      cursor: grab;
+      user-select: none;
+    }
+    .canvas-viewport:active { cursor: grabbing; }
+    .canvas-world {
+      position: absolute;
+      top: 0; left: 0;
+      width: 3400px; height: 2200px;
+      transform-origin: 0 0;
+    }
+    .edges-svg {
+      position: absolute;
+      top: 0; left: 0;
+      width: 3400px; height: 2200px;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Maestri Workspace Tile (Agent + Live Terminal) */
+    .agent-node {
+      position: absolute;
+      width: 425px;
+      background: rgba(11, 17, 32, 0.96);
+      backdrop-filter: blur(20px);
+      border: 1.5px solid rgba(56, 189, 248, 0.45);
+      border-radius: 14px;
+      box-shadow: 0 20px 44px rgba(0, 0, 0, 0.82);
+      z-index: 2;
+      display: flex; flex-direction: column;
+      cursor: default;
+    }
+    .agent-node.running {
+      border-color: var(--amber);
+      box-shadow: 0 0 32px rgba(251, 191, 36, 0.48);
+    }
+    .agent-node-header {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: linear-gradient(90deg, rgba(56, 189, 248, 0.08), transparent);
+      border-radius: 13px 13px 0 0;
+      cursor: move;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .agent-node-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+    .agent-node textarea {
+      width: 100%; background: rgba(5, 8, 16, 0.9); border: 1px solid var(--border-subtle);
+      color: #f8fafc; border-radius: 7px; padding: 6px 8px; font-size: 11px; resize: vertical;
+    }
+
+    /* Live Terminal Emulator inside Maestri Tile (Prompt + Working Trace + Result) */
+    .tile-terminal {
+      background: #020409;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 9px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.85);
+    }
+    .tile-term-bar {
+      background: rgba(15, 23, 42, 0.96);
+      padding: 5px 9px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--emerald);
+      border-bottom: 1px solid rgba(56, 189, 248, 0.22);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .tile-term-screen {
+      padding: 9px 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10.8px;
+      line-height: 1.48;
+      color: #a7f3d0;
+      max-height: 240px;
+      min-height: 155px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      user-select: text;
+    }
+    .tile-term-input-row {
+      display: flex;
+      align-items: center;
+      background: #050914;
+      border-top: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 4px 8px;
+      gap: 5px;
+    }
+    .tile-term-prompt {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10.5px;
+      color: var(--cyan);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .tile-term-input {
+      flex: 1;
+      background: transparent !important;
+      border: none !important;
+      color: #fff !important;
+      font-family: 'JetBrains Mono', monospace !important;
+      font-size: 11px !important;
+      padding: 5px 3px !important;
+      outline: none !important;
+    }
+
+    .agent-output {
+      background: rgba(5, 8, 17, 0.92);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 7px 9px;
+      font-size: 10.5px;
+      color: var(--text-secondary);
+      max-height: 76px;
+      overflow-y: auto;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      user-select: text;
+    }
+    .port-dot {
+      width: 11px; height: 11px; border-radius: 50%;
+      background: var(--cyan); border: 2px solid #050811;
+    }
+
+    /* Cards & Grids */
+    .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(195px, 1fr)); gap: 14px; margin-bottom: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; margin-bottom: 16px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 16px; margin-bottom: 16px; }
+
+    .card {
+      background: var(--bg-card); backdrop-filter: blur(20px);
+      border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
+      padding: 16px; box-shadow: var(--shadow-card);
+    }
+    .card h3 {
+      font-size: 13px; font-weight: 700; margin-bottom: 12px;
+      display: flex; align-items: center; justify-content: space-between; color: var(--text-primary);
+    }
+    .card-title-left { display: flex; align-items: center; gap: 8px; }
+
+    /* Radial Gauges */
+    .gauge-card { display: flex; align-items: center; gap: 14px; }
+    .gauge-svg-wrap { position: relative; width: 66px; height: 66px; flex-shrink: 0; }
+    .gauge-svg { width: 66px; height: 66px; transform: rotate(-90deg); }
+    .gauge-bg { fill: none; stroke: rgba(15, 23, 42, 0.85); stroke-width: 7; }
+    .gauge-fg {
+      fill: none; stroke: url(#gradCyan); stroke-width: 7; stroke-linecap: round;
+      stroke-dasharray: 188.5; stroke-dashoffset: 188.5; transition: stroke-dashoffset 0.5s ease;
+    }
+    .gauge-center {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: #fff;
+    }
+    .gauge-info h4 { font-size: 12.5px; font-weight: 700; color: var(--text-secondary); margin-bottom: 3px; }
+    .gauge-info p { font-size: 11px; color: var(--text-muted); line-height: 1.35; }
+
+    /* App Grid */
+    .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 9px; max-height: 360px; overflow-y: auto; padding-right: 4px; }
+    .app-tile {
+      position: relative;
+      background: rgba(10, 15, 28, 0.78); border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md); padding: 11px 8px; text-align: center;
+      cursor: pointer; transition: all 0.16s; display: flex; flex-direction: column; align-items: center; gap: 5px;
+    }
+    .app-tile:hover { border-color: var(--cyan); background: rgba(56, 189, 248, 0.12); transform: translateY(-2px); }
+    .app-tile.app-running {
+      border-color: rgba(52, 211, 153, 0.55);
+      background: linear-gradient(180deg, rgba(16, 185, 129, 0.12), rgba(10, 15, 28, 0.85));
+      box-shadow: 0 0 16px rgba(52, 211, 153, 0.14);
+    }
+    .app-tile .icon-box {
+      width: 34px; height: 34px; border-radius: 9px;
+      background: rgba(56, 189, 248, 0.12); color: var(--cyan);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .app-tile.app-running .icon-box {
+      background: rgba(52, 211, 153, 0.18); color: var(--emerald);
+    }
+    .app-tile .label { font-size: 11px; font-weight: 600; color: var(--text-secondary); line-height: 1.25; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .app-tile .cat { font-size: 9px; color: var(--text-muted); text-transform: uppercase; }
+    .app-status-badge {
+      font-size: 8.5px; font-weight: 700; padding: 1.5px 6px; border-radius: 99px;
+      text-transform: uppercase; letter-spacing: 0.3px;
+    }
+    .app-status-on { background: rgba(52, 211, 153, 0.2); color: var(--emerald); border: 1px solid rgba(52, 211, 153, 0.4); }
+    .app-status-off { background: rgba(148, 163, 184, 0.1); color: var(--text-muted); }
+
+    /* Settings Form Controls */
+    .cfg-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 11px; }
+    .cfg-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); display: flex; justify-content: space-between; align-items: center; }
+    .cfg-hint { font-size: 10px; color: var(--text-muted); }
+    .cfg-toggle-row {
+      display: flex; justify-content: space-between; align-items: center;
+      background: rgba(7, 11, 22, 0.72); border: 1px solid var(--border-subtle);
+      padding: 8px 11px; border-radius: 9px; margin-bottom: 8px; font-size: 11.5px;
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { text-align: left; padding: 8px 9px; border-bottom: 1px solid var(--border-subtle); }
+    th { color: var(--text-muted); font-weight: 600; font-size: 10.5px; text-transform: uppercase; }
+    .form-row { display: flex; gap: 7px; margin-bottom: 11px; flex-wrap: wrap; }
+    input[type="text"], input[type="password"], select, textarea {
+      background: var(--bg-input); border: 1px solid var(--border-subtle);
+      color: var(--text-primary); padding: 8px 11px; border-radius: var(--radius-md);
+      font-size: 12px; outline: none;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--cyan); }
+
+    .badge-prio {
+      font-size: 9.5px; padding: 2px 7px; border-radius: 99px; font-weight: 700; text-transform: uppercase;
+    }
+    .prio-alta { background: rgba(251, 113, 133, 0.18); color: var(--rose); border: 1px solid rgba(251, 113, 133, 0.35); }
+    .prio-media { background: rgba(251, 191, 36, 0.18); color: var(--amber); border: 1px solid rgba(251, 191, 36, 0.35); }
+    .prio-baixa { background: rgba(52, 211, 153, 0.18); color: var(--emerald); border: 1px solid rgba(52, 211, 153, 0.35); }
+
+    .toast-container { position: fixed; bottom: 18px; right: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 200; }
+    .toast {
+      background: rgba(11, 17, 32, 0.96); border: 1px solid var(--border-glow);
+      color: #fff; padding: 11px 15px; border-radius: var(--radius-md); font-size: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.65); max-width: 360px;
+    }
+  </style>
+</head>
+<body>
+
+  <svg width="0" height="0" style="position:absolute;">
+    <defs>
+      <linearGradient id="gradCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#38bdf8" />
+        <stop offset="100%" stop-color="#818cf8" />
+      </linearGradient>
+      <linearGradient id="gradEmerald" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#34d399" />
+        <stop offset="100%" stop-color="#38bdf8" />
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="orb-wrap">
+        <div class="orb-ring"></div>
+        <div class="orb-core"><i data-lucide="cpu" class="lucide"></i></div>
+      </div>
+      <div class="brand-title">
+        <h1><span id="headerAssistantName">AURA</span> OS <span class="badge-tag">v5.0 MAESTRI & SYSTEM OS</span></h1>
+        <small id="osHeaderSubtitle">Prompt Direto no Terminal • Apps Sincronizados • Configuração Total</small>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <div class="pill-info" title="Tráfego de Rede">
+        <i data-lucide="arrow-down-circle" class="lucide" style="color:var(--cyan);"></i>
+        <strong id="netDown">0.0</strong> KB/s
+        <i data-lucide="arrow-up-circle" class="lucide" style="color:var(--indigo);"></i>
+        <strong id="netUp">0.0</strong> KB/s
+      </div>
+
+      <div class="xp-pill" onclick="switchTabById('tab-memory')" title="Nível de Aprendizado e Memória Evolutiva">
+        <i data-lucide="brain" class="lucide"></i>
+        <span id="headerMemoryLevel">Nível 1 • 0 XP</span>
+      </div>
+
+      <div class="status-pill">
+        <span class="status-dot"></span>
+        <span id="providerText">Free AI Pool Ativo</span>
+      </div>
+
+      <button class="btn btn-glow" onclick="launchTopHud()" title="Iniciar Painel CSS Flutuante no Topo da Tela">
+        <i data-lucide="panel-top" class="lucide"></i> Barra CSS Topo
+      </button>
+
+      <button class="btn" id="btnToggleTts" onclick="toggleVoiceReply()">
+        <i data-lucide="volume-2" class="lucide"></i> Voz: ON
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <div class="workspace">
+    <!-- Left Sidebar: Chat & Voice -->
+    <aside class="chat-sidebar">
+      <div class="chat-header">
+        <h2><i data-lucide="sparkles" class="lucide"></i> Comando & Memória Viva</h2>
+        <span style="font-size: 10.5px; color: var(--text-muted);">Ctrl+Shift+A</span>
+      </div>
+
+      <div class="quick-prompts">
+        <span class="chip" onclick="sendQuickCommand('Como está o PC?')"><i data-lucide="activity" style="width:12px;height:12px;"></i> Status PC</span>
+        <span class="chip" onclick="sendQuickCommand('Tire um print da tela')"><i data-lucide="camera" style="width:12px;height:12px;"></i> Print</span>
+        <span class="chip" onclick="sendQuickCommand('Ative o modo dev')"><i data-lucide="code-2" style="width:12px;height:12px;"></i> Modo Dev</span>
+        <span class="chip" onclick="sendQuickCommand('Limpar arquivos temporários')"><i data-lucide="trash-2" style="width:12px;height:12px;"></i> Limpar Temp</span>
+      </div>
+
+      <div class="chat-messages" id="chatMessages">
+        <div class="msg msg-assistant">
+          Bem-vindo à <strong>AURA OS 5.0 (Maestri Terminal & System Sync)</strong>.<br><br>
+          • <strong>Prompt Direto no Terminal do Agente:</strong> Digite sua tarefa ou comando direto no terminal `aura-agent❯` de cada bloco Maestri e veja no terminal o agente trabalhando passo a passo + o resultado!<br>
+          • <strong>Apps Sincronizados com o PC:</strong> Seus programas instalados e rodando agora são escaneados automaticamente.<br>
+          • <strong>Configurações Completas (Aba 7):</strong> Personalize IA, Voz, Terminal, HUD e Alertas 4G/5G.
+        </div>
+      </div>
+
+      <div class="chat-input-area">
+        <button class="btn-mic" id="btnMic" onclick="toggleSpeechRecognition()" title="Comando por Voz">
+          <i data-lucide="mic" class="lucide"></i>
+        </button>
+        <input
+          type="text"
+          id="chatInput"
+          placeholder="Comande o PC, ensine um hábito ou pergunte à IA..."
+          onkeydown="if(event.key==='Enter') sendChatMessage()"
+        />
+        <button class="btn btn-primary" onclick="sendChatMessage()">
+          <i data-lucide="send" class="lucide"></i>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Right Area -->
+    <main class="main-area">
+      <nav class="nav-tabs">
+        <button class="tab-btn active" data-tab="tab-maestri" onclick="switchTab('tab-maestri', this)">
+          <i data-lucide="terminal-square" class="lucide"></i> 1. Maestri 2D (Prompt no Terminal)
+        </button>
+        <button class="tab-btn" data-tab="tab-mobile" onclick="switchTab('tab-mobile', this)">
+          <i data-lucide="smartphone" class="lucide"></i> 2. Celular 4G/5G & Alertas
+        </button>
+        <button class="tab-btn" data-tab="tab-automations" onclick="switchTab('tab-automations', this)">
+          <i data-lucide="zap" class="lucide"></i> 3. Automações, Clipboard & Pomodoro
+        </button>
+        <button class="tab-btn" data-tab="tab-memory" onclick="switchTab('tab-memory', this)">
+          <i data-lucide="brain-circuit" class="lucide"></i> 4. Memória & Pool IA Gratuita
+        </button>
+        <button class="tab-btn" data-tab="tab-pc" onclick="switchTab('tab-pc', this)">
+          <i data-lucide="cpu" class="lucide"></i> 5. Meus Apps Sincronizados & PC
+        </button>
+        <button class="tab-btn" data-tab="tab-tasks" onclick="switchTab('tab-tasks', this)">
+          <i data-lucide="check-square" class="lucide"></i> 6. Tarefas, Web & Arquivos
+        </button>
+        <button class="tab-btn" data-tab="tab-settings" onclick="switchTab('tab-settings', this)">
+          <i data-lucide="settings" class="lucide"></i> 7. Configurações do Sistema
+        </button>
+      </nav>
+
+      <!-- TAB 1: MAESTRI 2D INFINITE WORKSPACE (WITH LIVE TERMINALS) -->
+      <section class="tab-content active" id="tab-maestri">
+        <div class="canvas-toolbar">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <strong style="font-size:12.5px; color:var(--cyan); display:flex; align-items:center; gap:6px;">
+              <i data-lucide="workflow" class="lucide"></i> Maestri 2D Workspace
+            </strong>
+            <select id="maestriTemplateSelect" onchange="applyMaestriTemplate(this.value)" style="padding:5px 9px; font-size:11.5px; border-radius:8px;">
+              <option value="default">Template: Orquestração Geral & Sistema</option>
+              <option value="software_factory">Template: Fábrica de Software Full-Stack</option>
+              <option value="pc_audit">Template: Auditoria & Diagnóstico do PC</option>
+            </select>
+            <span style="font-size:11px; color:var(--text-muted);" id="zoomBadge">Zoom: 100%</span>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <button class="btn" onclick="spawnNewCanvasAgent()">
+              <i data-lucide="plus-square" class="lucide"></i> + Bloco Agente
+            </button>
+            <button class="btn" onclick="autoLayoutCanvasNodes()" title="Organizar blocos no Canvas 2D sem sobreposição">
+              <i data-lucide="layout-grid" class="lucide"></i> Auto-Organizar
+            </button>
+            <button class="btn" onclick="exportMaestriMarkdown()" title="Exportar Relatório Markdown (.md)">
+              <i data-lucide="file-down" class="lucide"></i> Exportar .MD
+            </button>
+            <button class="btn" onclick="zoomCanvas(-0.1)">
+              <i data-lucide="zoom-out" class="lucide"></i>
+            </button>
+            <button class="btn" onclick="resetCanvasCamera()">
+              <i data-lucide="maximize-2" class="lucide"></i> 100%
+            </button>
+            <button class="btn" onclick="zoomCanvas(0.1)">
+              <i data-lucide="zoom-in" class="lucide"></i>
+            </button>
+            <button class="btn btn-primary" onclick="orchestrateAllCanvasAgents()">
+              <i data-lucide="play" class="lucide"></i> Orquestrar Tudo & Notificar Celular
+            </button>
+          </div>
+        </div>
+
+        <div class="canvas-viewport" id="canvasViewport">
+          <div class="canvas-world" id="canvasWorld">
+            <svg class="edges-svg" id="edgesSvg"></svg>
+            <div id="nodesLayer"></div>
+          </div>
+          <!-- 2D Interactive Mini-Map Radar -->
+          <div id="canvasMinimap" title="Clique ou arraste no Mini-Mapa para navegar pelo Canvas 2D" style="position:absolute; right:16px; bottom:16px; width:205px; height:132px; background:rgba(6,10,21,0.95); border:1px solid rgba(56,189,248,0.55); border-radius:10px; z-index:25; pointer-events:auto; cursor:crosshair; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,0.75);">
+            <div style="font-size:9px; color:var(--cyan); padding:4px 8px; border-bottom:1px solid rgba(148,163,184,0.18); font-weight:700; letter-spacing:0.5px; display:flex; justify-content:space-between;">
+              <span>MINI-MAPA MAESTRI 2D</span>
+              <span id="minimapCount" style="color:var(--emerald);">0 nós</span>
+            </div>
+            <div id="minimapDots" style="position:relative; width:205px; height:108px; background:radial-gradient(rgba(56,189,248,0.12) 1px, transparent 1px); background-size:10px 10px;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: MOBILE REMOTE (4G/5G EXTERNAL NETWORK) & PUSH NOTIFICATIONS -->
+      <section class="tab-content" id="tab-mobile">
+        <div class="grid-2">
+          <!-- Remote Internet Access Card -->
+          <div class="card">
+            <h3>
+              <span class="card-title-left"><i data-lucide="globe-lock" class="lucide" style="color:var(--cyan);"></i> Controle Remoto Fora da Mesma Rede (4G / 5G / Outra Wi-Fi)</span>
+              <span class="badge-tag" id="tunnelStatusBadge">Ativo</span>
+            </h3>
+            <p style="font-size:12px; color:var(--text-secondary); line-height:1.55; margin-bottom:12px;">
+              A AURA 4.0 cria automaticamente um <strong>Túnel HTTPS Público</strong> + um <strong>Canal Cloud Relay Global (`ntfy.sh`)</strong> para você controlar o PC e receber notificações no celular mesmo quando estiver na rua no 4G/5G!
+            </p>
+            <div style="display:flex; align-items:center; gap:18px; background:rgba(7,11,22,0.85); padding:14px; border-radius:14px; border:1px solid var(--border-subtle);">
+              <img id="mobileQrImg" src="" alt="QR Code Mobile" style="width:145px; height:145px; border-radius:10px; background:#fff; padding:6px;" />
+              <div style="display:flex; flex-direction:column; gap:7px; flex:1;">
+                <div>
+                  <span style="font-size:10.5px; color:var(--text-muted); text-transform:uppercase; font-weight:700;">1. Link Público 4G/5G (Qualquer Rede):</span><br>
+                  <code id="publicMobileUrl" style="font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--emerald); font-weight:700;">Iniciando túnel HTTPS...</code>
+                </div>
+                <div>
+                  <span style="font-size:10.5px; color:var(--text-muted); text-transform:uppercase; font-weight:700;">2. Link Rede Local Wi-Fi (Ultra-Rápido):</span><br>
+                  <code id="lanMobileUrl" style="font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--cyan);">http://127.0.0.1:8765/mobile</code>
+                </div>
+                <div>
+                  <span style="font-size:10.5px; color:var(--text-muted); text-transform:uppercase; font-weight:700;">3. Tópico Push Global (ntfy.sh App):</span><br>
+                  <code id="ntfyChannelCode" style="font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--violet);">--</code>
+                </div>
+                <div style="display:flex; gap:8px; margin-top:4px;">
+                  <button class="btn btn-primary" onclick="sendTestMobileNotification()">
+                    <i data-lucide="bell-ring" class="lucide"></i> Enviar Notificação de Teste ao Celular
+                  </button>
+                  <a href="/mobile" target="_blank" class="btn btn-glow">
+                    <i data-lucide="external-link" class="lucide"></i> Abrir App Mobile
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Background CSS HUD & Autostart -->
+          <div class="card">
+            <h3><span class="card-title-left"><i data-lucide="panel-top" class="lucide" style="color:var(--emerald);"></i> Novo Painel Superior CSS3 & Segundo Plano (Win / Ubuntu)</span></h3>
+            <div style="display:flex; flex-direction:column; gap:11px;">
+              <div style="background:rgba(7,11,22,0.8); border:1px solid var(--border-subtle); border-radius:12px; padding:13px;">
+                <strong style="color:var(--cyan); font-size:13px;">1. Barra Flutuante Renderizada em CSS3 Real (WebView2)</strong>
+                <p style="font-size:12px; color:var(--text-muted); margin:4px 0 10px;">
+                  O painel que fica no centro superior da tela agora usa renderização HTML5/CSS3 nativa com ícones SVG Lucide, terminal embutido e QR Code 4G/5G.
+                </p>
+                <button class="btn btn-primary" onclick="launchTopHud()"><i data-lucide="play" class="lucide"></i> Mostrar Barra CSS no Topo Agora</button>
+              </div>
+
+              <div style="background:rgba(7,11,22,0.8); border:1px solid var(--border-subtle); border-radius:12px; padding:13px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <strong style="color:var(--emerald); font-size:13px;">2. Iniciar Automaticamente em 2º Plano (Windows / Ubuntu)</strong>
+                  <span id="autostartBadge" class="badge-prio prio-baixa">Verificando...</span>
+                </div>
+                <p style="font-size:12px; color:var(--text-muted); margin:4px 0 10px;">
+                  Inicia silenciosamente junto com o sistema operacional sem abrir nenhuma janela preta de terminal.
+                </p>
+                <div style="display:flex; gap:8px;">
+                  <button class="btn btn-primary" onclick="setWindowsAutostart(true)"><i data-lucide="check" class="lucide"></i> Ativar Autostart</button>
+                  <button class="btn btn-danger" onclick="setWindowsAutostart(false)"><i data-lucide="x" class="lucide"></i> Desativar</button>
+                  <button class="btn btn-glow" onclick="createDesktopShortcut()"><i data-lucide="monitor" class="lucide"></i> Criar Atalho Desktop</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2.5: AUTOMATIONS, SMART CLIPBOARD & POMODORO FOCUS -->
+      <section class="tab-content" id="tab-automations">
+        <div class="grid-3">
+          <!-- Scheduled Automations & Cron -->
+          <div class="card">
+            <h3>
+              <span class="card-title-left"><i data-lucide="clock" class="lucide" style="color:var(--cyan);"></i> Automações & Agendador 2º Plano</span>
+              <span class="badge-tag">Cron Ativo</span>
+            </h3>
+            <div style="display:flex; flex-direction:column; gap:7px; margin-bottom:10px; background:rgba(7,11,22,0.8); padding:10px; border-radius:10px; border:1px solid var(--border-subtle);">
+              <input type="text" id="autoName" placeholder="Nome da regra (ex: Backup ou Check Git)" />
+              <div style="display:flex; gap:6px;">
+                <select id="autoSchedType" style="flex:1;">
+                  <option value="interval">A cada X minutos</option>
+                  <option value="daily">Todo dia às HH:MM</option>
+                  <option value="threshold">Alerta se CPU/RAM > %</option>
+                </select>
+                <input type="text" id="autoSchedVal" value="60" placeholder="Ex: 60 ou 18:00" style="width:95px;" />
+              </div>
+              <div style="display:flex; gap:6px;">
+                <select id="autoActType" style="width:130px;">
+                  <option value="ai_prompt">Prompt IA</option>
+                  <option value="terminal_cmd">Terminal Cmd</option>
+                  <option value="routine">Rotina PC</option>
+                </select>
+                <input type="text" id="autoActPayload" placeholder="Comando ou prompt a executar..." style="flex:1;" />
+              </div>
+              <button class="btn btn-primary" onclick="createNewAutomation()"><i data-lucide="plus" class="lucide"></i> Criar Automação c/ Push no Celular</button>
+            </div>
+            <div id="automationsListContainer" style="display:flex; flex-direction:column; gap:7px; max-height:280px; overflow-y:auto;"></div>
+          </div>
+
+          <!-- Smart Clipboard Manager + AI -->
+          <div class="card">
+            <h3>
+              <span class="card-title-left"><i data-lucide="clipboard-list" class="lucide" style="color:var(--emerald);"></i> Área de Transferência Inteligente (Ctrl+C)</span>
+              <button class="btn" style="padding:3px 8px; font-size:10.5px;" onclick="loadClipboardDashboard()"><i data-lucide="refresh-cw" class="lucide"></i></button>
+            </h3>
+            <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;">
+              <button class="btn btn-glow" onclick="runClipboardAi('resumir')"><i data-lucide="file-text" class="lucide"></i> Resumir Ctrl+C</button>
+              <button class="btn btn-glow" onclick="runClipboardAi('explicar')"><i data-lucide="code" class="lucide"></i> Explicar Código</button>
+              <button class="btn btn-glow" onclick="runClipboardAi('traduzir')"><i data-lucide="languages" class="lucide"></i> Traduzir</button>
+              <button class="btn btn-glow" onclick="runClipboardAi('melhorar')"><i data-lucide="wand-2" class="lucide"></i> Refatorar/Melhorar</button>
+            </div>
+            <div id="clipAiOutput" style="display:none; background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.35); border-radius:9px; padding:9px; font-size:11.5px; margin-bottom:10px; max-height:130px; overflow-y:auto;"></div>
+            <div id="clipboardHistoryBox" style="display:flex; flex-direction:column; gap:6px; max-height:290px; overflow-y:auto;"></div>
+          </div>
+
+          <!-- Synchronized Pomodoro & Deep Focus Timer -->
+          <div class="card">
+            <h3>
+              <span class="card-title-left"><i data-lucide="timer" class="lucide" style="color:var(--amber);"></i> Foco Pomodoro (Sincronizado HUD + Celular)</span>
+              <span class="badge-tag" id="pomoSessionCount">0 sessões</span>
+            </h3>
+            <div style="text-align:center; padding:18px 10px; background:rgba(7,11,22,0.85); border:1px solid var(--border-subtle); border-radius:14px; margin-bottom:12px;">
+              <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;" id="pomoStatusLabel">PRONTO PARA FOCAR</div>
+              <div style="font-family:'JetBrains Mono',monospace; font-size:42px; font-weight:800; color:var(--cyan); margin:6px 0;" id="pomoBigClock">25:00</div>
+              <div style="font-size:11.5px; color:var(--text-secondary);">Quando o timer chega a zero, seu celular toca e vibra automaticamente!</div>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
+              <button class="btn btn-primary" onclick="startDashPomodoro(25, 'Pomodoro Foco 25m')"><i data-lucide="play" class="lucide"></i> Iniciar 25m Foco</button>
+              <button class="btn btn-glow" onclick="startDashPomodoro(50, 'Deep Work 50m')"><i data-lucide="zap" class="lucide"></i> Deep Work 50m</button>
+              <button class="btn" onclick="startDashPomodoro(5, 'Pausa Curta 5m')"><i data-lucide="coffee" class="lucide"></i> Pausa 5m</button>
+              <button class="btn btn-danger" onclick="stopDashPomodoro()"><i data-lucide="square" class="lucide"></i> Parar Timer</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: EVOLVING MEMORY & FREE AI ROTATION POOL -->
+      <section class="tab-content" id="tab-memory">
+        <div class="grid-2">
+          <div class="card">
+            <h3>
+              <span class="card-title-left"><i data-lucide="layers" class="lucide" style="color:var(--cyan);"></i> Pool de IAs Gratuitas (Failover Automático de Tokens)</span>
+              <button class="btn" onclick="loadFreeAiPool()" style="padding:4px 9px; font-size:11px;"><i data-lucide="refresh-cw" class="lucide"></i></button>
+            </h3>
+            <table>
+              <thead>
+                <tr><th>Modelo Gratuito</th><th>Especialidade</th><th>Tokens / Uso</th><th>Status</th></tr>
+              </thead>
+              <tbody id="freePoolTableBody"></tbody>
+            </table>
+          </div>
+
+          <div class="card">
+            <h3>
+              <span class="card-title-left"><i data-lucide="brain" class="lucide" style="color:var(--violet);"></i> Memória Evolutiva & Hábitos Aprendidos</span>
+              <span class="badge-tag" id="memLevelBadge">Nível 1</span>
+            </h3>
+            <div class="form-row">
+              <input type="text" id="trigPhrase" placeholder="Quando eu disser (ex: hora de codar)" style="flex:1;" />
+              <input type="text" id="trigCmd" placeholder="Execute (ex: Ative o modo dev)" style="flex:1;" />
+              <button class="btn btn-primary" onclick="createCustomTrigger()">Ensinar</button>
+            </div>
+            <div id="triggersListContainer" style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;"></div>
+            <div class="form-row">
+              <input type="text" id="memFactInput" placeholder="Adicionar fato à memória de longo prazo..." style="flex:1;" onkeydown="if(event.key==='Enter') createMemoryFact()" />
+              <button class="btn btn-glow" onclick="createMemoryFact()">Memorizar</button>
+            </div>
+            <div id="memoriesListContainer" style="display:flex; flex-direction:column; gap:6px; max-height:160px; overflow-y:auto;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: SYSTEM (WINDOWS & UBUNTU) & APPS -->
+      <section class="tab-content" id="tab-pc">
+        <div class="grid-4">
+          <div class="card gauge-card">
+            <div class="gauge-svg-wrap">
+              <svg class="gauge-svg" viewBox="0 0 72 72"><circle class="gauge-bg" cx="36" cy="36" r="30"></circle><circle class="gauge-fg" id="cpuCircle" cx="36" cy="36" r="30"></circle></svg>
+              <div class="gauge-center" id="cpuPercent">0%</div>
+            </div>
+            <div class="gauge-info"><h4>Processador (CPU)</h4><p id="cpuCores">-- núcleos</p></div>
+          </div>
+          <div class="card gauge-card">
+            <div class="gauge-svg-wrap">
+              <svg class="gauge-svg" viewBox="0 0 72 72"><circle class="gauge-bg" cx="36" cy="36" r="30"></circle><circle class="gauge-fg" id="ramCircle" cx="36" cy="36" r="30"></circle></svg>
+              <div class="gauge-center" id="ramPercent">0%</div>
+            </div>
+            <div class="gauge-info"><h4>Memória RAM</h4><p id="ramDetail">-- / -- GB</p></div>
+          </div>
+          <div class="card gauge-card">
+            <div class="gauge-svg-wrap">
+              <svg class="gauge-svg" viewBox="0 0 72 72"><circle class="gauge-bg" cx="36" cy="36" r="30"></circle><circle class="gauge-fg" id="diskCircle" cx="36" cy="36" r="30"></circle></svg>
+              <div class="gauge-center" id="diskPercent">0%</div>
+            </div>
+            <div class="gauge-info"><h4>Armazenamento</h4><p id="diskDetail">-- GB livres</p></div>
+          </div>
+          <div class="card gauge-card">
+            <div class="gauge-svg-wrap">
+              <svg class="gauge-svg" viewBox="0 0 72 72"><circle class="gauge-bg" cx="36" cy="36" r="30"></circle><circle class="gauge-fg" id="batCircle" cx="36" cy="36" r="30" style="stroke:url(#gradEmerald);"></circle></svg>
+              <div class="gauge-center" id="batPercent">AC</div>
+            </div>
+            <div class="gauge-info"><h4 id="hostTitle">Sistema Operacional</h4><p id="batDetail">Verificando...</p></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 16px;">
+          <h3><span class="card-title-left"><i data-lucide="sliders" class="lucide" style="color:var(--cyan);"></i> Deck de Controle Direto (Windows & Linux Ubuntu)</span></h3>
+          <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            <button class="btn btn-glow" onclick="triggerRoutine('modo_dev')"><i data-lucide="code-2" class="lucide"></i> Rotina Dev</button>
+            <button class="btn btn-glow" onclick="triggerRoutine('modo_estudo')"><i data-lucide="book-open" class="lucide"></i> Rotina Estudo</button>
+            <button class="btn btn-glow" onclick="triggerRoutine('modo_faxina')"><i data-lucide="sparkles" class="lucide"></i> Faxina Completa</button>
+            <button class="btn" onclick="triggerScreenshot()"><i data-lucide="camera" class="lucide"></i> Capturar Tela</button>
+            <button class="btn" onclick="triggerMedia('vol_down')"><i data-lucide="volume-1" class="lucide"></i> Vol -</button>
+            <button class="btn" onclick="triggerMedia('play_pause')"><i data-lucide="play" class="lucide"></i> Play/Pause</button>
+            <button class="btn" onclick="triggerMedia('vol_up')"><i data-lucide="volume-2" class="lucide"></i> Vol +</button>
+            <button class="btn" onclick="triggerCleanTemp()"><i data-lucide="trash" class="lucide"></i> Limpar Temp</button>
+            <button class="btn" onclick="triggerEmptyTrash()"><i data-lucide="archive-restore" class="lucide"></i> Esvaziar Lixeira</button>
+            <button class="btn" onclick="triggerPower('sleep', 0)"><i data-lucide="moon" class="lucide"></i> Suspender PC</button>
+            <button class="btn" onclick="triggerPower('schedule_shutdown', 30)"><i data-lucide="clock" class="lucide"></i> Desligar em 30m</button>
+            <button class="btn" onclick="triggerPower('cancel_shutdown', 0)"><i data-lucide="shield-check" class="lucide"></i> Cancelar Deslig.</button>
+            <button class="btn btn-danger" onclick="triggerLockPC()"><i data-lucide="lock" class="lucide"></i> Bloquear Tela</button>
+          </div>
+          <div id="netDiagBar" style="margin-top:11px; padding-top:10px; border-top:1px solid var(--border-subtle); font-size:11.5px; color:var(--text-secondary); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <span> Diagnóstico de Rede & Portas Locais: carregando...</span>
+            <button class="btn" style="padding:3px 8px; font-size:10.5px;" onclick="loadNetworkDiagnostics()">Escanear Portas & Latência</button>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3>
+              <span class="card-title-left">
+                <i data-lucide="layout-grid" class="lucide" style="color:var(--cyan);"></i>
+                Meus Aplicativos Sincronizados com o PC
+                <span class="badge-tag" id="syncedAppsCountBadge">0 apps</span>
+              </span>
+              <button class="btn btn-primary" style="padding:4px 10px; font-size:11px;" onclick="syncSystemAppsNow()">
+                <i data-lucide="refresh-cw" class="lucide"></i> Sincronizar Meus Apps
+              </button>
+            </h3>
+            <div style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:9px;">
+              <button class="btn" style="padding:3px 9px; font-size:10.5px;" onclick="filterAppsByCategory('all')">Todos</button>
+              <button class="btn btn-glow" style="padding:3px 9px; font-size:10.5px; color:var(--emerald);" onclick="filterAppsByCategory('running')">Rodando Agora</button>
+              <button class="btn" style="padding:3px 9px; font-size:10.5px;" onclick="filterAppsByCategory('Desenvolvimento')">Dev</button>
+              <button class="btn" style="padding:3px 9px; font-size:10.5px;" onclick="filterAppsByCategory('Navegadores')">Web</button>
+              <button class="btn" style="padding:3px 9px; font-size:10.5px;" onclick="filterAppsByCategory('Mídia & Jogos')">Mídia & Jogos</button>
+              <input type="text" id="appFilterSearch" placeholder="Filtrar meus apps..." oninput="renderFilteredApps()" style="padding:3px 8px; font-size:11px; flex:1; min-width:110px;" />
+            </div>
+            <div class="form-row">
+              <input type="text" id="customAppInput" placeholder="Abrir comando/URL ou cadastrar novo app (Nome | Caminho)..." style="flex:1;" onkeydown="if(event.key==='Enter') launchCustomApp()" />
+              <button class="btn btn-primary" onclick="launchCustomApp()">Abrir</button>
+              <button class="btn btn-glow" onclick="registerNewCustomApp()" title="Salvar aplicativo personalizado no catálogo">+ Fixar App</button>
+            </div>
+            <div class="app-grid" id="quickAppsGrid"></div>
+          </div>
+
+          <div class="card">
+            <h3><span class="card-title-left"><i data-lucide="cpu" class="lucide" style="color:var(--indigo);"></i> Top Processos em Execução</span></h3>
+            <table>
+              <thead><tr><th>Processo</th><th>PID</th><th>RAM %</th><th>Ação</th></tr></thead>
+              <tbody id="processTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 6: TASKS, WEB SEARCH & FILE AUTOMATION -->
+      <section class="tab-content" id="tab-tasks">
+        <div class="grid-3">
+          <div class="card">
+            <h3><span class="card-title-left"><i data-lucide="check-circle-2" class="lucide" style="color:var(--cyan);"></i> Gerenciador de Tarefas</span></h3>
+            <div class="form-row">
+              <input type="text" id="taskTitle" placeholder="Nova tarefa..." style="flex:1;" onkeydown="if(event.key==='Enter') createNewTask()" />
+              <select id="taskPriority"><option value="alta">Alta</option><option value="media" selected>Média</option><option value="baixa">Baixa</option></select>
+              <button class="btn btn-primary" onclick="createNewTask()"><i data-lucide="plus" class="lucide"></i></button>
+            </div>
+            <div id="tasksContainer" style="max-height:330px; overflow-y:auto;"></div>
+          </div>
+
+          <div class="card">
+            <h3><span class="card-title-left"><i data-lucide="globe" class="lucide" style="color:var(--indigo);"></i> Pesquisa Web em Tempo Real</span></h3>
+            <div class="form-row">
+              <input type="text" id="webSearchInput" placeholder="Pesquisar na internet..." style="flex:1;" onkeydown="if(event.key==='Enter') runWebSearch()" />
+              <button class="btn btn-primary" onclick="runWebSearch()"><i data-lucide="search" class="lucide"></i></button>
+            </div>
+            <div id="webResultsContainer" style="display:flex; flex-direction:column; gap:8px; max-height:330px; overflow-y:auto;"></div>
+          </div>
+
+          <div class="card">
+            <h3><span class="card-title-left"><i data-lucide="folder-input" class="lucide" style="color:var(--emerald);"></i> Automação de Pastas & Arquivos</span></h3>
+            <div class="form-row">
+              <select id="organizeFolderSelect" style="flex:1;">
+                <option value="downloads">Pasta Downloads</option>
+                <option value="desktop">Área de Trabalho</option>
+                <option value="documentos">Pasta Documentos</option>
+              </select>
+              <button class="btn" onclick="runFolderOrganizer(true)">Simular</button>
+              <button class="btn btn-primary" onclick="runFolderOrganizer(false)">Organizar</button>
+            </div>
+            <div id="organizeOutput" style="margin-bottom:12px;"></div>
+            <div class="form-row">
+              <input type="text" id="fileSearchQuery" placeholder="Buscar arquivo (.pdf, .png)..." style="flex:1;" onkeydown="if(event.key==='Enter') runFileSearch()" />
+              <button class="btn" onclick="runFileSearch()"><i data-lucide="search" class="lucide"></i></button>
+            </div>
+            <div id="fileSearchResults" style="max-height:200px; overflow-y:auto;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 7: COMPLETE SYSTEM CONFIGURATION -->
+      <section class="tab-content" id="tab-settings">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; background:rgba(11,17,32,0.9); border:1px solid var(--border-glow); padding:12px 16px; border-radius:14px;">
+          <div>
+            <h2 style="font-size:15px; font-weight:800; color:#fff; display:flex; align-items:center; gap:8px;">
+              <i data-lucide="sliders-horizontal" class="lucide" style="color:var(--cyan);"></i>
+              Central de Configuração Completa do Sistema (AURA OS 5.0)
+            </h2>
+            <small style="color:var(--text-muted); font-size:11.5px;">Personalize Identidade, Motores de IA, Comportamento do Terminal Maestri, Painel HUD Superior, Alertas Mobile e Sincronização de Apps</small>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn" onclick="loadSystemSettings()"><i data-lucide="rotate-ccw" class="lucide"></i> Recarregar</button>
+            <button class="btn btn-primary" onclick="saveAllSystemSettings()"><i data-lucide="save" class="lucide"></i> Salvar Todas as Configurações</button>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <!-- Card 1: Identidade, Persona & Voz -->
+          <div class="card">
+            <h3><span class="card-title-left"><i data-lucide="bot" class="lucide" style="color:var(--cyan);"></i> 1. Identidade, Persona & Voz</span></h3>
+            <div class="cfg-group">
+              <label class="cfg-label">Nome da Assistente</label>
+              <input type="text" id="cfg_assistant_name" value="AURA" placeholder="Ex: AURA, JARVIS, SEXTA-FEIRA..." />
+            </div>
+            <div class="cfg-group">
+              <label class="cfg-label">Estilo de Resposta</label>
+              <select id="cfg_response_style">
+                <option value="conciso">Conciso, Direto e Técnico (Recomendado)</option>
+                <option value="detalhado">Detalhado, Explicativo e Passo a Passo</option>
+                <option value="executivo">Resumo Executivo Ultra-Curto</option>
+              </select>
+            </div>
+            <div class="cfg-group">
+              <label class="cfg-label">Instrução / Prompt de Sistema Personalizado</label>
+              <textarea id="cfg_custom_system_prompt" rows="3" placeholder="Ex: Sempre responda focando em Python e TypeScript, chame-me de Chefe..."></textarea>
+            </div>
+            <div class="cfg-toggle-row">
+              <span>Resposta por Voz (TTS Automático)</span>
+              <select id="cfg_voice_reply" style="width:95px; padding:4px 8px;">
+                <option value="true">ATIVADO</option>
+                <option value="false">DESATIVADO</option>
+              </select>
+            </div>
+            <div class="cfg-toggle-row">
+              <span>Auto-Aprendizado de Memória Contínua</span>
+              <select id="cfg_auto_learn_memory" style="width:95px; padding:4px 8px;">
+                <option value="true">ATIVADO</option>
+                <option value="false">DESATIVADO</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Card 2: Motores de IA & Chaves de API -->
+          <div class="card">
+            <h3><span class="card-title-left"><i data-lucide="sparkles" class="lucide" style="color:var(--violet);"></i> 2. Motores de IA & Chaves API</span></h3>
+            <div class="cfg-group">
+              <label class="cfg-label">Provedor Principal de IA</label>
+              <select id="cfg_ai_provider">
+                <option value="free_pool">Pool de IAs Gratuitas (Failover Automático)</option>
+                <option value="gemini">Google Gemini API Oficial</option>
+                <option value="ollama">Ollama Local (100% Offline)</option>
+                <option value="smart">Modo Local Rápido (Sem Nuvem)</option>
+              </select>
+            </div>
+            <div class="cfg-group">
+              <label class="cfg-label">Modelo Gratuito Preferencial (Pool)</label>
+              <select id="cfg_default_free_model">
+                <option value="free:openai">GPT-4o Mini (Free Pool)</option>
+                <option value="free:qwen-coder">Qwen 2.5 Coder 32B (Especialista Código)</option>
+                <option value="free:deepseek">DeepSeek R1 / V3 (Raciocínio)</option>
+                <option value="free:mistral">Mistral Small 3 (Rápido)</option>
+                <option value="free:llama">Llama 3.3 70B Instruct</option>
+              </select>
+            </div>
+            <div class="cfg-group">
+              <label class="cfg-label">Google Gemini API Key <span class="cfg-hint">(Opcional)</span></label>
+              <input type="password" id="cfg_gemini_api_key" placeholder="AIzaSy..." />
+            </div>
+            <div class="cfg-group">
+              <label class="cfg-label">Groq Cloud API Key <span class="cfg-hint">(Llama 70B Ultra-Rápido)</span></label>
+              <input type="password" id="cfg_groq_api_key" placeholder="gsk_..." />
+            </div>
+            <div class="cfg-group">
+              <label class="cfg-label">OpenRouter API Key <span class="cfg-hint">(Modelos :free)</span></label>
+              <input type="password" id="cfg_openrouter_api_key" placeholder="sk-or-v1-..." />
+            </div>
+            <div class="form-row" style="margin-bottom:0;">
+              <input type="text" id="cfg_ollama_url" placeholder="http://localhost:11434" style="flex:1;" title="URL do Ollama" />
+              <input type="text" id="cfg_ollama_model" placeholder="llama3.2" style="width:110px;" title="Modelo Ollama" />
+            </div>
+          </div>
+
+          <!-- Card 3: Terminal do Agente Maestri 2D -->
+          <div class="card">
+            <h3><span class="card-title-left"><i data-lucide="terminal-square" class="lucide" style="color:var(--emerald);"></i> 3. Terminal do Agente (Maestri 2D)</span></h3>
+            <div class="cfg-group">
+              <label class="cfg-label">Modo de Entrada do Terminal (`aura-agent❯`)</label>
+              <select id="cfg_terminal_input_mode">
+                <option value="auto">Híbrido Inteligente (Prompt IA + Comandos Shell)</option>
+                <option value="agent_prompt">Sempre Executar como Prompt do Agente IA</option>
+                <option value="shell">Apenas Comandos Puros de Terminal (PowerShell/Bash)</option>
+              </select>
+            </div>
+            <div class="cfg-toggle-row">
+              <span>Agente Executa Diagnóstico no Shell Automaticamente</span>
+              <select id="cfg_agent_auto_exec_shell" style="width:95px; padding:4px 8px;">
+                <option value="true">ATIVADO</option>
+                <option value="false">DESATIVADO</option>
+              </select>
+            </div>
+            <div class="cfg-group">
+              <label class="cfg-label">Diretório Inicial Padrão (CWD)</label>
+              <input type="text" id="cfg_default_terminal_cwd" placeholder="C:\Users\..." />
+            </div>
+            <div class="cfg-group">
+              <label class="cfg-label">Timeout Máximo por Comando (Segundos)</label>
+              <input type="text" id="cfg_terminal_timeout_sec" value="25" />
+            </div>
+            <div style="font-size:11px; color:var(--text-muted); background:rgba(7,11,22,0.75); padding:8px 10px; border-radius:8px; border:1px solid var(--border-subtle);">
+              💡 <strong>Dica Terminal:</strong> No modo Híbrido, você pode digitar tanto prompts em português quanto comandos prefixados com <code>$</code> (ou comandos diretos como <code>git status</code>, <code>dir</code>) e ver todo o trabalho do agente no próprio terminal!
+            </div>
+          </div>
+
+          <!-- Card 4: Painel HUD Superior & Segundo Plano -->
+          <div class="card">
+            <h3><span class="card-title-left"><i data-lucide="panel-top" class="lucide" style="color:var(--amber);"></i> 4. Painel HUD Topo & 2º Plano</span></h3>
+            <div class="form-row">
+              <div class="cfg-group" style="flex:1; margin-bottom:0;">
+                <label class="cfg-label">Largura Compacta (px)</label>
+                <input type="text" id="cfg_hud_compact_w" value="680" />
+              </div>
+              <div class="cfg-group" style="flex:1; margin-bottom:0;">
+                <label class="cfg-label">Largura Expandida</label>
+                <input type="text" id="cfg_hud_expanded_w" value="720" />
+              </div>
+              <div class="cfg-group" style="flex:1; margin-bottom:0;">
+                <label class="cfg-label">Altura Expandida</label>
+                <input type="text" id="cfg_hud_expanded_h" value="500" />
+              </div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
+              <button class="btn btn-primary" onclick="launchTopHud()">
+                <i data-lucide="panel-top" class="lucide"></i> Abrir / Reiniciar Barra Flutuante no Topo
+              </button>
+              <div style="display:flex; gap:6px;">
+                <button class="btn btn-glow" style="flex:1;" onclick="setWindowsAutostart(true)">
+                  <i data-lucide="check-circle" class="lucide"></i> Ativar Autostart 2º Plano
+                </button>
+                <button class="btn btn-danger" onclick="setWindowsAutostart(false)">
+                  Desativar
+                </button>
+              </div>
+              <button class="btn" onclick="createDesktopShortcut()">
+                <i data-lucide="monitor" class="lucide"></i> Criar Atalho na Área de Trabalho
+              </button>
+            </div>
+          </div>
+
+          <!-- Card 5: Notificações Mobile 4G/5G & Alertas -->
+          <div class="card">
+            <h3><span class="card-title-left"><i data-lucide="smartphone" class="lucide" style="color:var(--cyan);"></i> 5. Notificações Celular & Alertas</span></h3>
+            <div class="cfg-toggle-row">
+              <span>Notificar Celular quando Agente Maestri Terminar</span>
+              <select id="cfg_notify_on_maestri" style="width:95px; padding:4px 8px;">
+                <option value="true">SIM</option>
+                <option value="false">NÃO</option>
+              </select>
+            </div>
+            <div class="cfg-toggle-row">
+              <span>Notificar Celular quando Comando Terminal Terminar</span>
+              <select id="cfg_notify_on_terminal" style="width:95px; padding:4px 8px;">
+                <option value="true">SIM</option>
+                <option value="false">NÃO</option>
+              </select>
+            </div>
+            <div class="cfg-toggle-row">
+              <span>Notificar Celular em Respostas do Chat Principal</span>
+              <select id="cfg_notify_on_chat" style="width:95px; padding:4px 8px;">
+                <option value="true">SIM</option>
+                <option value="false">NÃO</option>
+              </select>
+            </div>
+            <div class="cfg-group">
+              <label class="cfg-label">Limite Crítico de Alerta CPU / RAM (%)</label>
+              <input type="text" id="cfg_hardware_alert_threshold" value="90" />
+            </div>
+            <button class="btn btn-glow" style="width:100%;" onclick="sendTestMobileNotification()">
+              <i data-lucide="bell-ring" class="lucide"></i> Testar Push Notification no Celular Agora
+            </button>
+          </div>
+
+          <!-- Card 6: Sincronização de Apps, Logs & Manutenção -->
+          <div class="card">
+            <h3><span class="card-title-left"><i data-lucide="database" class="lucide" style="color:var(--rose);"></i> 6. Sincronização & Manutenção</span></h3>
+            <p style="font-size:11.5px; color:var(--text-secondary); line-height:1.45; margin-bottom:12px;">
+              Gerencie o banco de dados SQLite local da AURA, escaneie novos programas instalados no sistema operacional e limpe logs antigos.
+            </p>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <button class="btn btn-primary" onclick="syncSystemAppsNow()">
+                <i data-lucide="refresh-cw" class="lucide"></i> Escanear e Sincronizar Todos os Apps do PC
+              </button>
+              <button class="btn" onclick="applyMaestriTemplate('default')">
+                <i data-lucide="layout-template" class="lucide"></i> Restaurar Quadro Maestri 2D Padrão
+              </button>
+              <button class="btn" onclick="triggerCleanTemp()">
+                <i data-lucide="sparkles" class="lucide"></i> Limpar Arquivos Temporários do Sistema
+              </button>
+              <button class="btn btn-danger" onclick="clearSystemLogsNow()">
+                <i data-lucide="trash-2" class="lucide"></i> Limpar Histórico de Logs de Atividade
+              </button>
+            </div>
+          </div>
+
+          <!-- Card 7: App para Baixar & Auto-Update (main) -->
+          <div class="card">
+            <h3>
+              <span class="card-title-left"><i data-lucide="download-cloud" class="lucide" style="color:var(--emerald);"></i> 7. App para Baixar & Auto-Update (main)</span>
+              <span id="updateStatusBadge" class="badge-prio prio-baixa">Verificando...</span>
+            </h3>
+            <div style="font-size:11.5px; color:var(--text-secondary); background:rgba(7,11,22,0.75); padding:9px 11px; border-radius:9px; border:1px solid var(--border-subtle); margin-bottom:10px; line-height:1.5;">
+              <div><strong>Versão/Commit Local:</strong> <code id="updateLocalSha">-</code> (<span id="updateModeLabel">-</span>)</div>
+              <div><strong>Última Verificação:</strong> <span id="updateLastCheck">-</span></div>
+              <div id="updateAvailableMsg" style="color:var(--emerald); margin-top:4px; display:none;"></div>
+            </div>
+            <div class="cfg-group">
+              <label class="cfg-label">Repositório GitHub (owner/repo)</label>
+              <input type="text" id="cfg_update_repo" value="HigorAmaral/aura-assistant" placeholder="HigorAmaral/aura-assistant" />
+            </div>
+            <div class="form-row">
+              <div class="cfg-group" style="flex:1;">
+                <label class="cfg-label">Branch monitorada</label>
+                <input type="text" id="cfg_update_branch" value="main" />
+              </div>
+              <div class="cfg-group" style="flex:1;">
+                <label class="cfg-label">Intervalo (seg)</label>
+                <input type="text" id="cfg_update_check_interval_sec" value="60" />
+              </div>
+            </div>
+            <div class="cfg-toggle-row">
+              <span>Atualizar automaticamente ao enviar commit na main</span>
+              <select id="cfg_auto_update_enabled" style="width:105px; padding:4px 8px;">
+                <option value="true">ATIVADO</option>
+                <option value="false">DESATIVADO</option>
+              </select>
+            </div>
+            <div class="cfg-toggle-row">
+              <span>Reiniciar AURA automaticamente após atualizar</span>
+              <select id="cfg_auto_restart_on_update" style="width:105px; padding:4px 8px;">
+                <option value="true">SIM</option>
+                <option value="false">NÃO</option>
+              </select>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:7px; margin-top:10px;">
+              <div style="display:flex; gap:6px;">
+                <button class="btn btn-primary" style="flex:1;" onclick="checkUpdatesNow()">
+                  <i data-lucide="refresh-cw" class="lucide"></i> Verificar Agora
+                </button>
+                <button class="btn btn-glow" style="flex:1;" onclick="applyUpdateNow()">
+                  <i data-lucide="rocket" class="lucide"></i> Atualizar & Reiniciar
+                </button>
+              </div>
+              <div style="display:flex; gap:6px;">
+                <button class="btn" style="flex:1;" onclick="downloadAppInstaller()">
+                  <i data-lucide="download" class="lucide"></i> Baixar Instalador (.bat)
+                </button>
+                <button class="btn" style="flex:1;" onclick="downloadAppBundle()">
+                  <i data-lucide="package" class="lucide"></i> Baixar App (.zip)
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    let voiceReplyEnabled = true;
+    let recognition = null;
+    let isListening = false;
+
+    // Maestri 2D Canvas State
+    let canvasNodes = [];
+    let canvasEdges = [];
+    let panX = 20;
+    let panY = 20;
+    let zoomScale = 1.0;
+    let isPanning = false;
+    let panStartX = 0;
+    let panStartY = 0;
+    let draggingNodeId = null;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+
+    function refreshIcons() {
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function showToast(msg) {
+      const box = document.getElementById('toastContainer');
+      const el = document.createElement('div');
+      el.className = 'toast';
+      el.innerHTML = formatMarkdown(msg);
+      box.appendChild(el);
+      setTimeout(() => { el.remove(); }, 3800);
+    }
+
+    function formatMarkdown(text) {
+      if (!text) return '';
+      return text
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/`([^`]+)`/g, '<code style="background:rgba(56,189,248,0.14);padding:2px 6px;border-radius:4px;color:#38bdf8;font-family:JetBrains Mono,monospace;">$1</code>')
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank" style="color:#38bdf8;">$1</a>')
+        .replace(/\n/g, '<br>');
+    }
+
+    function switchTab(tabId, btnEl) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      if (btnEl) btnEl.classList.add('active');
+      if (tabId === 'tab-memory') { loadMemoryAndXp(); loadFreeAiPool(); }
+      if (tabId === 'tab-mobile') { loadBackgroundStatus(); refreshSystemStats(); }
+      if (tabId === 'tab-automations') { loadAutomations(); loadClipboardDashboard(); }
+      if (tabId === 'tab-pc') { loadNetworkDiagnostics(); loadQuickApps(); }
+      if (tabId === 'tab-settings') { loadSystemSettings(); loadBackgroundStatus(); }
+      if (tabId === 'tab-maestri') { renderCanvasEdges(); renderMinimap(); }
+      refreshIcons();
+    }
+
+    function switchTabById(tabId) {
+      const btn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+      switchTab(tabId, btn);
+    }
+
+    function setGaugeValue(circleId, percent) {
+      const el = document.getElementById(circleId);
+      if (!el) return;
+      const circumference = 188.5;
+      const clamped = Math.max(0, Math.min(100, percent));
+      el.style.strokeDashoffset = circumference - (clamped / 100) * circumference;
+    }
+
+    // --- Speech TTS & STT ---
+    function speakText(rawText) {
+      if (!voiceReplyEnabled || !('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const clean = rawText.replace(/\*\*/g, '').replace(/`/g, '').replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1');
+      const utter = new SpeechSynthesisUtterance(clean.slice(0, 360));
+      utter.lang = 'pt-BR';
+      utter.rate = 1.08;
+      window.speechSynthesis.speak(utter);
+    }
+
+    function toggleVoiceReply() {
+      voiceReplyEnabled = !voiceReplyEnabled;
+      const btn = document.getElementById('btnToggleTts');
+      btn.innerHTML = voiceReplyEnabled
+        ? '<i data-lucide="volume-2" class="lucide"></i> Voz: ON'
+        : '<i data-lucide="volume-x" class="lucide"></i> Voz: OFF';
+      refreshIcons();
+      if (!voiceReplyEnabled && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+    }
+
+    function toggleSpeechRecognition() {
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRec) { showToast('Use o navegador Chrome ou Edge para comando de voz.'); return; }
+      if (!recognition) {
+        recognition = new SpeechRec();
+        recognition.lang = 'pt-BR';
+        recognition.onstart = () => { isListening = true; document.getElementById('btnMic').classList.add('listening'); };
+        recognition.onend = () => { isListening = false; document.getElementById('btnMic').classList.remove('listening'); };
+        recognition.onresult = (e) => {
+          const t = e.results[0][0].transcript;
+          if (t) { document.getElementById('chatInput').value = t; sendChatMessage(); }
+        };
+      }
+      if (isListening) recognition.stop(); else recognition.start();
+    }
+
+    // --- Chat ---
+    function appendMessage(role, htmlContent, actions = []) {
+      const box = document.getElementById('chatMessages');
+      const div = document.createElement('div');
+      div.className = `msg ${role === 'user' ? 'msg-user' : 'msg-assistant'}`;
+      let badges = '';
+      if (actions && actions.length) {
+        badges = '<div>' + actions.map(a => `<span class="tool-badge">${a.tool}</span>`).join('') + '</div>';
+      }
+      div.innerHTML = htmlContent + badges;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function sendQuickCommand(cmd) {
+      const inp = document.getElementById('chatInput');
+      if (inp) {
+        inp.value = cmd;
+        showToast(`Executando comando rápido: **${cmd}**`);
+        sendChatMessage();
+      }
+    }
+
+    async function sendChatMessage() {
+      const input = document.getElementById('chatInput');
+      const message = input.value.trim();
+      if (!message) return;
+      input.value = '';
+      appendMessage('user', formatMarkdown(message));
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        });
+        const data = await res.json();
+        appendMessage('assistant', formatMarkdown(data.reply), data.actions_taken || []);
+        if (data.provider) document.getElementById('providerText').textContent = data.provider;
+        speakText(data.reply);
+        loadMemoryAndXp();
+        loadTasks();
+      } catch (err) {
+        appendMessage('assistant', 'Erro: ' + err);
+      }
+    }
+
+    // --- MAESTRI 2D INFINITE WORKSPACE (WITH REAL LIVE TERMINALS) ---
+    async function loadCanvasState() {
+      const res = await fetch('/api/canvas');
+      const data = await res.json();
+      canvasNodes = data.nodes || [];
+      canvasEdges = data.edges || [];
+      renderCanvasNodes();
+      renderCanvasEdges();
+      renderMinimap();
+    }
+
+    async function applyMaestriTemplate(templateKey) {
+      const res = await fetch('/api/canvas/load-template', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template_key: templateKey })
+      });
+      const data = await res.json();
+      canvasNodes = data.nodes || [];
+      canvasEdges = data.edges || [];
+      renderCanvasNodes();
+      renderCanvasEdges();
+      renderMinimap();
+      showToast('Template Maestri 2D carregado com sucesso!');
+    }
+
+    async function exportMaestriMarkdown() {
+      const res = await fetch('/api/canvas/export', { method: 'POST' });
+      const data = await res.json();
+      showToast(data.message);
+    }
+
+    function renderMinimap() {
+      const box = document.getElementById('minimapDots');
+      if (!box) return;
+      const cntEl = document.getElementById('minimapCount');
+      if (cntEl) cntEl.textContent = `${canvasNodes.length} nós`;
+
+      const worldW = 3400;
+      const worldH = 2200;
+      const mapW = 205;
+      const mapH = 108;
+      const sx = mapW / worldW;
+      const sy = mapH / worldH;
+
+      // Render viewport camera rectangle
+      const vp = document.getElementById('canvasViewport');
+      const vpW = vp ? vp.clientWidth : 900;
+      const vpH = vp ? vp.clientHeight : 600;
+      const camX = Math.max(0, (-panX / zoomScale) * sx);
+      const camY = Math.max(0, (-panY / zoomScale) * sy);
+      const camW = Math.min(mapW, (vpW / zoomScale) * sx);
+      const camH = Math.min(mapH, (vpH / zoomScale) * sy);
+
+      const camRect = `<div style="position:absolute;left:${camX.toFixed(1)}px;top:${camY.toFixed(1)}px;width:${camW.toFixed(1)}px;height:${camH.toFixed(1)}px;border:1.5px solid #38bdf8;background:rgba(56,189,248,0.12);border-radius:3px;pointer-events:none;"></div>`;
+
+      const dots = canvasNodes.map(n => {
+        const mx = Math.min(mapW - 22, Math.max(2, Math.round((n.x || 0) * sx)));
+        const my = Math.min(mapH - 12, Math.max(2, Math.round((n.y || 0) * sy)));
+        const isRun = n.status === 'running';
+        const col = isRun ? '#fbbf24' : (n.color || '#38bdf8');
+        const glow = isRun ? 'box-shadow:0 0 8px #fbbf24;' : '';
+        return `<div style="position:absolute;left:${mx}px;top:${my}px;width:24px;height:13px;background:${col};border-radius:3px;opacity:0.92;${glow}border:1px solid rgba(255,255,255,0.35);" title="${n.name}"></div>`;
+      }).join('');
+
+      box.innerHTML = camRect + dots;
+    }
+
+    function autoLayoutCanvasNodes() {
+      const cols = Math.max(2, Math.min(3, canvasNodes.length));
+      canvasNodes.forEach((n, idx) => {
+        const col = idx % cols;
+        const row = Math.floor(idx / cols);
+        n.x = 40 + col * 485;
+        n.y = 40 + row * 380;
+      });
+      panX = 20; panY = 20; zoomScale = 0.88;
+      renderCanvasNodes();
+      renderCanvasEdges();
+      applyWorldTransform();
+      persistCanvas();
+      showToast('Blocos Maestri 2D auto-organizados!');
+    }
+
+    async function persistCanvas() {
+      const cleanNodes = canvasNodes.map(({ terminal, ...rest }) => rest);
+      await fetch('/api/canvas/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nodes: cleanNodes, edges: canvasEdges })
+      });
+    }
+
+    function applyWorldTransform() {
+      const world = document.getElementById('canvasWorld');
+      if (world) world.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomScale})`;
+      document.getElementById('zoomBadge').textContent = `Zoom: ${Math.round(zoomScale * 100)}%`;
+      renderMinimap();
+    }
+
+    function zoomCanvas(delta) {
+      zoomScale = Math.max(0.5, Math.min(1.5, zoomScale + delta));
+      applyWorldTransform();
+    }
+
+    function resetCanvasCamera() {
+      panX = 20; panY = 20; zoomScale = 1.0;
+      applyWorldTransform();
+    }
+
+    function formatTerminalHistory(termObj) {
+      if (!termObj || !termObj.history) return 'aura-agent❯ Terminal do Agente pronto. Digite seu prompt ou comando abaixo.';
+      return termObj.history.map(h => {
+        const prefix = (h.cmd && h.cmd.startsWith('aura-agent❯')) ? h.cmd : `aura-agent❯ ${h.cmd}`;
+        return `[${h.ts}] ${prefix}\n${h.output}`;
+      }).join('\n\n────────────────────────────────────────\n\n');
+    }
+
+    function renderCanvasNodes() {
+      const layer = document.getElementById('nodesLayer');
+      layer.innerHTML = canvasNodes.map((node, idx) => {
+        if (node.x === 510 || node.x === 540) node.x = 560;
+        if (node.x === 930 || node.x === 1000) node.x = 1050;
+        const termText = formatTerminalHistory(node.terminal);
+        const cwdText = (node.terminal && node.terminal.cwd) ? node.terminal.cwd : '~';
+        const safePromptAttr = (node.prompt || '').replace(/"/g, '&quot;');
+        return `
+        <div class="agent-node ${node.status === 'running' ? 'running' : ''}" id="node-${node.id}" style="left:${node.x}px; top:${node.y}px; border-color:${node.color || '#38bdf8'};">
+          <div class="agent-node-header" onmousedown="startDragNode(event, '${node.id}')">
+            <div style="display:flex; align-items:center; gap:7px;">
+              <span class="port-dot" style="background:${node.color || '#38bdf8'};"></span>
+              <strong style="font-size:12px; color:#fff;">${node.name}</strong>
+            </div>
+            <div style="display:flex; gap:5px;">
+              <button class="btn btn-primary" style="padding:3px 9px; font-size:10.5px;" onclick="runSingleCanvasNode('${node.id}')" title="Executar Prompt no Terminal do Agente">▶ Executar no Terminal</button>
+              <button class="btn btn-danger" style="padding:3px 6px; font-size:10.5px;" onclick="removeCanvasNode('${node.id}')">×</button>
+            </div>
+          </div>
+
+          <div class="agent-node-body">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+              <select onchange="updateNodeModel('${node.id}', this.value)" style="flex:1; font-size:10.5px; padding:4px 7px;">
+                <option value="free:openai" ${node.model==='free:openai'?'selected':''}>IA Gratuita: GPT-4o Mini</option>
+                <option value="free:mistral" ${node.model==='free:mistral'?'selected':''}>IA Gratuita: Mistral Small 3</option>
+                <option value="free:qwen-coder" ${node.model==='free:qwen-coder'?'selected':''}>IA Gratuita: Qwen 2.5 Coder 32B</option>
+                <option value="free:deepseek" ${node.model==='free:deepseek'?'selected':''}>IA Gratuita: DeepSeek R1/V3</option>
+                <option value="gemini:gemini-3.8-flash" ${node.model==='gemini:gemini-3.8-flash'?'selected':''}>Gemini 3.8 Flash</option>
+              </select>
+              <span style="font-size:9.5px; color:var(--emerald); font-family:'JetBrains Mono',monospace; padding:2px 6px; border:1px solid rgba(52,211,153,0.35); border-radius:6px;">PROMPT + SHELL</span>
+            </div>
+
+            <!-- Live Interactive Agent Terminal (Prompt Input + Live Working Trace + Result) -->
+            <div class="tile-terminal">
+              <div class="tile-term-bar">
+                <span>>_ TERMINAL DO AGENTE</span>
+                <div style="display:flex; align-items:center; gap:5px;">
+                  <span id="cwd-${node.id}" style="color:var(--text-muted);max-width:115px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${cwdText}</span>
+                  <button class="btn" style="padding:1px 5px; font-size:9px;" onclick="clearTileTerminal('${node.id}')" title="Limpar Terminal">Limpar</button>
+                  <button class="btn" style="padding:1px 5px; font-size:9px;" onclick="copyTileOutput('${node.id}')" title="Copiar Saída">Copiar</button>
+                </div>
+              </div>
+              <div class="tile-term-screen" id="term-screen-${node.id}">${termText}</div>
+              <div class="tile-term-input-row">
+                <span class="tile-term-prompt">aura-agent❯</span>
+                <input
+                  type="text"
+                  class="tile-term-input"
+                  id="term-input-${node.id}"
+                  value=""
+                  oninput="updateNodePrompt('${node.id}', this.value)"
+                  placeholder="${safePromptAttr || 'Digite o prompt do agente ou comando ($ dir, git...) e Enter'}"
+                  onkeydown="handleTileTerminalKey(event, '${node.id}')"
+                />
+                <button class="btn btn-primary" style="padding:2px 7px; font-size:10px;" onclick="execTileTerminal('${node.id}')">Enviar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `}).join('');
+    }
+
+    const tileCmdHistory = {};
+    const tileCmdCursor = {};
+
+    function handleTileTerminalKey(e, nodeId) {
+      const inp = document.getElementById(`term-input-${nodeId}`);
+      if (!inp) return;
+      if (e.key === 'Enter') {
+        execTileTerminal(nodeId);
+        return;
+      }
+      const hist = tileCmdHistory[nodeId] || [];
+      if (!hist.length) return;
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const cur = tileCmdCursor[nodeId] === undefined ? hist.length : tileCmdCursor[nodeId];
+        const nextIdx = Math.max(0, cur - 1);
+        tileCmdCursor[nodeId] = nextIdx;
+        inp.value = hist[nextIdx];
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const cur = tileCmdCursor[nodeId] === undefined ? hist.length : tileCmdCursor[nodeId];
+        const nextIdx = Math.min(hist.length, cur + 1);
+        tileCmdCursor[nodeId] = nextIdx;
+        inp.value = nextIdx < hist.length ? hist[nextIdx] : '';
+      }
+    }
+
+    async function clearTileTerminal(nodeId) {
+      await fetch('/api/terminal/exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ node_id: nodeId, command: 'clear', node_name: 'Terminal', notify_mobile: false })
+      });
+      const screen = document.getElementById(`term-screen-${nodeId}`);
+      if (screen) screen.textContent = 'aura-agent❯ Terminal limpo. Pronto para o próximo prompt ou comando.';
+    }
+
+    function copyTileOutput(nodeId) {
+      const screen = document.getElementById(`term-screen-${nodeId}`);
+      if (screen && navigator.clipboard) {
+        navigator.clipboard.writeText(screen.textContent);
+        showToast('Saída do terminal copiada para a área de transferência!');
+      }
+    }
+
+    async function execTileTerminal(nodeId) {
+      const inp = document.getElementById(`term-input-${nodeId}`);
+      const screen = document.getElementById(`term-screen-${nodeId}`);
+      const cwdEl = document.getElementById(`cwd-${nodeId}`);
+      const node = canvasNodes.find(n => n.id === nodeId);
+      const rawText = (inp && inp.value.trim()) ? inp.value.trim() : (node ? node.prompt : '');
+      if (!rawText) return;
+
+      if (!tileCmdHistory[nodeId]) tileCmdHistory[nodeId] = [];
+      tileCmdHistory[nodeId].push(rawText);
+      tileCmdCursor[nodeId] = tileCmdHistory[nodeId].length;
+      if (inp) {
+        inp.value = '';
+        inp.placeholder = rawText;
+      }
+
+      if (node) {
+        node.prompt = rawText;
+        node.status = 'running';
+      }
+      renderMinimap();
+      const nodeEl = document.getElementById(`node-${nodeId}`);
+      if (nodeEl) nodeEl.classList.add('running');
+
+      const upstreamIds = canvasEdges.filter(e => e.to === nodeId).map(e => e.from);
+      const upstreamOutputs = canvasNodes
+        .filter(n => upstreamIds.includes(n.id))
+        .map(n => ({ name: n.name, output: n.output }));
+
+      // Live step-by-step working animation inside the agent's terminal
+      const baseHistory = screen.textContent;
+      screen.textContent = `${baseHistory}\n\n────────────────────────────────────────\n[AGORA] aura-agent❯ ${rawText}\n⚙ [INICIANDO AGENTE] Preparando execução no terminal de '${node ? node.name : nodeId}'...`;
+      screen.scrollTop = screen.scrollHeight;
+
+      let stepCount = 0;
+      const liveSteps = [
+        '💻 [SHELL & AMBIENTE] Inspecionando diretório, processos e contexto do sistema...',
+        '📊 [FERRAMENTAS AURA] Coletando telemetria em tempo real para o agente...',
+        '🧠 [IA PROCESSANDO] Gerando raciocínio e resposta detalhada no terminal...'
+      ];
+      const stepTimer = setInterval(() => {
+        if (stepCount < liveSteps.length && screen) {
+          screen.textContent += `\n${liveSteps[stepCount]}`;
+          screen.scrollTop = screen.scrollHeight;
+          stepCount++;
+        }
+      }, 480);
+
+      try {
+        const res = await fetch('/api/terminal/input', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            node_id: nodeId,
+            raw_input: rawText,
+            agent_name: node ? node.name : 'Agente Maestri',
+            agent_role: node ? node.role : '',
+            model_id: node ? node.model : 'free:openai',
+            mode: 'auto',
+            upstream_outputs: upstreamOutputs
+          })
+        });
+        clearInterval(stepTimer);
+        const data = await res.json();
+        const sess = data.terminal_session || data.session;
+        if (node) {
+          node.status = 'idle';
+          if (sess) node.terminal = sess;
+          if (data.output) node.output = data.output;
+        }
+        if (nodeEl) nodeEl.classList.remove('running');
+        if (sess && screen) {
+          screen.textContent = formatTerminalHistory(sess);
+          screen.scrollTop = screen.scrollHeight;
+          if (cwdEl && sess.cwd) cwdEl.textContent = sess.cwd;
+        }
+        if (data.provider_used) {
+          document.getElementById('providerText').textContent = data.provider_used;
+        }
+        showToast(`<strong>${node ? node.name : 'Terminal'} concluído!</strong> Resultado exibido no terminal.`);
+        persistCanvas();
+      } catch (e) {
+        clearInterval(stepTimer);
+        if (node) node.status = 'idle';
+        if (nodeEl) nodeEl.classList.remove('running');
+        if (screen) {
+          screen.textContent += `\n❌ [ERRO NO TERMINAL]: ${e}`;
+          screen.scrollTop = screen.scrollHeight;
+        }
+      }
+    }
+
+    function renderCanvasEdges() {
+      const svg = document.getElementById('edgesSvg');
+      if (!svg) return;
+      let pathsHtml = '';
+      for (const edge of canvasEdges) {
+        const fromNode = canvasNodes.find(n => n.id === edge.from);
+        const toNode = canvasNodes.find(n => n.id === edge.to);
+        if (!fromNode || !toNode) continue;
+        const x1 = fromNode.x + 425;
+        const y1 = fromNode.y + 135;
+        const x2 = toNode.x;
+        const y2 = toNode.y + 135;
+        const cx1 = x1 + Math.abs(x2 - x1) * 0.45;
+        const cx2 = x2 - Math.abs(x2 - x1) * 0.45;
+        pathsHtml += `
+          <path d="M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}"
+                fill="none" stroke="rgba(56, 189, 248, 0.6)" stroke-width="2.5" stroke-dasharray="6,4" />
+          <circle cx="${x2}" cy="${y2}" r="5" fill="#38bdf8" />
+        `;
+      }
+      svg.innerHTML = pathsHtml;
+    }
+
+    function startDragNode(e, nodeId) {
+      e.stopPropagation();
+      draggingNodeId = nodeId;
+      const node = canvasNodes.find(n => n.id === nodeId);
+      dragOffsetX = (e.clientX / zoomScale) - node.x;
+      dragOffsetY = (e.clientY / zoomScale) - node.y;
+    }
+
+    function updateNodeModel(nodeId, val) {
+      const n = canvasNodes.find(x => x.id === nodeId);
+      if (n) { n.model = val; persistCanvas(); }
+    }
+
+    function updateNodePrompt(nodeId, val) {
+      const n = canvasNodes.find(x => x.id === nodeId);
+      if (n) { n.prompt = val; persistCanvas(); }
+    }
+
+    function spawnNewCanvasAgent() {
+      const name = prompt('Nome do novo Bloco (Agente + Terminal):', 'Agente DevOps & Terminal');
+      if (!name) return;
+      const id = 'agent-' + Date.now();
+      const colors = ['#38bdf8', '#818cf8', '#34d399', '#c084fc', '#fbbf24'];
+      const newNode = {
+        id,
+        name,
+        role: 'Executa prompts e comandos direto no terminal com saída passo a passo.',
+        model: 'free:qwen-coder',
+        x: 180 + (canvasNodes.length * 60) % 500,
+        y: 120 + (canvasNodes.length * 50) % 300,
+        prompt: 'Verifique os processos e status do sistema no terminal e resuma os pontos principais.',
+        output: 'Bloco criado. Digite seu prompt direto no terminal acima.',
+        status: 'idle',
+        color: colors[canvasNodes.length % colors.length],
+        terminal: { history: [{ ts: 'Agora', cmd: 'aura-agent❯ Inicializar Agente', output: '⚙ [AGENTE PRONTO] Digite seu prompt na linha aura-agent❯ abaixo e pressione Enter.' }], cwd: '~' }
+      };
+      if (canvasNodes.length > 0) {
+        canvasEdges.push({ from: canvasNodes[canvasNodes.length - 1].id, to: id });
+      }
+      canvasNodes.push(newNode);
+      renderCanvasNodes();
+      renderCanvasEdges();
+      persistCanvas();
+    }
+
+    function removeCanvasNode(nodeId) {
+      canvasNodes = canvasNodes.filter(n => n.id !== nodeId);
+      canvasEdges = canvasEdges.filter(e => e.from !== nodeId && e.to !== nodeId);
+      renderCanvasNodes();
+      renderCanvasEdges();
+      persistCanvas();
+    }
+
+    async function runSingleCanvasNode(nodeId) {
+      await execTileTerminal(nodeId);
+    }
+
+    async function orchestrateAllCanvasAgents() {
+      showToast('Orquestrando todos os blocos Maestri (Agentes + Terminais)...');
+      for (const node of canvasNodes) {
+        await runSingleCanvasNode(node.id);
+      }
+      showToast('Fluxo Maestri concluído! Notificação enviada ao seu celular.');
+      loadFreeAiPool();
+    }
+
+    function initCanvasInteractions() {
+      const vp = document.getElementById('canvasViewport');
+      const minimap = document.getElementById('canvasMinimap');
+      let isMinimapDragging = false;
+
+      function panFromMinimapEvent(e) {
+        const dots = document.getElementById('minimapDots');
+        if (!dots || !vp) return;
+        const rect = dots.getBoundingClientRect();
+        const relX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+        const relY = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
+        const worldX = (relX / rect.width) * 3400;
+        const worldY = (relY / rect.height) * 2200;
+        panX = Math.round(-(worldX * zoomScale) + vp.clientWidth / 2);
+        panY = Math.round(-(worldY * zoomScale) + vp.clientHeight / 2);
+        applyWorldTransform();
+      }
+
+      if (minimap) {
+        minimap.addEventListener('mousedown', (e) => {
+          e.stopPropagation();
+          isMinimapDragging = true;
+          panFromMinimapEvent(e);
+        });
+      }
+
+      vp.addEventListener('mousedown', (e) => {
+        if (e.target === vp || e.target.id === 'canvasWorld' || e.target.id === 'edgesSvg') {
+          isPanning = true;
+          panStartX = e.clientX - panX;
+          panStartY = e.clientY - panY;
+        }
+      });
+
+      vp.addEventListener('wheel', (e) => {
+        if (e.ctrlKey || e.target === vp || e.target.id === 'canvasWorld' || e.target.id === 'edgesSvg') {
+          e.preventDefault();
+          const delta = e.deltaY < 0 ? 0.08 : -0.08;
+          zoomCanvas(delta);
+        }
+      }, { passive: false });
+
+      window.addEventListener('mousemove', (e) => {
+        if (isMinimapDragging) {
+          panFromMinimapEvent(e);
+        } else if (draggingNodeId) {
+          const node = canvasNodes.find(n => n.id === draggingNodeId);
+          if (node) {
+            node.x = Math.max(10, Math.round((e.clientX / zoomScale) - dragOffsetX));
+            node.y = Math.max(10, Math.round((e.clientY / zoomScale) - dragOffsetY));
+            const dom = document.getElementById(`node-${node.id}`);
+            if (dom) { dom.style.left = node.x + 'px'; dom.style.top = node.y + 'px'; }
+            renderCanvasEdges();
+            renderMinimap();
+          }
+        } else if (isPanning) {
+          panX = e.clientX - panStartX;
+          panY = e.clientY - panStartY;
+          applyWorldTransform();
+        }
+      });
+      window.addEventListener('mouseup', () => {
+        if (draggingNodeId) {
+          draggingNodeId = null;
+          persistCanvas();
+          renderMinimap();
+        }
+        isPanning = false;
+        isMinimapDragging = false;
+      });
+    }
+
+    // --- REMOTE 4G/5G & NOTIFICATIONS ---
+    async function sendTestMobileNotification() {
+      await fetch('/api/mobile/test-notification', { method: 'POST' });
+      showToast('Notificação enviada! Confira na tela do seu celular.');
+    }
+
+    // --- MEMORY & FREE AI POOL ---
+    async function loadMemoryAndXp() {
+      try {
+        const res = await fetch('/api/memory');
+        const d = await res.json();
+        document.getElementById('headerMemoryLevel').textContent = `Nível ${d.level} • ${d.xp} XP`;
+        document.getElementById('memLevelBadge').textContent = `Nível ${d.level} (${d.xp} XP)`;
+
+        const trigBox = document.getElementById('triggersListContainer');
+        if (trigBox) {
+          trigBox.innerHTML = d.triggers.map(t => `
+            <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(8,12,24,0.75);padding:7px 10px;border-radius:8px;border:1px solid var(--border-subtle);font-size:11.5px;">
+              <div><strong style="color:var(--cyan);">"${t.phrase}"</strong> → <code>${t.action_command}</code></div>
+              <button class="btn btn-danger" style="padding:2px 6px;font-size:10px;" onclick="deleteTrigger(${t.id})">×</button>
+            </div>
+          `).join('');
+        }
+
+        const memBox = document.getElementById('memoriesListContainer');
+        if (memBox) {
+          memBox.innerHTML = d.memories.map(m => `
+            <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(8,12,24,0.75);border:1px solid var(--border-subtle);border-radius:8px;padding:7px 10px;font-size:11.5px;">
+              <span><strong style="color:var(--violet);">[${m.category}]</strong> ${m.fact}</span>
+              <button class="btn btn-danger" style="padding:2px 6px;font-size:10px;" onclick="deleteMemoryFact(${m.id})">×</button>
+            </div>
+          `).join('');
+        }
+      } catch (e) {}
+    }
+
+    async function createCustomTrigger() {
+      const p = document.getElementById('trigPhrase');
+      const c = document.getElementById('trigCmd');
+      if (!p.value.trim() || !c.value.trim()) return;
+      await fetch('/api/memory/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phrase: p.value.trim(), action_command: c.value.trim() })
+      });
+      p.value = ''; c.value = '';
+      showToast('Novo hábito aprendido pela AURA!');
+      loadMemoryAndXp();
+    }
+
+    async function deleteTrigger(id) { await fetch(`/api/memory/trigger/${id}`, { method: 'DELETE' }); loadMemoryAndXp(); }
+
+    async function createMemoryFact() {
+      const inp = document.getElementById('memFactInput');
+      if (!inp.value.trim()) return;
+      await fetch('/api/memory/fact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category: 'Memória', fact: inp.value.trim() })
+      });
+      inp.value = '';
+      showToast('Fato memorizado (+25 XP)!');
+      loadMemoryAndXp();
+    }
+
+    async function deleteMemoryFact(id) { await fetch(`/api/memory/fact/${id}`, { method: 'DELETE' }); loadMemoryAndXp(); }
+
+    async function loadFreeAiPool() {
+      try {
+        const res = await fetch('/api/ai/pool');
+        const data = await res.json();
+        const tbody = document.getElementById('freePoolTableBody');
+        tbody.innerHTML = data.pool.map(p => {
+          let badge = '<span class="badge-prio prio-baixa">ONLINE / GRÁTIS</span>';
+          if (p.status === 'rotacionado_quota') badge = `<span class="badge-prio prio-alta">COOLDOWN (${p.cooldown_seconds_left}s)</span>`;
+          else if (p.status === 'aguardando_chave') badge = '<span class="badge-prio prio-media">OPCIONAL</span>';
+          return `
+            <tr>
+              <td><strong>${p.name}</strong><br><small style="color:var(--text-muted);">${p.provider}</small></td>
+              <td>${p.specialty}</td>
+              <td style="font-family:'JetBrains Mono',monospace;">${p.tokens_used} tok (${p.success_count} req)</td>
+              <td>${badge}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch (e) {}
+    }
+
+    // --- SYSTEM STATS & REMOTE URLS ---
+    async function refreshSystemStats() {
+      try {
+        const res = await fetch('/api/system/stats');
+        const d = await res.json();
+
+        document.getElementById('cpuPercent').textContent = `${Math.round(d.cpu.percent)}%`;
+        document.getElementById('cpuCores').textContent = `${d.cpu.cores} núcleos`;
+        setGaugeValue('cpuCircle', d.cpu.percent);
+
+        document.getElementById('ramPercent').textContent = `${Math.round(d.ram.percent)}%`;
+        document.getElementById('ramDetail').textContent = `${d.ram.used_gb} / ${d.ram.total_gb} GB`;
+        setGaugeValue('ramCircle', d.ram.percent);
+
+        document.getElementById('diskPercent').textContent = `${Math.round(d.disk.percent)}%`;
+        document.getElementById('diskDetail').textContent = `${d.disk.free_gb} GB livres (${d.disk.mount})`;
+        setGaugeValue('diskCircle', d.disk.percent);
+
+        if (d.network) {
+          document.getElementById('netDown').textContent = d.network.down_kbs;
+          document.getElementById('netUp').textContent = d.network.up_kbs;
+          document.getElementById('batDetail').textContent = `IP: ${d.network.local_ip} • Uptime: ${d.network.uptime}`;
+        }
+
+        if (d.remote) {
+          const r = d.remote;
+          const lanUrlWithChannel = `${r.lan_mobile_url}?channel=${r.cloud_channel}`;
+          const pubUrlWithChannel = r.public_mobile_url ? `${r.public_mobile_url}?channel=${r.cloud_channel}` : '';
+
+          document.getElementById('lanMobileUrl').textContent = lanUrlWithChannel;
+          document.getElementById('ntfyChannelCode').textContent = `https://ntfy.sh/${r.cloud_channel}`;
+
+          const pubEl = document.getElementById('publicMobileUrl');
+          if (pubUrlWithChannel) {
+            pubEl.textContent = pubUrlWithChannel;
+            document.getElementById('tunnelStatusBadge').textContent = 'Túnel 4G/5G Online';
+          } else {
+            pubEl.textContent = `Cloud Relay Ativo (${r.cloud_channel})`;
+          }
+
+          const qrTarget = pubUrlWithChannel || lanUrlWithChannel;
+          const qrEl = document.getElementById('mobileQrImg');
+          if (qrEl && qrEl.dataset.url !== qrTarget) {
+            qrEl.dataset.url = qrTarget;
+            qrEl.src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(qrTarget)}`;
+          }
+        }
+
+        if (d.pomodoro) {
+          const bigClock = document.getElementById('pomoBigClock');
+          const statusLbl = document.getElementById('pomoStatusLabel');
+          const sessCnt = document.getElementById('pomoSessionCount');
+          if (bigClock) bigClock.textContent = d.pomodoro.active ? d.pomodoro.formatted : '25:00';
+          if (statusLbl) statusLbl.textContent = d.pomodoro.active ? `EM FOCO: ${d.pomodoro.label}` : 'PRONTO PARA FOCAR';
+          if (sessCnt) sessCnt.textContent = `${d.pomodoro.completed_sessions} sessões`;
+        }
+
+        const tbody = document.getElementById('processTableBody');
+        if (tbody) {
+          tbody.innerHTML = d.top_processes.map(p => `
+            <tr>
+              <td><strong>${p.name}</strong></td>
+              <td style="font-family:'JetBrains Mono',monospace;color:var(--text-muted);">${p.pid}</td>
+              <td><span style="color:var(--cyan);font-weight:700;">${p.memory_percent}%</span></td>
+              <td><button class="btn btn-danger" style="padding:3px 8px;font-size:10.5px;" onclick="killProcess('${p.pid}')">Encerrar</button></td>
+            </tr>
+          `).join('');
+        }
+      } catch (e) {}
+    }
+
+    let allSyncedApps = [];
+    let currentAppCategoryFilter = 'all';
+
+    async function loadQuickApps() {
+      try {
+        const res = await fetch('/api/system/apps');
+        const data = await res.json();
+        allSyncedApps = data.apps || [];
+        const runningCount = allSyncedApps.filter(a => a.running).length;
+        const badge = document.getElementById('syncedAppsCountBadge');
+        if (badge) badge.textContent = `${allSyncedApps.length} apps (${runningCount} rodando)`;
+        renderFilteredApps();
+      } catch (e) {}
+    }
+
+    function filterAppsByCategory(cat) {
+      currentAppCategoryFilter = cat;
+      renderFilteredApps();
+    }
+
+    function renderFilteredApps() {
+      const grid = document.getElementById('quickAppsGrid');
+      if (!grid) return;
+      const searchEl = document.getElementById('appFilterSearch');
+      const q = (searchEl ? searchEl.value.trim().toLowerCase() : '');
+
+      const filtered = allSyncedApps.filter(app => {
+        if (currentAppCategoryFilter === 'running' && !app.running) return false;
+        if (currentAppCategoryFilter !== 'all' && currentAppCategoryFilter !== 'running' && app.category !== currentAppCategoryFilter) return false;
+        if (q && !(app.name.toLowerCase().includes(q) || (app.category || '').toLowerCase().includes(q) || (app.id || '').toLowerCase().includes(q))) return false;
+        return true;
+      });
+
+      grid.innerHTML = filtered.map(app => {
+        const isRun = !!app.running;
+        const badgeHtml = isRun
+          ? `<span class="app-status-badge app-status-on">RODANDO (${app.pid})</span>`
+          : `<span class="app-status-badge app-status-off">INSTALADO</span>`;
+        const closeBtnHtml = isRun
+          ? `<button class="btn btn-danger" style="padding:1px 6px; font-size:9px; margin-top:2px;" onclick="event.stopPropagation(); killProcess('${app.pid}')">Fechar</button>`
+          : '';
+        return `
+        <div class="app-tile ${isRun ? 'app-running' : ''}" onclick="openApp('${app.id}')" title="${app.name} (${app.source || 'sistema'})">
+          <div class="icon-box"><i data-lucide="${app.icon || 'box'}" class="lucide"></i></div>
+          <div class="label">${app.name}</div>
+          <div class="cat">${app.category}</div>
+          ${badgeHtml}
+          ${closeBtnHtml}
+        </div>
+      `}).join('');
+      refreshIcons();
+    }
+
+    async function syncSystemAppsNow() {
+      showToast('Escaneando Menu Iniciar, Registro, Área de Trabalho e Processos...');
+      const res = await fetch('/api/system/apps/sync', { method: 'POST' });
+      const data = await res.json();
+      showToast(data.message || `Sincronizados **${data.synced_count || (data.apps||[]).length}** aplicativos do seu PC!`);
+      await loadQuickApps();
+    }
+
+    async function registerNewCustomApp() {
+      const inp = document.getElementById('customAppInput');
+      const raw = inp ? inp.value.trim() : '';
+      let name = '';
+      let cmd = '';
+      if (raw.includes('|')) {
+        const parts = raw.split('|');
+        name = parts[0].trim();
+        cmd = parts.slice(1).join('|').trim();
+      } else {
+        name = prompt('Nome do Aplicativo para fixar no catálogo:', raw || 'Meu App');
+        if (!name) return;
+        cmd = raw || prompt('Comando, executável ou URL do aplicativo:');
+        if (!cmd) return;
+      }
+      const res = await fetch('/api/system/apps/custom', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, target_path: cmd, category: 'Personalizado', icon: 'box' })
+      });
+      const data = await res.json();
+      showToast(data.message || `Aplicativo **${name}** salvo no catálogo!`);
+      if (inp) inp.value = '';
+      loadQuickApps();
+    }
+
+    async function openApp(target) {
+      const res = await fetch('/api/system/open', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target })
+      });
+      const data = await res.json();
+      showToast(data.message);
+      setTimeout(loadQuickApps, 1200);
+    }
+
+    function launchCustomApp() {
+      const inp = document.getElementById('customAppInput');
+      if (!inp.value.trim()) return;
+      openApp(inp.value.trim());
+      inp.value = '';
+    }
+
+    async function killProcess(pid) {
+      const res = await fetch('/api/system/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target: String(pid) })
+      });
+      const data = await res.json();
+      showToast(data.message);
+      refreshSystemStats();
+      loadQuickApps();
+    }
+
+    async function triggerScreenshot() {
+      const res = await fetch('/api/system/screenshot', { method: 'POST' });
+      const data = await res.json();
+      showToast(data.message);
+    }
+
+    async function triggerMedia(action) {
+      const res = await fetch('/api/system/media', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      });
+      const data = await res.json();
+      showToast(data.message);
+    }
+
+    async function triggerCleanTemp() {
+      const res = await fetch('/api/system/clean-temp', { method: 'POST' });
+      const data = await res.json();
+      showToast(data.message);
+    }
+
+    async function triggerEmptyTrash() {
+      const res = await fetch('/api/system/empty-trash', { method: 'POST' });
+      const data = await res.json();
+      showToast(data.message);
+    }
+
+    async function triggerLockPC() {
+      if (!confirm('Bloquear a tela do sistema agora?')) return;
+      await fetch('/api/system/lock', { method: 'POST' });
+    }
+
+    async function triggerRoutine(routineId) {
+      const res = await fetch('/api/system/routine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ routine_id: routineId })
+      });
+      const data = await res.json();
+      showToast(data.message);
+    }
+
+    async function loadBackgroundStatus() {
+      const res = await fetch('/api/system/background-status');
+      const d = await res.json();
+      const badge = document.getElementById('autostartBadge');
+      if (d.autostart_enabled) {
+        badge.textContent = `ATIVO (${d.os})`;
+        badge.className = 'badge-prio prio-baixa';
+      } else {
+        badge.textContent = 'DESATIVADO';
+        badge.className = 'badge-prio prio-media';
+      }
+    }
+
+    async function launchTopHud() {
+      const res = await fetch('/api/system/launch-hud', { method: 'POST' });
+      const d = await res.json();
+      showToast(d.message);
+    }
+
+    async function setWindowsAutostart(enable) {
+      const res = await fetch('/api/system/autostart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enable })
+      });
+      const d = await res.json();
+      showToast(d.message);
+      loadBackgroundStatus();
+    }
+
+    async function createDesktopShortcut() {
+      const res = await fetch('/api/system/desktop-shortcut', { method: 'POST' });
+      const d = await res.json();
+      showToast(d.message);
+    }
+
+    async function loadTasks() {
+      const res = await fetch('/api/tasks');
+      const data = await res.json();
+      const box = document.getElementById('tasksContainer');
+      if (!box) return;
+      box.innerHTML = data.tasks.map(t => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(8,12,24,0.65);border:1px solid var(--border-subtle);border-radius:8px;margin-bottom:6px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="checkbox" ${t.done?'checked':''} onchange="toggleTask(${t.id})" style="accent-color:var(--cyan);cursor:pointer;" />
+            <span style="font-size:12px;${t.done?'text-decoration:line-through;color:var(--text-muted);':''}">${t.title}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="badge-prio prio-${t.priority}">${t.priority}</span>
+            <button class="btn btn-danger" style="padding:2px 6px;font-size:10px;" onclick="deleteTask(${t.id})">×</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function createNewTask() {
+      const titleEl = document.getElementById('taskTitle');
+      const prioEl = document.getElementById('taskPriority');
+      if (!titleEl.value.trim()) return;
+      await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: titleEl.value.trim(), priority: prioEl.value })
+      });
+      titleEl.value = '';
+      loadTasks();
+    }
+
+    async function toggleTask(id) { await fetch(`/api/tasks/${id}/toggle`, { method: 'POST' }); loadTasks(); }
+    async function deleteTask(id) { await fetch(`/api/tasks/${id}`, { method: 'DELETE' }); loadTasks(); }
+
+    async function runWebSearch() {
+      const q = document.getElementById('webSearchInput').value.trim();
+      if (!q) return;
+      const box = document.getElementById('webResultsContainer');
+      box.innerHTML = '<small style="color:var(--cyan);">Buscando na web...</small>';
+      const res = await fetch('/api/web/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: q })
+      });
+      const d = await res.json();
+      box.innerHTML = (d.results || []).map(r => `
+        <div style="background:rgba(8,12,24,0.7);padding:9px;border-radius:8px;border:1px solid var(--border-subtle);">
+          <a href="${r.url}" target="_blank" style="color:var(--cyan);font-size:12px;font-weight:700;text-decoration:none;">${r.title}</a>
+          <p style="font-size:11px;color:var(--text-secondary);margin-top:3px;">${r.snippet}</p>
+        </div>
+      `).join('');
+    }
+
+    async function runFolderOrganizer(dryRun) {
+      const folder = document.getElementById('organizeFolderSelect').value;
+      const res = await fetch('/api/files/organize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder, dry_run: dryRun })
+      });
+      const d = await res.json();
+      document.getElementById('organizeOutput').innerHTML = `
+        <div style="font-size:11.5px;background:rgba(8,12,24,0.7);padding:8px;border-radius:8px;border:1px solid var(--border-subtle);">
+          <strong>${dryRun ? 'Simulação' : 'Organizado'}:</strong> ${d.total_files} arquivo(s) em <code>${d.folder}</code>
+        </div>
+      `;
+    }
+
+    async function runFileSearch() {
+      const q = document.getElementById('fileSearchQuery').value.trim();
+      const folder = document.getElementById('organizeFolderSelect').value;
+      const res = await fetch('/api/files/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: q, folder })
+      });
+      const d = await res.json();
+      document.getElementById('fileSearchResults').innerHTML = (d.files || []).map(f => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 7px;border-bottom:1px solid var(--border-subtle);font-size:11px;">
+          <span>${f.name} <small style="color:var(--text-muted);">(${f.size_kb} KB)</small></span>
+          <button class="btn" style="padding:2px 6px;font-size:10px;" onclick="openApp('${f.path.replace(/\\/g, '\\\\')}')">Abrir</button>
+        </div>
+      `).join('');
+    }
+
+    // --- AUTOMATIONS, SMART CLIPBOARD & POMODORO ---
+    async function loadAutomations() {
+      try {
+        const res = await fetch('/api/automations');
+        const d = await res.json();
+        const box = document.getElementById('automationsListContainer');
+        if (!box) return;
+        box.innerHTML = (d.automations || []).map(a => `
+          <div style="background:rgba(8,12,24,0.8); border:1px solid var(--border-subtle); border-radius:9px; padding:8px 10px; font-size:11.5px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong style="color:${a.enabled?'var(--cyan)':'var(--text-muted)'};">${a.name}</strong>
+              <div style="display:flex; gap:4px;">
+                <button class="btn btn-primary" style="padding:2px 7px; font-size:10px;" onclick="runAutoNow(${a.id})">▶ Rodar</button>
+                <button class="btn" style="padding:2px 7px; font-size:10px;" onclick="toggleAutoRule(${a.id})">${a.enabled?'ON':'OFF'}</button>
+                <button class="btn btn-danger" style="padding:2px 6px; font-size:10px;" onclick="deleteAutoRule(${a.id})">×</button>
+              </div>
+            </div>
+            <div style="color:var(--text-muted); font-size:10.5px; margin-top:3px;">
+              Regra: <code>${a.schedule_type} (${a.schedule_value})</code> • Ação: <code>${a.action_type}</code> • Execuções: ${a.run_count} (Última: ${a.last_run})
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {}
+    }
+
+    async function createNewAutomation() {
+      const name = document.getElementById('autoName').value.trim();
+      const schedule_type = document.getElementById('autoSchedType').value;
+      const schedule_value = document.getElementById('autoSchedVal').value.trim();
+      const action_type = document.getElementById('autoActType').value;
+      const action_payload = document.getElementById('autoActPayload').value.trim();
+      if (!name || !action_payload) {
+        showToast('Preencha o nome e o comando/prompt da automação.');
+        return;
+      }
+      await fetch('/api/automations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, schedule_type, schedule_value, action_type, action_payload })
+      });
+      document.getElementById('autoName').value = '';
+      document.getElementById('autoActPayload').value = '';
+      showToast('Automação em 2º plano criada!');
+      loadAutomations();
+    }
+
+    async function toggleAutoRule(id) {
+      await fetch(`/api/automations/${id}/toggle`, { method: 'POST' });
+      loadAutomations();
+    }
+
+    async function runAutoNow(id) {
+      showToast('Executando automação e enviando push para o celular...');
+      const res = await fetch(`/api/automations/${id}/run`, { method: 'POST' });
+      const d = await res.json();
+      showToast(`**${d.name}:** ${d.result}`);
+      loadAutomations();
+    }
+
+    async function deleteAutoRule(id) {
+      await fetch(`/api/automations/${id}`, { method: 'DELETE' });
+      loadAutomations();
+    }
+
+    async function loadClipboardDashboard() {
+      try {
+        const res = await fetch('/api/clipboard');
+        const d = await res.json();
+        const box = document.getElementById('clipboardHistoryBox');
+        if (!box) return;
+        const list = d.history || [];
+        if (!list.length) {
+          box.innerHTML = '<small style="color:var(--text-muted);">Copie qualquer texto ou link (Ctrl+C) para ver o histórico inteligente aqui.</small>';
+          return;
+        }
+        box.innerHTML = list.map(item => `
+          <div style="background:rgba(8,12,24,0.8); border:1px solid ${item.pinned?'var(--amber)':'var(--border-subtle)'}; border-radius:8px; padding:7px 9px; font-size:11.5px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;">
+              <strong style="color:var(--emerald);">[${item.category}]</strong> ${item.content.replace(/</g, '&lt;').slice(0, 100)}
+            </div>
+            <div style="display:flex; gap:4px; flex-shrink:0;">
+              <button class="btn" style="padding:2px 6px; font-size:10px;" onclick="copyDashClipboard(${JSON.stringify(item.content).replace(/"/g, '&quot;')})">Copiar</button>
+              <button class="btn" style="padding:2px 6px; font-size:10px; color:${item.pinned?'var(--amber)':'#fff'};" onclick="pinDashClipboard(${item.id})">★</button>
+              <button class="btn btn-danger" style="padding:2px 6px; font-size:10px;" onclick="deleteDashClipboard(${item.id})">×</button>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {}
+    }
+
+    async function copyDashClipboard(text) {
+      const res = await fetch('/api/clipboard/copy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+      const d = await res.json();
+      showToast(d.message);
+    }
+
+    async function pinDashClipboard(id) {
+      await fetch(`/api/clipboard/${id}/pin`, { method: 'POST' });
+      loadClipboardDashboard();
+    }
+
+    async function deleteDashClipboard(id) {
+      await fetch(`/api/clipboard/${id}`, { method: 'DELETE' });
+      loadClipboardDashboard();
+    }
+
+    async function runClipboardAi(task) {
+      const out = document.getElementById('clipAiOutput');
+      out.style.display = 'block';
+      out.innerHTML = `<span style="color:var(--cyan);">Processando área de transferência com IA (${task})...</span>`;
+      const res = await fetch('/api/clipboard/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task })
+      });
+      const d = await res.json();
+      out.innerHTML = `<strong style="color:var(--cyan);">${d.provider || 'AURA'}:</strong><br>${formatMarkdown(d.reply)}`;
+    }
+
+    async function startDashPomodoro(minutes, label) {
+      await fetch('/api/pomodoro/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ minutes, label })
+      });
+      showToast(`Timer **${label}** iniciado! Sincronizado com HUD do topo e Celular.`);
+      refreshSystemStats();
+    }
+
+    async function stopDashPomodoro() {
+      await fetch('/api/pomodoro/stop', { method: 'POST' });
+      showToast('Timer Pomodoro encerrado.');
+      refreshSystemStats();
+    }
+
+    async function loadNetworkDiagnostics() {
+      try {
+        const res = await fetch('/api/system/network-diag');
+        const d = await res.json();
+        const bar = document.getElementById('netDiagBar');
+        if (!bar) return;
+        const portsStr = (d.open_ports || []).map(p => `<code style="color:var(--emerald);">${p.port} (${p.service})</code>`).join(' • ') || 'Nenhuma porta dev aberta';
+        bar.innerHTML = `
+          <div>
+            <strong>Status Internet:</strong> <span style="color:${d.online?'var(--emerald)':'var(--rose)'};">${d.online?'ONLINE':'OFFLINE'} (${d.latency_ms} ms)</span>
+            &nbsp;|&nbsp; <strong>Portas Locais Ativas:</strong> ${portsStr}
+          </div>
+          <button class="btn" style="padding:3px 8px; font-size:10.5px;" onclick="loadNetworkDiagnostics()">Atualizar Scan</button>
+        `;
+      } catch (e) {}
+    }
+
+    async function triggerPower(action, delay_minutes = 30) {
+      const res = await fetch('/api/system/power', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, delay_minutes })
+      });
+      const d = await res.json();
+      showToast(d.message);
+    }
+
+    // --- COMPLETE SYSTEM SETTINGS (TAB 7) ---
+    const SETTINGS_FIELDS = [
+      'assistant_name', 'response_style', 'custom_system_prompt',
+      'ai_provider', 'default_free_model', 'gemini_api_key',
+      'groq_api_key', 'openrouter_api_key', 'ollama_url', 'ollama_model',
+      'voice_reply', 'auto_learn_memory', 'terminal_input_mode',
+      'agent_auto_exec_shell', 'default_terminal_cwd', 'terminal_timeout_sec',
+      'hud_compact_w', 'hud_expanded_w', 'hud_expanded_h',
+      'notify_on_maestri', 'notify_on_terminal', 'notify_on_chat',
+      'hardware_alert_threshold',
+      'auto_update_enabled', 'update_repo', 'update_branch',
+      'update_check_interval_sec', 'auto_restart_on_update'
+    ];
+
+    async function loadSystemSettings() {
+      try {
+        const res = await fetch('/api/settings');
+        const cfg = await res.json();
+        SETTINGS_FIELDS.forEach(key => {
+          const el = document.getElementById(`cfg_${key}`);
+          if (el && cfg[key] !== undefined) {
+            el.value = cfg[key];
+          }
+        });
+        if (cfg.assistant_name) {
+          const hName = document.getElementById('headerAssistantName');
+          if (hName) hName.textContent = cfg.assistant_name;
+        }
+        voiceReplyEnabled = (cfg.voice_reply !== 'false');
+        const btn = document.getElementById('btnToggleTts');
+        if (btn) {
+          btn.innerHTML = voiceReplyEnabled
+            ? '<i data-lucide="volume-2" class="lucide"></i> Voz: ON'
+            : '<i data-lucide="volume-x" class="lucide"></i> Voz: OFF';
+          refreshIcons();
+        }
+      } catch (e) {}
+    }
+
+    async function saveAllSystemSettings() {
+      const payload = {};
+      SETTINGS_FIELDS.forEach(key => {
+        const el = document.getElementById(`cfg_${key}`);
+        if (el) payload[key] = el.value;
+      });
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      showToast(`<strong>${data.message}</strong>`);
+      await loadSystemSettings();
+      loadFreeAiPool();
+    }
+
+    async function clearSystemLogsNow() {
+      if (!confirm('Deseja limpar todo o histórico de logs de atividade do sistema?')) return;
+      const res = await fetch('/api/settings/clear-logs', { method: 'POST' });
+      const data = await res.json();
+      showToast(data.message);
+    }
+
+    async function loadUpdateStatus() {
+      try {
+        const res = await fetch('/api/updates/status');
+        const d = await res.json();
+        const badge = document.getElementById('updateStatusBadge');
+        const shaEl = document.getElementById('updateLocalSha');
+        const modeEl = document.getElementById('updateModeLabel');
+        const checkEl = document.getElementById('updateLastCheck');
+        const msgEl = document.getElementById('updateAvailableMsg');
+        if (shaEl) shaEl.textContent = (d.local && d.local.short_sha) || 'local';
+        if (modeEl) modeEl.textContent = (d.local && d.local.mode) || '-';
+        if (checkEl) checkEl.textContent = (d.state && d.state.last_checked_at) || 'Aguardando...';
+        if (badge) {
+          if (d.state && d.state.update_available) {
+            badge.textContent = 'Nova versão na main!';
+            badge.className = 'badge-prio prio-media';
+            if (msgEl) {
+              msgEl.style.display = 'block';
+              msgEl.textContent = `Disponível: ${(d.state.remote_sha || '').slice(0,7)} — ${d.state.remote_message || ''}`;
+            }
+          } else if (d.state && d.state.last_error) {
+            badge.textContent = 'Erro ao verificar';
+            badge.className = 'badge-prio prio-alta';
+          } else {
+            badge.textContent = d.auto_update_enabled ? 'Auto-Update ON' : 'Manual';
+            badge.className = 'badge-prio prio-baixa';
+            if (msgEl) msgEl.style.display = 'none';
+          }
+        }
+      } catch (e) {}
+    }
+
+    async function checkUpdatesNow() {
+      showToast('Verificando commits na branch main...');
+      const res = await fetch('/api/updates/check', { method: 'POST' });
+      const d = await res.json();
+      await loadUpdateStatus();
+      if (!d.ok) {
+        showToast(`Erro ao verificar: ${d.error}`);
+      } else if (d.update_available) {
+        showToast(`<strong>Nova atualização na main (${d.remote_short})!</strong> ${d.remote_message || ''}`);
+      } else {
+        showToast(`AURA OS já está na última versão (${d.local_short}).`);
+      }
+    }
+
+    async function applyUpdateNow() {
+      showToast('Aplicando atualização da branch main...');
+      const res = await fetch('/api/updates/apply', { method: 'POST' });
+      const d = await res.json();
+      showToast(d.message || 'Atualização processada.');
+      if (d.restarting) {
+        setTimeout(() => location.reload(), 4500);
+      } else {
+        await loadUpdateStatus();
+      }
+    }
+
+    function downloadAppInstaller() {
+      window.location.href = '/api/updates/download-installer';
+    }
+
+    function downloadAppBundle() {
+      window.location.href = '/api/updates/download-bundle';
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      refreshIcons();
+      initCanvasInteractions();
+      loadSystemSettings();
+      loadUpdateStatus();
+      loadCanvasState();
+      refreshSystemStats();
+      loadQuickApps();
+      loadMemoryAndXp();
+      loadFreeAiPool();
+      loadTasks();
+      loadAutomations();
+      loadClipboardDashboard();
+      loadNetworkDiagnostics();
+      loadBackgroundStatus();
+      setInterval(refreshSystemStats, 2500);
+      setInterval(loadQuickApps, 8000);
+    });
+  </script>
+</body>
+</html>

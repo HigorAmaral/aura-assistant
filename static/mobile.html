@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>AURA 5.0 Mobile — Controle Remoto & Push</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    :root {
+      --bg: #050811;
+      --card: rgba(16, 24, 44, 0.92);
+      --border: rgba(56, 189, 248, 0.28);
+      --cyan: #38bdf8;
+      --indigo: #818cf8;
+      --emerald: #34d399;
+      --amber: #fbbf24;
+      --rose: #fb7185;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+    body {
+      background: radial-gradient(circle at 50% 0%, #101c3b 0%, var(--bg) 65%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 12px 12px 84px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .lucide { width: 17px; height: 17px; stroke-width: 2.2; flex-shrink: 0; }
+
+    /* Real-time Completion Toast Alert Banner */
+    .notif-banner {
+      position: fixed;
+      top: 10px; left: 10px; right: 10px;
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.97), rgba(6, 95, 70, 0.98));
+      border: 1.5px solid #6ee7b7;
+      color: #fff;
+      padding: 13px 15px;
+      border-radius: 14px;
+      box-shadow: 0 16px 38px rgba(0, 0, 0, 0.78);
+      z-index: 9999;
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .notif-banner.show { display: flex; }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 11px 14px;
+      border-radius: 15px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .orb {
+      width: 32px; height: 32px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--cyan), var(--indigo));
+      display: flex; align-items: center; justify-content: center;
+      color: #04070e;
+    }
+
+    .status-pill {
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 99px;
+      background: rgba(52, 211, 153, 0.16);
+      color: var(--emerald);
+      border: 1px solid rgba(52, 211, 153, 0.35);
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 7px;
+    }
+    .metric-box {
+      background: var(--card);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 12px;
+      padding: 9px 6px;
+      text-align: center;
+    }
+    .metric-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--cyan);
+      margin-top: 2px;
+    }
+    .metric-lbl { font-size: 10px; color: var(--muted); }
+
+    .card {
+      background: var(--card);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 15px;
+      padding: 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .card-title {
+      font-size: 11.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: var(--cyan);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .mob-page { display: none; flex-direction: column; gap: 12px; }
+    .mob-page.active { display: flex; }
+
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+
+    .touch-btn {
+      background: rgba(25, 37, 66, 0.88);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 13px 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .touch-btn:active {
+      transform: scale(0.96);
+      border-color: var(--cyan);
+      background: rgba(56, 189, 248, 0.2);
+    }
+
+    input[type="text"], textarea {
+      width: 100%;
+      background: rgba(8, 12, 24, 0.95);
+      border: 1px solid var(--border);
+      color: #fff;
+      padding: 11px 12px;
+      border-radius: 11px;
+      font-size: 13.5px;
+      outline: none;
+    }
+    .send-btn {
+      background: linear-gradient(135deg, var(--cyan), var(--indigo));
+      color: #04070e;
+      border: none;
+      border-radius: 11px;
+      padding: 10px 15px;
+      font-weight: 800;
+      font-size: 12.5px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    /* Bottom Navigation Bar */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 64px;
+      background: rgba(6, 10, 21, 0.96);
+      backdrop-filter: blur(16px);
+      border-top: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      z-index: 100;
+    }
+    .nav-btn {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      font-size: 10.5px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .nav-btn.active { color: var(--cyan); }
+  </style>
+</head>
+<body>
+
+  <!-- Real-time Notification Popup when Maestri or AI finishes -->
+  <div class="notif-banner" id="notifBanner" onclick="this.classList.remove('show')">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <strong id="notifTitle" style="font-size:13.5px;">Notificação AURA</strong>
+      <small style="opacity:0.85;">Toque para fechar</small>
+    </div>
+    <div id="notifBody" style="font-size:12px;line-height:1.4;">Sua tarefa no Maestri ficou pronta!</div>
+  </div>
+
+  <div class="header">
+    <div class="brand">
+      <div class="orb"><i data-lucide="cpu" class="lucide"></i></div>
+      <div>
+        <div style="font-weight:800;font-size:14.5px;">AURA 5.0 Mobile</div>
+        <div style="font-size:10.5px;color:var(--muted);" id="netModeLabel">Conectado (Wi-Fi / 4G Cloud)</div>
+      </div>
+    </div>
+    <span class="status-pill" id="connPill">ONLINE</span>
+  </div>
+
+  <!-- Live PC Metrics + Pomodoro -->
+  <div class="metrics">
+    <div class="metric-box">
+      <div class="metric-lbl">CPU</div>
+      <div class="metric-val" id="mCpu">--%</div>
+    </div>
+    <div class="metric-box">
+      <div class="metric-lbl">RAM</div>
+      <div class="metric-val" id="mRam" style="color:var(--indigo);">--%</div>
+    </div>
+    <div class="metric-box">
+      <div class="metric-lbl">DISCO</div>
+      <div class="metric-val" id="mDisk" style="color:var(--emerald);">--%</div>
+    </div>
+    <div class="metric-box">
+      <div class="metric-lbl">POMODORO</div>
+      <div class="metric-val" id="mPomo" style="color:var(--amber);">00:00</div>
+    </div>
+  </div>
+
+  <!-- PAGE 1: DECK REMOTO & POMODORO -->
+  <div class="mob-page active" id="mpage-deck">
+    <div class="card">
+      <div class="card-title"><i data-lucide="bell-ring" class="lucide"></i> Alertas do Maestri, IA & Automações</div>
+      <div style="display:flex;gap:8px;">
+        <button class="send-btn" style="flex:1;" onclick="enableBrowserPush()"><i data-lucide="check-circle" class="lucide"></i> Ativar Som & Push</button>
+        <button class="touch-btn" style="padding:8px 12px;flex-direction:row;" onclick="testMobilePush()"><i data-lucide="send" class="lucide"></i> Testar</button>
+      </div>
+      <div id="notifFeed" style="max-height:145px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
+        <small style="color:var(--muted);">Quando um agente do Maestri ou timer terminar no PC, o aviso aparece aqui com som e vibração.</small>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i data-lucide="timer" class="lucide"></i> Timer Foco Pomodoro (Sincronizado com PC)</div>
+      <div class="grid-3">
+        <button class="touch-btn" onclick="mobStartPomo(25, 'Pomodoro 25m')"><i data-lucide="flame" class="lucide" style="color:var(--amber);"></i> 25m Foco</button>
+        <button class="touch-btn" onclick="mobStartPomo(50, 'Deep Work 50m')"><i data-lucide="zap" class="lucide" style="color:var(--cyan);"></i> 50m Deep</button>
+        <button class="touch-btn" onclick="mobStopPomo()"><i data-lucide="square" class="lucide" style="color:var(--rose);"></i> Parar Timer</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i data-lucide="sliders" class="lucide"></i> Controle de Mídia, Rotinas & Energia</div>
+      <div class="grid-3">
+        <button class="touch-btn" onclick="sendMedia('vol_down')"><i data-lucide="volume-1" class="lucide" style="color:var(--cyan);"></i> Vol -</button>
+        <button class="touch-btn" onclick="sendMedia('play_pause')"><i data-lucide="play" class="lucide" style="color:var(--emerald);"></i> Play/Pause</button>
+        <button class="touch-btn" onclick="sendMedia('vol_up')"><i data-lucide="volume-2" class="lucide" style="color:var(--cyan);"></i> Vol +</button>
+        <button class="touch-btn" onclick="sendRoutine('modo_dev')"><i data-lucide="code-2" class="lucide" style="color:var(--cyan);"></i> Modo Dev</button>
+        <button class="touch-btn" onclick="sendRoutine('modo_faxina')"><i data-lucide="sparkles" class="lucide" style="color:var(--emerald);"></i> Faxina PC</button>
+        <button class="touch-btn" onclick="takeMobileShot()"><i data-lucide="camera" class="lucide" style="color:var(--amber);"></i> Print PC</button>
+        <button class="touch-btn" onclick="sendPower('lock')"><i data-lucide="lock" class="lucide" style="color:var(--rose);"></i> Bloquear</button>
+        <button class="touch-btn" onclick="sendPower('sleep')"><i data-lucide="moon" class="lucide" style="color:var(--indigo);"></i> Suspender</button>
+        <button class="touch-btn" onclick="sendMedia('mute')"><i data-lucide="volume-x" class="lucide" style="color:var(--rose);"></i> Mudo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE 2: TERMINAL REMOTO & PROCESSOS -->
+  <div class="mob-page" id="mpage-term">
+    <div class="card">
+      <div class="card-title"><i data-lucide="terminal" class="lucide"></i> Terminal Remoto do PC (PowerShell / Bash)</div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="mobTermInput" placeholder="Ex: dir, ipconfig, git status, python --version" style="font-family:'JetBrains Mono',monospace;" onkeydown="if(event.key==='Enter') runMobTerm()" />
+        <button class="send-btn" onclick="runMobTerm()">Rodar</button>
+      </div>
+      <div id="mobTermOut" style="background:#020409;border:1px solid rgba(52,211,153,0.35);border-radius:10px;padding:10px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--emerald);max-height:220px;overflow-y:auto;white-space:pre-wrap;">$ Digite um comando para executar no PC remotamente.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i data-lucide="activity" class="lucide"></i> Processos no PC (Toque para Encerrar)</div>
+      <div id="mobProcList" style="display:flex;flex-direction:column;gap:6px;">
+        <small style="color:var(--muted);">Carregando processos do PC...</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE 3: CLIPBOARD SYNC (CELULAR <-> PC) -->
+  <div class="mob-page" id="mpage-clip">
+    <div class="card">
+      <div class="card-title"><i data-lucide="send" class="lucide"></i> Enviar Texto/Link para o Ctrl+V do PC</div>
+      <textarea id="mobClipInput" rows="3" placeholder="Cole aqui um link, texto ou código do celular para enviar direto para a área de transferência do PC..."></textarea>
+      <button class="send-btn" onclick="sendMobClipboard()"><i data-lucide="copy" class="lucide"></i> Enviar para Área de Transferência do PC</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i data-lucide="clipboard-list" class="lucide"></i> Histórico Copiado no PC</div>
+      <div id="mobClipList" style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto;">
+        <small style="color:var(--muted);">Carregando área de transferência do PC...</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE 4: CHAT IA & 4G CLOUD RELAY -->
+  <div class="mob-page" id="mpage-ai">
+    <div class="card">
+      <div class="card-title"><i data-lucide="message-square" class="lucide"></i> Comando de Voz / IA para o PC</div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="mChatInput" placeholder="Ex: Abra o VS Code, crie tarefa, pesquise..." onkeydown="if(event.key==='Enter') sendMobileChat()" />
+        <button class="send-btn" onclick="sendMobileChat()"><i data-lucide="send" class="lucide"></i></button>
+      </div>
+      <div id="mReplyBox" style="font-size:12.5px;line-height:1.5;color:var(--muted);background:rgba(5,8,16,0.75);padding:10px;border-radius:10px;">
+        Envie qualquer comando para a AURA no seu computador.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i data-lucide="globe" class="lucide"></i> Ponte Remota 4G/5G (Fora da Mesma Rede)</div>
+      <p style="font-size:11.5px;color:var(--muted);line-height:1.45;">
+        Se você estiver no 4G/5G fora do Wi-Fi de casa, informe o <strong>Código do Canal Cloud</strong> exibido no seu PC:
+      </p>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="cloudChannelInput" placeholder="Ex: aura-maestri-xxxxxxxx" />
+        <button class="send-btn" onclick="connectCloudRelay()">Vincular 4G</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation Bar -->
+  <div class="bottom-nav">
+    <button class="nav-btn active" onclick="switchMobPage('mpage-deck', this)">
+      <i data-lucide="layout-grid" class="lucide"></i> Deck & Push
+    </button>
+    <button class="nav-btn" onclick="switchMobPage('mpage-term', this)">
+      <i data-lucide="terminal" class="lucide"></i> Terminal & Apps
+    </button>
+    <button class="nav-btn" onclick="switchMobPage('mpage-clip', this); loadMobClipboard();">
+      <i data-lucide="clipboard" class="lucide"></i> Clipboard PC
+    </button>
+    <button class="nav-btn" onclick="switchMobPage('mpage-ai', this)">
+      <i data-lucide="sparkles" class="lucide"></i> IA & 4G Cloud
+    </button>
+  </div>
+
+  <script>
+    lucide.createIcons();
+    let lastNotifId = 0;
+    let cloudChannel = localStorage.getItem('aura_cloud_channel') || '';
+    let cloudEventSource = null;
+
+    function switchMobPage(pageId, btnEl) {
+      document.querySelectorAll('.mob-page').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(pageId).classList.add('active');
+      if (btnEl) btnEl.classList.add('active');
+    }
+
+    function playNotificationSound() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+        osc.frequency.setValueAtTime(880.0, ctx.currentTime + 0.14);
+        gain.gain.setValueAtTime(0.18, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.45);
+      } catch (e) {}
+      if (navigator.vibrate) navigator.vibrate([200, 100, 250]);
+    }
+
+    function displayIncomingNotification(notif, triggerAlert = true) {
+      if (notif.id && notif.id <= lastNotifId) return;
+      if (notif.id) lastNotifId = Math.max(lastNotifId, notif.id);
+
+      const feed = document.getElementById('notifFeed');
+      const item = document.createElement('div');
+      item.style.cssText = 'background:rgba(8,14,28,0.9);border-left:3px solid var(--emerald);padding:8px 10px;border-radius:8px;font-size:12px;';
+      item.innerHTML = `<div style="display:flex;justify-content:space-between;"><strong style="color:var(--emerald);">${notif.title}</strong><small style="color:var(--muted);">${notif.timestamp || ''}</small></div><div style="color:#e2e8f0;margin-top:3px;">${notif.body}</div>`;
+      feed.prepend(item);
+
+      if (triggerAlert) {
+        playNotificationSound();
+        const banner = document.getElementById('notifBanner');
+        document.getElementById('notifTitle').textContent = notif.title;
+        document.getElementById('notifBody').textContent = notif.body;
+        banner.classList.add('show');
+        setTimeout(() => banner.classList.remove('show'), 7000);
+
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification(notif.title, { body: notif.body });
+        }
+      }
+    }
+
+    function enableBrowserPush() {
+      playNotificationSound();
+      if ('Notification' in window) {
+        Notification.requestPermission();
+      }
+      alert('Alertas sonoros e notificações ativados neste celular!');
+    }
+
+    async function testMobilePush() {
+      try {
+        await fetch('/api/mobile/test-notification', { method: 'POST' });
+        pollLocalServer();
+      } catch (e) {}
+    }
+
+    async function pollLocalServer() {
+      try {
+        const r = await fetch('/api/system/stats');
+        const d = await r.json();
+        document.getElementById('mCpu').textContent = Math.round(d.cpu.percent) + '%';
+        document.getElementById('mRam').textContent = Math.round(d.ram.percent) + '%';
+        document.getElementById('mDisk').textContent = Math.round(d.disk.percent) + '%';
+        if (d.pomodoro) {
+          document.getElementById('mPomo').textContent = d.pomodoro.formatted;
+        }
+
+        if (d.top_processes) {
+          const pBox = document.getElementById('mobProcList');
+          pBox.innerHTML = d.top_processes.slice(0, 6).map(p => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 9px;background:rgba(8,14,28,0.85);border:1px solid rgba(148,163,184,0.15);border-radius:9px;font-size:12px;">
+              <span><strong>${p.name}</strong> <small style="color:var(--muted);">(PID ${p.pid} • ${p.memory_percent}% RAM)</small></span>
+              <button class="touch-btn" style="padding:4px 9px;color:var(--rose);border-color:rgba(251,113,133,0.35);" onclick="killMobProc('${p.pid}')">Encerrar</button>
+            </div>
+          `).join('');
+        }
+
+        if (d.remote && d.remote.cloud_channel) {
+          if (!cloudChannel) {
+            cloudChannel = d.remote.cloud_channel;
+            localStorage.setItem('aura_cloud_channel', cloudChannel);
+            document.getElementById('cloudChannelInput').value = cloudChannel;
+            subscribeCloudEvents(cloudChannel);
+          }
+        }
+
+        const nr = await fetch(`/api/mobile/notifications?since_id=${lastNotifId}`);
+        const nd = await nr.json();
+        const list = (nd.notifications || []).slice().reverse();
+        list.forEach(n => displayIncomingNotification(n, lastNotifId > 0));
+      } catch (e) {
+        document.getElementById('netModeLabel').textContent = 'Modo Remoto 4G/5G Cloud Relay';
+      }
+    }
+
+    function subscribeCloudEvents(channel) {
+      if (!channel) return;
+      if (cloudEventSource) cloudEventSource.close();
+      try {
+        cloudEventSource = new EventSource(`https://ntfy.sh/${channel}-events/sse`);
+        cloudEventSource.onmessage = (ev) => {
+          try {
+            const wrapper = JSON.parse(ev.data);
+            if (wrapper.message) {
+              const notif = JSON.parse(wrapper.message);
+              displayIncomingNotification(notif, true);
+            }
+          } catch (err) {}
+        };
+      } catch (e) {}
+    }
+
+    function connectCloudRelay() {
+      const val = document.getElementById('cloudChannelInput').value.trim();
+      if (!val) return;
+      cloudChannel = val;
+      localStorage.setItem('aura_cloud_channel', cloudChannel);
+      subscribeCloudEvents(cloudChannel);
+      alert(`Conectado ao Canal 4G/5G: ${cloudChannel}`);
+    }
+
+    async function sendMobileChat() {
+      const inp = document.getElementById('mChatInput');
+      const msg = inp.value.trim();
+      if (!msg) return;
+      inp.value = '';
+      const box = document.getElementById('mReplyBox');
+      box.textContent = 'Enviando comando para o PC...';
+
+      try {
+        const r = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: msg })
+        });
+        const d = await r.json();
+        box.innerHTML = `<strong style="color:var(--cyan);">${d.provider || 'AURA'}:</strong><br>${(d.reply || '').replace(/\n/g, '<br>')}`;
+      } catch (e) {
+        if (cloudChannel) {
+          await fetch(`https://ntfy.sh/${cloudChannel}-cmd`, {
+            method: 'POST',
+            body: msg
+          });
+          box.textContent = 'Comando enviado via 4G/5G Cloud Relay! Você receberá a notificação de conclusão em instantes.';
+        } else {
+          box.textContent = 'Fora da rede local. Informe o Código do Canal Cloud abaixo para enviar via 4G/5G.';
+        }
+      }
+    }
+
+    async function runMobTerm() {
+      const inp = document.getElementById('mobTermInput');
+      const cmd = inp.value.trim();
+      if (!cmd) return;
+      inp.value = '';
+      const out = document.getElementById('mobTermOut');
+      out.textContent = `$ ${cmd}\nExecutando no PC...`;
+      const r = await fetch('/api/terminal/exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ node_id: 'mobile-term', command: cmd, node_name: 'Mobile Terminal', notify_mobile: false })
+      });
+      const d = await r.json();
+      out.textContent = `$ ${cmd}\n\n${d.output}`;
+    }
+
+    async function killMobProc(pid) {
+      await fetch('/api/system/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target: String(pid) })
+      });
+      pollLocalServer();
+    }
+
+    async function sendMobClipboard() {
+      const inp = document.getElementById('mobClipInput');
+      const text = inp.value.trim();
+      if (!text) return;
+      await fetch('/api/clipboard/copy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+      inp.value = '';
+      loadMobClipboard();
+      alert('Enviado para o Ctrl+V do seu PC!');
+    }
+
+    async function loadMobClipboard() {
+      try {
+        const r = await fetch('/api/clipboard');
+        const d = await r.json();
+        const box = document.getElementById('mobClipList');
+        const items = d.history || [];
+        if (!items.length) {
+          box.innerHTML = '<small style="color:var(--muted);">Histórico vazio.</small>';
+          return;
+        }
+        box.innerHTML = items.slice(0, 10).map(i => `
+          <div style="padding:8px 10px;background:rgba(8,14,28,0.85);border:1px solid rgba(148,163,184,0.16);border-radius:8px;font-size:12px;word-break:break-all;">
+            <div style="color:var(--cyan);font-weight:700;font-size:10.5px;margin-bottom:2px;">[${i.category}] ${i.created_at}</div>
+            ${i.content.replace(/</g, '&lt;').slice(0, 180)}
+          </div>
+        `).join('');
+      } catch (e) {}
+    }
+
+    async function mobStartPomo(minutes, label) {
+      await fetch('/api/pomodoro/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ minutes, label })
+      });
+      pollLocalServer();
+    }
+
+    async function mobStopPomo() {
+      await fetch('/api/pomodoro/stop', { method: 'POST' });
+      pollLocalServer();
+    }
+
+    async function sendMedia(action) {
+      try {
+        await fetch('/api/system/media', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action })
+        });
+      } catch (e) {}
+    }
+
+    async function sendRoutine(routine_id) {
+      try {
+        await fetch('/api/system/routine', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ routine_id })
+        });
+      } catch (e) {}
+    }
+
+    async function sendPower(action) {
+      try {
+        await fetch('/api/system/power', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action, delay_minutes: 30 })
+        });
+      } catch (e) {}
+    }
+
+    async function takeMobileShot() {
+      try {
+        await fetch('/api/system/screenshot', { method: 'POST' });
+      } catch (e) {}
+    }
+
+    if (cloudChannel) {
+      document.getElementById('cloudChannelInput').value = cloudChannel;
+      subscribeCloudEvents(cloudChannel);
+    }
+    pollLocalServer();
+    setInterval(pollLocalServer, 2500);
+  </script>
+</body>
+</html>

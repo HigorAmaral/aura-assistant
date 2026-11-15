@@ -1,0 +1,47 @@
+name: Build & Release AURA OS (main)
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release-portable-app:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+
+      - name: Package AURA-OS-Portable.zip
+        run: |
+          mkdir -p release/aura-assistant
+          cp -r static *.py requirements.txt iniciar_aura.bat Iniciar_AURA_Background.vbs iniciar_aura_ubuntu.sh Instalar_AURA.bat release/aura-assistant/
+          cat <<EOF > release/aura-assistant/.aura_version.json
+          {
+            "sha": "${{ github.sha }}",
+            "branch": "main",
+            "message": "Build automático via GitHub Actions",
+            "packaged_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          cd release
+          zip -r AURA-OS-Portable.zip aura-assistant
+
+      - name: Publish/Update Rolling Release (latest)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: AURA OS — Última Versão (main)
+          body: |
+            Build automático gerado a partir da branch `main` (commit `${{ github.sha }}`).
+            - **Instalador Windows (recomendado):** baixe `Instalar_AURA.bat` e execute com duplo clique.
+            - **Pacote Portátil:** baixe `AURA-OS-Portable.zip`.
+            O app instalado verifica automaticamente novos commits na `main` e se auto-atualiza.
+          files: |
+            release/AURA-OS-Portable.zip
+            Instalar_AURA.bat
+          prerelease: false
+          make_latest: true
