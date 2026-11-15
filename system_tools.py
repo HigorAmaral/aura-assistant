@@ -152,11 +152,22 @@ KNOWN_APPS: Dict[str, Dict[str, Any]] = {
 }
 
 
+_STATS_CACHE: Dict[str, Any] = {"ts": 0.0, "data": None}
+try:
+    psutil.cpu_percent(interval=None)
+except Exception:
+    pass
+
+
 def get_system_stats() -> Dict[str, Any]:
     """Return real-time CPU, RAM, Disk, Battery, Network Speed, OS Platform, LAN IP, and Top Processes."""
     global _last_net_io, _last_net_time
 
-    cpu_percent = psutil.cpu_percent(interval=0.15)
+    now_cache = time.time()
+    if _STATS_CACHE["data"] is not None and (now_cache - _STATS_CACHE["ts"]) < 1.5:
+        return _STATS_CACHE["data"]
+
+    cpu_percent = psutil.cpu_percent(interval=None)
     cpu_cores = psutil.cpu_count(logical=True)
     cpu_freq = psutil.cpu_freq()
     freq_ghz = round(cpu_freq.current / 1000.0, 2) if cpu_freq and cpu_freq.current else 0.0
@@ -213,7 +224,7 @@ def get_system_stats() -> Dict[str, Any]:
 
     os_label = f"Windows {platform.release()}" if IS_WINDOWS else f"Linux ({platform.system()} {platform.release()})"
 
-    return {
+    result = {
         "os": {
             "platform": OS_NAME,
             "label": os_label,
@@ -249,6 +260,9 @@ def get_system_stats() -> Dict[str, Any]:
         "battery": battery_info,
         "top_processes": processes[:8],
     }
+    _STATS_CACHE["ts"] = time.time()
+    _STATS_CACHE["data"] = result
+    return result
 
 
 def find_start_menu_or_desktop_entry(app_query: str) -> Optional[str]:

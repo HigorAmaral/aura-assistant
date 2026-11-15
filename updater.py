@@ -53,12 +53,14 @@ def _has_git_repo() -> bool:
 
 
 def _run_git(*args: str, timeout: int = 20) -> subprocess.CompletedProcess:
+    flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
     return subprocess.run(
         ["git", *args],
         cwd=str(BASE_DIR),
         capture_output=True,
         text=True,
         timeout=timeout,
+        creationflags=flags,
     )
 
 
@@ -197,11 +199,13 @@ def _install_requirements_if_needed() -> None:
     if not req_file.exists():
         return
     try:
+        flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         subprocess.run(
             [sys.executable, "-m", "pip", "install", "-r", str(req_file), "--quiet"],
             cwd=str(BASE_DIR),
             timeout=180,
             capture_output=True,
+            creationflags=flags,
         )
     except Exception:
         pass
