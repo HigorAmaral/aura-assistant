@@ -26,6 +26,7 @@ from system_tools import (
 )
 from file_tools import search_local_files, organize_directory, create_text_file
 from web_tools import search_web, read_and_summarize_url
+from github_tools import format_github_context, get_local_git_summary
 from memory_engine import (
     auto_learn_from_message,
     match_custom_trigger,
@@ -45,6 +46,11 @@ import time
 BASE_SYSTEM_INSTRUCTION = (
     "Você é a AURA OS 5.0 (Edição Maestri Workspace), uma assistente pessoal de computador e plataforma "
     "de orquestração multi-agentes com terminais ao vivo em um quadro infinito 2D. "
+    "Você TEM acesso externo real ao sistema do usuário: terminal PowerShell/Bash, arquivos locais, "
+    "programas instalados, métricas de CPU/RAM/Rede, pesquisa web em tempo real, leitura de URLs e "
+    "integração autenticada com o GitHub via GitHub CLI (gh) e Git. "
+    "Quando dados reais do PC, GitHub ou Web forem fornecidos no contexto da mensagem, use-os diretamente "
+    "e nunca diga que não tem acesso externo. "
     "Compatível com Windows e Linux Ubuntu. "
     "Responda sempre em Português do Brasil de maneira estruturada, clara e sem emojis."
 )
@@ -95,10 +101,75 @@ def _extract_installed_check_target(text: str) -> str:
     return ""
 
 
+def _handle_conversational_intent(text: str) -> Optional[str]:
+    """Handle greetings, thanks, farewells, and capability questions without triggering web search."""
+    clean = re.sub(r"^(?:aura[,\s!.:;-]*)", "", text.strip(), flags=re.IGNORECASE).strip()
+    norm = re.sub(r"[!?.,:;]+$", "", clean).strip().lower()
+    if not norm:
+        return "Olá! Estou online e pronta para ajudar no seu PC, terminal, GitHub, pesquisas web ou no Quadro Maestri 2D. O que deseja fazer?"
+
+    greetings = {
+        "oi", "ola", "olá", "eae", "e ai", "e aí", "opa", "fala", "salve",
+        "bom dia", "boa tarde", "boa noite", "hello", "hi", "hey",
+        "tudo bem", "tudo bom", "como vai", "como voce esta", "como você está",
+        "oi tudo bem", "ola tudo bem", "olá tudo bem",
+    }
+    if norm in greetings or any(norm.startswith(g + " ") and len(norm) <= 24 for g in ("oi", "olá", "ola", "bom dia", "boa tarde", "boa noite")):
+        return (
+            "Olá! Tudo ótimo por aqui. Estou conectada ao seu computador e pronta para executar comandos.\n\n"
+            "Posso te ajudar com:\n"
+            "- **Sistema & Apps:** abrir/fechar programas, ver CPU/RAM/Rede, tirar print ou rodar rotinas\n"
+            "- **GitHub & Código:** listar seus repositórios, ver commits, status do Git e arquivos locais\n"
+            "- **Terminal & Maestri 2D:** rodar comandos PowerShell/Python e orquestrar agentes\n"
+            "- **Web & Tarefas:** pesquisar na internet, resumir links e gerenciar tarefas/lembretes"
+        )
+
+    thanks = {"obrigado", "obrigada", "valeu", "vlw", "tmj", "thanks", "thank you", "show", "top", "beleza", "blz", "ok", "certo"}
+    if norm in thanks:
+        return "Por nada! Se precisar de mais alguma coisa no PC, GitHub ou na web, é só chamar."
+
+    farewells = {"tchau", "ate mais", "até mais", "flw", "falou", "bye", "ate logo", "até logo"}
+    if norm in farewells:
+        return "Até mais! Continuo rodando em segundo plano caso precise."
+
+    if any(p in norm for p in ("quem e voce", "quem é você", "o que voce faz", "o que você faz", "quais seus acessos", "voce tem acesso", "você tem acesso", "ajuda", "help")):
+        return (
+            "Sou a **AURA OS 5.0**, sua assistente pessoal integrada ao sistema.\n\n"
+            "**Acessos externos e locais ativos:**\n"
+            "- **GitHub (`gh` CLI + Git):** acesso autenticado aos seus repositórios, commits e status local\n"
+            "- **Computador & Terminal:** execução de comandos PowerShell/Bash, arquivos locais e apps instalados\n"
+            "- **Web em Tempo Real:** busca DuckDuckGo/Wikipédia e leitura/resumo de URLs\n"
+            "- **Celular 4G/5G:** notificações push e controle remoto"
+        )
+    return None
+
+
+def _is_github_intent(lower: str) -> bool:
+    return any(
+        kw in lower
+        for kw in (
+            "github",
+            "repositório",
+            "repositorio",
+            "repositórios",
+            "repositorios",
+            "meus repos",
+            "listar repos",
+            "git status",
+            "últimos commits",
+            "ultimos commits",
+        )
+    )
+
+
 def run_smart_local_agent(message: str, fallback_only: bool = False) -> Dict[str, Any]:
     text = message.strip()
     lower = text.lower()
     actions_taken: List[Dict[str, Any]] = []
+
+    conv_reply = _handle_conversational_intent(text)
+    if conv_reply:
+        return {"reply": conv_reply, "actions_taken": actions_taken, "provider": "AURA Conversational Core"}
 
     mapped_cmd = match_custom_trigger(text)
     if mapped_cmd and mapped_cmd.lower() != lower:
@@ -363,21 +434,31 @@ def _build_smart_web_fallback(
     clean_q = re.sub(r"^(?:aura[,\s]+)", "", prompt.strip(), flags=re.IGNORECASE)
     parts: List[str] = []
 
-    # 1. Try local smart agent first (e.g. status do PC, abrir app, tarefas)
+    # 1. Try local smart agent first (greetings, status do PC, abrir app, tarefas)
     local_res = run_smart_local_agent(clean_q, fallback_only=True)
     if local_res.get("reply"):
         return local_res["reply"]
 
-    # 2. Try live Web + Wikipedia PT search for factual/knowledge questions
-    w_res = search_web(clean_q, max_results=4)
-    if w_res.get("results"):
-        lines = []
-        for r in w_res["results"][:3]:
-            snip = (r.get("snippet") or "").strip()
-            if snip:
-                lines.append(f"• {r['title']}:\n  {snip}\n  Fonte: {r['url']}")
-        if lines:
-            parts.append(f"🔎 Resposta encontrada via Pesquisa Web & Wikipédia para \"{clean_q}\":\n\n" + "\n\n".join(lines))
+    # 1b. If user asked about GitHub, return real GitHub CLI data instead of searching the web
+    if _is_github_intent(clean_q.lower()):
+        gh_ctx = format_github_context(clean_q)
+        return gh_ctx.get("summary", "Não foi possível consultar o GitHub agora.")
+
+    # 2. Try live Web + Wikipedia PT search only for genuine informational/search queries
+    conv_guard = _handle_conversational_intent(clean_q)
+    if conv_guard:
+        return conv_guard
+
+    if len(clean_q) >= 3:
+        w_res = search_web(clean_q, max_results=4)
+        if w_res.get("results"):
+            lines = []
+            for r in w_res["results"][:3]:
+                snip = (r.get("snippet") or "").strip()
+                if snip:
+                    lines.append(f"• {r['title']}:\n  {snip}\n  Fonte: {r['url']}")
+            if lines:
+                parts.append(f"🔎 Resposta encontrada via Pesquisa Web & Wikipédia para \"{clean_q}\":\n\n" + "\n\n".join(lines))
 
     # 3. Include only fresh shell/telemetry context collected for THIS prompt (never stale terminal history)
     if enriched_context_parts:
@@ -409,14 +490,31 @@ def process_chat_message(message: str, preferred_model: Optional[str] = None) ->
     actions_taken = local_res.get("actions_taken", [])
 
     lower = message.lower()
-    web_context = ""
+    extra_contexts: List[str] = []
+
+    if _is_github_intent(lower):
+        gh_ctx = format_github_context(message)
+        actions_taken.append({"tool": "github_cli", "args": {"query": message}, "result": {"ok": gh_ctx.get("ok")}})
+        if gh_ctx.get("summary"):
+            extra_contexts.append(f"[DADOS REAIS DO GITHUB DO USUÁRIO VIA GH CLI]:\n{gh_ctx['summary']}")
+
+    url_match = re.search(r"https?://[^\s<>\"']+", message)
+    if url_match and not any(v in lower for v in ("abra ", "abrir ", "acesse ")):
+        target_url = url_match.group(0).rstrip(".,);")
+        url_res = read_and_summarize_url(target_url)
+        actions_taken.append({"tool": "read_and_summarize_url", "args": {"url": target_url}, "result": {"ok": bool(url_res.get("content"))}})
+        if url_res.get("content"):
+            extra_contexts.append(f"[CONTEÚDO DA URL '{target_url}']:\n{url_res['content'][:2500]}")
+
     if any(w in lower for w in ("pesquise", "pesquisar", "notícias", "noticias", "web", "internet", "tendências", "tendencias")):
         q = re.sub(r"^(?:pesquise|pesquisar|busque na web|sobre)\s+", "", message, flags=re.IGNORECASE).strip()
         w_res = search_web(q, max_results=4)
         actions_taken.append({"tool": "search_web", "args": {"query": q}, "result": w_res})
         if w_res.get("results"):
             snippets = "\n".join([f"- {r['title']}: {r['snippet']} ({r['url']})" for r in w_res["results"]])
-            web_context = f"\n\n[RESULTADOS DA WEB EM TEMPO REAL PARA '{q}']:\n{snippets}"
+            extra_contexts.append(f"[RESULTADOS DA WEB EM TEMPO REAL PARA '{q}']:\n{snippets}")
+
+    web_context = ("\n\n" + "\n\n".join(extra_contexts)) if extra_contexts else ""
 
     sys_prompt = build_system_instruction()
     ai_out = call_with_free_ai_failover(
@@ -582,13 +680,20 @@ def run_maestri_canvas_agent(
             f"Disco Livre: {stats['disk']['free_gb']} GB | Top Processos: {', '.join(p['name'] for p in stats['top_processes'][:5])}"
         )
 
-    if any(k in role_lower for k in ("pesquisa", "web", "internet", "tendência", "tendencias", "notícias", "buscar")):
+    if any(k in role_lower for k in ("pesquisa", "web", "internet", "tendência", "tendencias", "notícias", "buscar")) and not _handle_conversational_intent(prompt):
         w_res = search_web(prompt[:80], max_results=3)
         tools_used.append("Busca Web Tempo Real")
         working_steps.append(f"├─ 🌐 [FERRAMENTA] Pesquisando na Web em tempo real: '{prompt[:50]}'")
         if w_res.get("results"):
             snips = "\n".join([f"- {r['title']}: {r['snippet']}" for r in w_res["results"]])
             enriched_context_parts.append(f"PESQUISA WEB EM TEMPO REAL:\n{snips}")
+
+    if _is_github_intent(prompt.lower()):
+        gh_ctx = format_github_context(prompt)
+        tools_used.append("GitHub CLI (gh)")
+        working_steps.append("├─ 🐙 [FERRAMENTA] Consultando GitHub autenticado via gh CLI...")
+        if gh_ctx.get("summary"):
+            enriched_context_parts.append(f"DADOS REAIS DO GITHUB:\n{gh_ctx['summary']}")
 
     full_user_prompt = f"PROMPT DO USUÁRIO NO TERMINAL DO AGENTE ({agent_name}):\n{prompt}"
     if enriched_context_parts:
