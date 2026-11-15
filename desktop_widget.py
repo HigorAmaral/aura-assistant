@@ -28,7 +28,7 @@ from updater import start_auto_update_daemon
 API_URL = "http://127.0.0.1:8765"
 HUD_URL = "http://127.0.0.1:8765/hud"
 
-COMPACT_W = 735
+COMPACT_W = 785
 COMPACT_H = 52
 EXPANDED_W = 750
 EXPANDED_H = 510

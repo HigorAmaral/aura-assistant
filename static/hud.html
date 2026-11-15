@@ -364,8 +364,8 @@
         <button class="hud-btn" onclick="quickShot()" title="Capturar Tela">
           <i data-lucide="camera" class="lucide"></i>
         </button>
-        <button class="hud-btn hud-btn-primary" onclick="openMaestriApp()" title="Abrir Quadro Maestri 2D Completo">
-          <i data-lucide="workflow" class="lucide"></i> Maestri
+        <button class="hud-btn hud-btn-primary" onclick="openMaestriApp()" title="Abrir Painel Completo (Maestri 2D, Terminal e Configurações)">
+          <i data-lucide="maximize-2" class="lucide"></i> Painel Completo
         </button>
         <button class="hud-btn hud-btn-danger" onclick="hideHudToTray()" title="Ocultar para a Bandeja do Sistema">
           <i data-lucide="minus" class="lucide"></i>
@@ -497,7 +497,12 @@
 
       <div class="drawer-footer">
         <span id="hudFooterStatus">AURA OS 5.0 • Pool IA Gratuita + Automações + Push Mobile Ativos</span>
-        <button class="hud-btn" style="padding:2px 8px;font-size:10.5px;" onclick="setDrawerState(false)">Recolher ▲</button>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button class="hud-btn hud-btn-primary" style="padding:2px 9px;font-size:10.5px;" onclick="openMaestriApp()">
+            <i data-lucide="maximize-2" class="lucide"></i> Abrir Painel Completo
+          </button>
+          <button class="hud-btn" style="padding:2px 8px;font-size:10.5px;" onclick="setDrawerState(false)">Recolher ▲</button>
+        </div>
       </div>
     </div>
   </div>
