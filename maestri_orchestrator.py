@@ -15,10 +15,14 @@ from remote_bridge import push_mobile_notification
 
 EXTERNAL_CLIS = [
     ("gh", "GitHub CLI"),
+    ("vercel", "Vercel CLI"),
+    ("supabase", "Supabase CLI"),
+    ("antigravity", "Antigravity"),
     ("git", "Git"),
     ("python", "Python"),
     ("node", "Node.js"),
     ("npm", "NPM"),
+    ("npx", "NPX"),
     ("powershell", "PowerShell"),
     ("pwsh", "PowerShell 7"),
     ("wsl", "WSL Linux"),
@@ -32,17 +36,88 @@ EXTERNAL_CLIS = [
 ]
 
 
+def _resolve_cli_path(cmd: str) -> Dict[str, Any]:
+    path = shutil.which(cmd)
+    if path:
+        return {"installed": True, "via_npx": False, "path": path}
+
+    if cmd == "antigravity" and os.name == "nt":
+        local_app = os.environ.get("LOCALAPPDATA", "")
+        candidates = [
+            Path(local_app) / "Programs" / "antigravity" / "Antigravity.exe",
+            Path(local_app) / "Programs" / "Antigravity" / "Antigravity.exe",
+        ]
+        for p in candidates:
+            if p.exists():
+                return {"installed": True, "via_npx": False, "path": str(p)}
+        agy_path = shutil.which("agy")
+        if agy_path:
+            return {"installed": True, "via_npx": False, "path": agy_path}
+
+    if cmd == "vercel":
+        vc_path = shutil.which("vc")
+        if vc_path:
+            return {"installed": True, "via_npx": False, "path": vc_path}
+
+    if cmd in ("vercel", "supabase") and shutil.which("npx"):
+        return {"installed": True, "via_npx": True, "path": f"npx {cmd}"}
+
+    return {"installed": False, "via_npx": False, "path": ""}
+
+
 def detect_installed_clis() -> List[Dict[str, Any]]:
     found = []
     for cmd, label in EXTERNAL_CLIS:
-        path = shutil.which(cmd)
+        info = _resolve_cli_path(cmd)
         found.append({
             "cmd": cmd,
             "label": label,
-            "installed": bool(path),
-            "path": path or "",
+            "installed": info["installed"],
+            "via_npx": info["via_npx"],
+            "path": info["path"],
         })
     return found
+
+
+def install_cli_tool(cli_cmd: str) -> Dict[str, Any]:
+    """Install global CLI tools like vercel, supabase, or gh."""
+    c = cli_cmd.strip().lower()
+    npm_bin = shutil.which("npm")
+    flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+
+    if c in ("vercel", "supabase"):
+        if not npm_bin:
+            return {"success": False, "message": "NPM não encontrado no PATH para instalar automaticamente."}
+        try:
+            res = subprocess.run(
+                [npm_bin, "install", "-g", c],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                creationflags=flags,
+            )
+            if res.returncode == 0:
+                return {"success": True, "message": f"CLI '{c}' instalada globalmente com sucesso!"}
+            return {"success": False, "message": res.stderr.strip() or res.stdout.strip() or f"Falha ao instalar {c}."}
+        except Exception as exc:
+            return {"success": False, "message": f"Erro ao instalar {c}: {exc}"}
+
+    if c == "gh" and os.name == "nt" and shutil.which("winget"):
+        try:
+            res = subprocess.run(
+                ["winget", "install", "--id", "GitHub.cli", "-e", "--silent"],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                creationflags=flags,
+            )
+            if res.returncode == 0:
+                return {"success": True, "message": "GitHub CLI (gh) instalada com sucesso!"}
+            return {"success": False, "message": res.stderr.strip() or "Falha ao instalar GitHub CLI."}
+        except Exception as exc:
+            return {"success": False, "message": str(exc)}
+
+    return {"success": False, "message": f"Instalação automática não suportada para '{c}'."}
 
 
 def detect_runmaestro() -> Dict[str, Any]:

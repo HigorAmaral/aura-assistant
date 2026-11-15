@@ -97,6 +97,7 @@ from maestri_orchestrator import (
     ipc_spawn,
     run_maestro_mode,
     detect_installed_clis,
+    install_cli_tool,
     detect_runmaestro,
     launch_or_open_runmaestro,
 )
@@ -451,6 +452,15 @@ def api_maestri_clis():
         "clis": detect_installed_clis(),
         "runmaestro": detect_runmaestro(),
     }
+
+
+class CliInstallRequest(BaseModel):
+    cli: str
+
+
+@app.post("/api/maestri/clis/install")
+def api_maestri_cli_install(req: CliInstallRequest):
+    return install_cli_tool(req.cli)
 
 
 @app.post("/api/maestri/runmaestro/launch")

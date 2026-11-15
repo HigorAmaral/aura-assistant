@@ -2630,14 +2630,39 @@
         }
         const d = await res.json();
         if (bar && Array.isArray(d.clis)) {
-          const active = d.clis.filter(c => c.installed).map(c => c.cmd);
-          bar.innerHTML = 'CLIs ativas: ' + (active.length
-            ? active.slice(0, 8).map(c => `<code style="background:rgba(56,189,248,0.14);color:var(--cyan);padding:1px 5px;border-radius:4px;">${c}</code>`).join(' ')
+          const priority = ['gh', 'vercel', 'supabase', 'antigravity', 'git', 'python', 'node', 'npm', 'powershell', 'code'];
+          const sorted = [...d.clis].sort((a, b) => {
+            const ia = priority.indexOf(a.cmd);
+            const ib = priority.indexOf(b.cmd);
+            return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+          });
+          const active = sorted.filter(c => c.installed);
+          bar.innerHTML = 'CLIs: ' + (active.length
+            ? active.slice(0, 9).map(c => {
+                const suffix = c.via_npx ? ' (npx)' : '';
+                const installBtn = c.via_npx
+                  ? ` onclick="installGlobalCli('${c.cmd}')" title="Clique para instalar ${c.label} globalmente via npm"`
+                  : ` title="${c.label}: ${c.path}"`;
+                const cursor = c.via_npx ? 'cursor:pointer; text-decoration:underline dotted;' : '';
+                return `<code${installBtn} style="background:rgba(56,189,248,0.14);color:var(--cyan);padding:1px 6px;border-radius:4px;${cursor}">${c.cmd}${suffix}</code>`;
+              }).join(' ')
             : 'nenhuma');
         }
       } catch (e) {
         if (bar) bar.textContent = 'CLIs: indisponível';
       }
+    }
+
+    async function installGlobalCli(cliCmd) {
+      showToast(`Instalando <strong>${cliCmd}</strong> globalmente via npm...`);
+      const res = await fetch('/api/maestri/clis/install', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cli: cliCmd })
+      });
+      const d = await res.json();
+      showToast(d.message || 'Processo concluído.');
+      await loadMaestriClis();
     }
 
     async function runMaestroModeNow() {
