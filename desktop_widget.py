@@ -1,6 +1,12 @@
 import os
 import sys
 import time
+
+# Under pythonw.exe (no console), sys.stdout/sys.stderr are None, which crashes uvicorn's DefaultFormatter.
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w", encoding="utf-8")
 import socket
 import threading
 import subprocess
@@ -64,7 +70,7 @@ def ensure_backend_server():
         import uvicorn
         from app import app
 
-        uvicorn.run(app, host="0.0.0.0", port=8765, log_level="warning")
+        uvicorn.run(app, host="0.0.0.0", port=8765, log_level="warning", log_config=None, use_colors=False)
 
     t = threading.Thread(target=_run, daemon=True)
     t.start()
