@@ -28,10 +28,10 @@ from updater import start_auto_update_daemon
 API_URL = "http://127.0.0.1:8765"
 HUD_URL = "http://127.0.0.1:8765/hud"
 
-COMPACT_W = 785
-COMPACT_H = 52
-EXPANDED_W = 750
-EXPANDED_H = 510
+COMPACT_W = 210
+COMPACT_H = 42
+EXPANDED_W = 800
+EXPANDED_H = 480
 
 # Keep window & state at module level so pywebview's js_api introspection
 # NEVER traverses the .NET WinForms/WebView2 object graph!
@@ -40,6 +40,7 @@ _HUD_STATE = {
     "is_expanded": False,
     "is_visible": True,
     "screen_w": 1920,
+    "pill_w": COMPACT_W,
 }
 
 if IS_WINDOWS:
@@ -121,12 +122,12 @@ def apply_hud_geometry(expanded: bool, sync_js: bool = False):
     win = _HUD_STATE.get("window")
     if not win:
         return
-    w = EXPANDED_W if _HUD_STATE["is_expanded"] else COMPACT_W
+    w = EXPANDED_W if _HUD_STATE["is_expanded"] else int(_HUD_STATE.get("pill_w") or COMPACT_W)
     h = EXPANDED_H if _HUD_STATE["is_expanded"] else COMPACT_H
     x = (_HUD_STATE["screen_w"] - w) // 2
     try:
         win.resize(w, h)
-        win.move(x, 6)
+        win.move(x, 0)
         if sync_js:
             js_bool = "true" if _HUD_STATE["is_expanded"] else "false"
             win.evaluate_js(f"if(window.setDrawerState) window.setDrawerState({js_bool}, false);")
@@ -168,13 +169,20 @@ def hud_control_dispatch(action: str) -> dict:
 
 class JsHudBridge:
     """
-    JS-to-Python API exposed inside the CSS3 pywebview Top-Center HUD.
+    JS-to-Python API exposed inside the CSS3 pywebview Top-Center Notch HUD.
     IMPORTANT: Keep zero public attributes on `self` so pywebview never traverses WinForms objects.
     """
 
     def set_expanded(self, expanded: bool):
         apply_hud_geometry(bool(expanded), sync_js=False)
         return {"expanded": bool(expanded)}
+
+    def set_pill_width(self, width: int):
+        w = max(160, min(360, int(width)))
+        _HUD_STATE["pill_w"] = w
+        if not _HUD_STATE["is_expanded"]:
+            apply_hud_geometry(False, sync_js=False)
+        return {"pill_w": w}
 
     def toggle_expand(self):
         return hud_control_dispatch("toggle")
@@ -266,19 +274,19 @@ if __name__ == "__main__":
 
     x_pos = (_HUD_STATE["screen_w"] - COMPACT_W) // 2
     win = webview.create_window(
-        title="AURA OS 4.0 HUD",
+        title="AURA — Assistente no Topo da Tela",
         url=HUD_URL,
         js_api=bridge,
         width=COMPACT_W,
         height=COMPACT_H,
-        min_size=(300, 44),
+        min_size=(160, 38),
         x=x_pos,
-        y=6,
+        y=0,
         frameless=True,
         shadow=False,
         on_top=True,
         easy_drag=False,
-        background_color="#060a15",
+        background_color="#000000",
     )
     _HUD_STATE["window"] = win
     webview.start(on_hud_startup, win)

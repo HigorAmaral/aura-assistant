@@ -779,6 +779,47 @@ def api_hud_control(req: HudControlRequest):
     return {"ok": False, "active": False}
 
 
+@app.get("/api/hud/state")
+def api_get_hud_state():
+    from datetime import datetime
+    s = get_settings()
+    today = datetime.now().strftime("%Y-%m-%d")
+    habits = s.get("hud_habits") or {"date": today, "water": 0, "read": 0, "exercise": 0}
+    if not isinstance(habits, dict) or habits.get("date") != today:
+        habits = {"date": today, "water": 0, "read": 0, "exercise": 0}
+        update_settings({"hud_habits": habits})
+    mascot = s.get("hud_mascot") or {
+        "name": s.get("assistant_name", "AURA"),
+        "body": "#F4F7FF",
+        "body2": "#BFCDF5",
+        "visor": "#1B1E2B",
+        "eye": "#9BF35A",
+        "eyeStyle": "round",
+        "accessory": "none",
+        "silentMode": False,
+        "voiceSpeak": True,
+    }
+    return {"habits": habits, "mascot": mascot}
+
+
+@app.post("/api/hud/state")
+async def api_save_hud_state(request: Request):
+    from datetime import datetime
+    body = await request.json()
+    updates = {}
+    if "habits" in body and isinstance(body["habits"], dict):
+        h = dict(body["habits"])
+        h["date"] = datetime.now().strftime("%Y-%m-%d")
+        updates["hud_habits"] = h
+    if "mascot" in body and isinstance(body["mascot"], dict):
+        updates["hud_mascot"] = body["mascot"]
+        if body["mascot"].get("name"):
+            updates["assistant_name"] = str(body["mascot"]["name"])[:24]
+    if updates:
+        update_settings(updates)
+    return api_get_hud_state()
+
+
 @app.post("/api/system/launch-hud")
 def api_launch_hud():
     if _HUD_DISPATCHER is not None:
