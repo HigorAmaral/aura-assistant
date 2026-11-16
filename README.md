@@ -43,7 +43,17 @@ pip install -r requirements.txt pywebview pystray pillow
 python desktop_widget.py
 ```
 Ou no Windows, execute diretamente `iniciar_aura.bat` / `Iniciar_AURA_Background.vbs`.
-No Ubuntu/Linux, utilize `iniciar_aura_ubuntu.sh`.
+
+---
+
+## Instalação Rápida (Linux / Ubuntu)
+
+> **Nota:** O arquivo `Instalar_AURA.bat` é exclusivo para **Windows**. No Linux/Ubuntu, utilize o script [`iniciar_aura_ubuntu.sh`](iniciar_aura_ubuntu.sh).
+
+### Comando pronto em 1 passo (Terminal)
+```bash
+git clone https://github.com/HigorAmaral/aura-assistant.git && cd aura-assistant && chmod +x iniciar_aura_ubuntu.sh && ./iniciar_aura_ubuntu.sh
+```
 
 > **Painel Web Local:** `http://localhost:8765`  
 > **Painel Mobile:** `http://localhost:8765/mobile`
