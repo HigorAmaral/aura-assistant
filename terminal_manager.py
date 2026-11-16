@@ -136,6 +136,12 @@ def execute_terminal_command(
 
     s = get_settings()
     timeout_sec = max(5, min(int(s.get("terminal_timeout_sec", 30)), 120))
+    proc_env = os.environ.copy()
+    global_env = s.get("global_env_vars") or {}
+    if isinstance(global_env, dict):
+        for ek, ev in global_env.items():
+            if str(ek).strip():
+                proc_env[str(ek).strip()] = str(ev)
 
     start_t = time.time()
     try:
@@ -144,6 +150,7 @@ def execute_terminal_command(
             proc = subprocess.run(
                 ["powershell", "-NoProfile", "-Command", cmd_clean],
                 cwd=cwd,
+                env=proc_env,
                 capture_output=True,
                 text=True,
                 timeout=timeout_sec,
@@ -153,6 +160,7 @@ def execute_terminal_command(
             proc = subprocess.run(
                 ["bash", "-c", cmd_clean],
                 cwd=cwd,
+                env=proc_env,
                 capture_output=True,
                 text=True,
                 timeout=timeout_sec,
@@ -201,3 +209,14 @@ def sync_all_terminal_cwds(target_dir: str) -> Dict[str, Any]:
     for nid, sess in _TERMINAL_SESSIONS.items():
         sess["cwd"] = resolved
     return {"ok": True, "cwd": resolved, "updated_sessions": len(_TERMINAL_SESSIONS)}
+
+
+def set_terminal_cwd(node_id: str, target_dir: str) -> Dict[str, Any]:
+    """Set working directory for a single Maestri agent session (e.g. Git Worktree isolation)."""
+    p = Path(target_dir).expanduser()
+    if not p.exists() or not p.is_dir():
+        return {"ok": False, "error": f"Diretório não encontrado: {target_dir}"}
+    resolved = str(p.resolve())
+    sess = get_or_init_terminal_session(node_id, initial_cwd=resolved)
+    sess["cwd"] = resolved
+    return {"ok": True, "node_id": node_id, "cwd": resolved}

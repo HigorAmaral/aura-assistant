@@ -106,8 +106,20 @@ from maestri_orchestrator import (
     install_cli_tool,
     detect_runmaestro,
     launch_or_open_runmaestro,
+    list_playbooks,
+    read_playbook,
+    save_playbook,
+    start_autorun,
+    get_autorun_status,
+    cancel_autorun,
+    list_git_worktrees,
+    create_git_worktree,
+    remove_git_worktree,
+    list_workspace_files,
+    read_workspace_file,
+    get_workspace_git_log,
 )
-from terminal_manager import sync_all_terminal_cwds
+from terminal_manager import sync_all_terminal_cwds, set_terminal_cwd
 from project_builder import PROJECTS_ROOT
 from system_optimizer import (
     scan_updatable_apps,
@@ -320,6 +332,7 @@ class SettingsUpdateRequest(BaseModel):
     auto_restart_on_update: Optional[bool] = None
     remote_pin: Optional[str] = None
     active_workspace: Optional[str] = None
+    global_env_vars: Optional[Dict[str, str]] = None
 
 
 class WorkspaceSetRequest(BaseModel):
@@ -333,6 +346,28 @@ class WorkspaceRevertRequest(BaseModel):
 class WorkspaceCommitRequest(BaseModel):
     message: str
     push: bool = False
+
+
+class PlaybookSaveRequest(BaseModel):
+    name: str
+    content: str
+
+
+class AutoRunStartRequest(BaseModel):
+    mode: str = "spec"
+    playbook_name: str = ""
+    goal: str = ""
+    model_id: str = "free:qwen-coder"
+    max_iters: int = 4
+
+
+class WorktreeCreateRequest(BaseModel):
+    branch: str
+    node_id: str = ""
+
+
+class WorktreeRemoveRequest(BaseModel):
+    worktree_path: str
 
 
 class OptimizerRunRequest(BaseModel):
@@ -665,6 +700,72 @@ def api_maestri_cli_install(req: CliInstallRequest):
 @app.post("/api/maestri/runmaestro/launch")
 def api_launch_runmaestro():
     return launch_or_open_runmaestro()
+
+
+@app.get("/api/maestri/playbooks")
+def api_maestri_list_playbooks():
+    return list_playbooks()
+
+
+@app.get("/api/maestri/playbooks/{name}")
+def api_maestri_read_playbook(name: str):
+    return read_playbook(name)
+
+
+@app.post("/api/maestri/playbooks")
+def api_maestri_save_playbook(req: PlaybookSaveRequest):
+    return save_playbook(req.name, req.content)
+
+
+@app.post("/api/maestri/autorun/start")
+def api_maestri_autorun_start(req: AutoRunStartRequest):
+    return start_autorun(
+        mode=req.mode,
+        playbook_name=req.playbook_name,
+        goal=req.goal,
+        model_id=req.model_id,
+        max_iters=req.max_iters,
+    )
+
+
+@app.get("/api/maestri/autorun/status")
+def api_maestri_autorun_status():
+    return get_autorun_status()
+
+
+@app.post("/api/maestri/autorun/cancel")
+def api_maestri_autorun_cancel():
+    return cancel_autorun()
+
+
+@app.get("/api/maestri/worktrees")
+def api_maestri_worktrees():
+    return list_git_worktrees()
+
+
+@app.post("/api/maestri/worktrees/create")
+def api_maestri_worktrees_create(req: WorktreeCreateRequest):
+    return create_git_worktree(branch=req.branch, node_id=req.node_id)
+
+
+@app.post("/api/maestri/worktrees/remove")
+def api_maestri_worktrees_remove(req: WorktreeRemoveRequest):
+    return remove_git_worktree(worktree_path=req.worktree_path)
+
+
+@app.get("/api/workspace/files")
+def api_workspace_files(limit: int = 200):
+    return list_workspace_files(limit=limit)
+
+
+@app.get("/api/workspace/file")
+def api_workspace_read_file(path: str):
+    return read_workspace_file(rel_path=path)
+
+
+@app.get("/api/workspace/log")
+def api_workspace_git_log(limit: int = 20):
+    return get_workspace_git_log(limit=limit)
 
 
 # --- Terminal (Unified Agent Prompt + Shell Execution) ---

@@ -701,7 +701,43 @@ def run_maestri_canvas_agent(
             f"ESTADO ATUAL DO TERMINAL DESTE BLOCO (`{term_session['cwd']}`):\nÚltima entrada: `{last_h['cmd']}`\nSaída: {last_h['output'][:700]}"
         )
 
-    # 2. Collect upstream connected tiles
+    # 2. Cross-Agent @Mentions (ex: @Architect, @Coder, @squad-db)
+    if ipc_ask_depth == 0:
+        mentions = re.findall(r"@([A-Za-z0-9_\-]+)", prompt)
+        if mentions:
+            try:
+                from storage import get_canvas_state
+                c_nodes = get_canvas_state().get("nodes", [])
+                seen_targets = set()
+                for m_tok in mentions[:3]:
+                    m_low = m_tok.lower()
+                    target_node = None
+                    for cn in c_nodes:
+                        nid_low = str(cn.get("id", "")).lower()
+                        name_low = str(cn.get("name", "")).lower().replace(" ", "")
+                        if nid_low != node_id.lower() and (m_low == nid_low or m_low in name_low or m_low in nid_low):
+                            target_node = cn
+                            break
+                    if target_node and target_node["id"] not in seen_targets:
+                        seen_targets.add(target_node["id"])
+                        _emit_step(f"├─ 📣 [MENÇÃO @{m_tok}] Consultando {target_node.get('name')} inline...")
+                        sub_res = run_maestri_canvas_agent(
+                            node_id=target_node["id"],
+                            agent_name=target_node.get("name", m_tok),
+                            agent_role=target_node.get("role", "Especialista"),
+                            model_id=target_node.get("model", "free:openai"),
+                            prompt=f"Consulta rápida de {agent_name} ({agent_role}) sobre:\n{prompt}",
+                            terminal_cmd="",
+                            upstream_outputs=[],
+                            ipc_ask_depth=1,
+                        )
+                        enriched_context_parts.append(
+                            f"RESPOSTA INLINE DE @{target_node.get('name')} ({target_node.get('role')}):\n{(sub_res.get('output') or '')[:1400]}"
+                        )
+            except Exception:
+                pass
+
+    # 3. Collect upstream connected tiles
     if upstream_outputs:
         up_names = [u["name"] for u in upstream_outputs if u.get("output")]
         if up_names:

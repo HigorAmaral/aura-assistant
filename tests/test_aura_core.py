@@ -125,3 +125,35 @@ def test_api_endpoints_and_pin_guard():
 
     asyncio.run(_run())
 
+
+def test_official_maestro_features():
+    import asyncio
+    import httpx
+    import app as aura_app
+
+    async def _run():
+        transport = httpx.ASGITransport(app=aura_app.app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            r_pb = await client.get("/api/maestri/playbooks")
+            assert r_pb.status_code == 200
+            assert len(r_pb.json().get("playbooks", [])) >= 1
+
+            r_ar = await client.get("/api/maestri/autorun/status")
+            assert r_ar.status_code == 200
+            assert "running" in r_ar.json()
+
+            r_wt = await client.get("/api/maestri/worktrees")
+            assert r_wt.status_code == 200
+            assert r_wt.json()["ok"] is True
+
+            r_files = await client.get("/api/workspace/files?limit=20")
+            assert r_files.status_code == 200
+            assert len(r_files.json().get("files", [])) >= 1
+
+            r_log = await client.get("/api/workspace/log?limit=5")
+            assert r_log.status_code == 200
+            assert r_log.json()["ok"] is True
+
+    asyncio.run(_run())
+
+

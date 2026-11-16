@@ -772,3 +772,387 @@ def run_maestro_mode(goal: str) -> Dict[str, Any]:
         "workers": worker_results,
         "consolidated": consolidated_text,
     }
+
+
+# ==============================================================================
+# OFFICIAL MAESTRO FEATURES: Auto Run & Playbooks, Git Worktrees, File Explorer
+# ==============================================================================
+
+import threading  # noqa: E402
+from storage import get_settings  # noqa: E402
+from terminal_manager import set_terminal_cwd  # noqa: E402
+
+_AUTORUN_LOCK = threading.Lock()
+_AUTORUN_STATE: Dict[str, Any] = {
+    "running": False,
+    "mode": "spec",
+    "playbook": "",
+    "goal": "",
+    "total_tasks": 0,
+    "completed_tasks": 0,
+    "current_task": "",
+    "logs": [],
+    "cancel_requested": False,
+    "updated_at": 0.0,
+}
+
+
+def _active_ws() -> Path:
+    ws = str(get_settings().get("active_workspace") or "").strip()
+    p = Path(ws) if ws else Path.cwd()
+    return p if p.exists() and p.is_dir() else Path.cwd()
+
+
+def get_playbooks_dir() -> Path:
+    ws = _active_ws()
+    pb_dir = ws / ".maestro" / "playbooks"
+    try:
+        pb_dir.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pb_dir = Path(__file__).resolve().parent / "data" / "playbooks"
+        pb_dir.mkdir(parents=True, exist_ok=True)
+
+    if not any(pb_dir.glob("*.md")):
+        samples = {
+            "feature-spec.md": (
+                "# Playbook: Nova Feature (Spec-Driven)\n\n"
+                "- [ ] Analisar arquitetura atual do projeto e mapear arquivos impactados\n"
+                "- [ ] Propor plano técnico e contratos de API/dados\n"
+                "- [ ] Validar riscos, segurança e casos de borda\n"
+                "- [ ] Gerar checklist de testes automatizados\n"
+            ),
+            "bugfix-audit.md": (
+                "# Playbook: Auditoria & Bugfix\n\n"
+                "- [ ] Inspecionar git status, logs recentes e dependências\n"
+                "- [ ] Identificar possíveis gargalos ou erros silenciosos\n"
+                "- [ ] Sugerir correções cirúrgicas e plano de rollback\n"
+            ),
+            "refactor-clean.md": (
+                "# Playbook: Refatoração & Qualidade\n\n"
+                "- [ ] Mapear funções longas ou código duplicado no workspace\n"
+                "- [ ] Sugerir extração modular preservando compatibilidade\n"
+                "- [ ] Verificar cobertura de testes existente\n"
+            ),
+        }
+        for fname, body in samples.items():
+            (pb_dir / fname).write_text(body, encoding="utf-8")
+    return pb_dir
+
+
+def list_playbooks() -> Dict[str, Any]:
+    pb_dir = get_playbooks_dir()
+    items = []
+    for f in sorted(pb_dir.glob("*.md")):
+        txt = f.read_text(encoding="utf-8", errors="replace")
+        pending = len(re.findall(r"^\s*[-*]\s+\[\s\]\s+", txt, flags=re.MULTILINE))
+        done = len(re.findall(r"^\s*[-*]\s+\[[xX]\]\s+", txt, flags=re.MULTILINE))
+        items.append({"name": f.name, "pending": pending, "done": done, "total": pending + done})
+    return {"ok": True, "dir": str(pb_dir), "playbooks": items}
+
+
+def read_playbook(name: str) -> Dict[str, Any]:
+    safe_name = Path(name).name
+    if not safe_name.endswith(".md"):
+        safe_name += ".md"
+    f = get_playbooks_dir() / safe_name
+    if not f.exists():
+        return {"ok": False, "error": f"Playbook '{safe_name}' não encontrado."}
+    return {"ok": True, "name": safe_name, "content": f.read_text(encoding="utf-8", errors="replace")}
+
+
+def save_playbook(name: str, content: str) -> Dict[str, Any]:
+    safe_name = Path(name.strip()).name
+    if not safe_name:
+        return {"ok": False, "error": "Nome do playbook obrigatório."}
+    if not safe_name.endswith(".md"):
+        safe_name += ".md"
+    f = get_playbooks_dir() / safe_name
+    f.write_text(content, encoding="utf-8")
+    return {"ok": True, "name": safe_name, "path": str(f)}
+
+
+def get_autorun_status() -> Dict[str, Any]:
+    with _AUTORUN_LOCK:
+        return {
+            **{k: v for k, v in _AUTORUN_STATE.items() if k != "logs"},
+            "logs": list(_AUTORUN_STATE["logs"][-40:]),
+        }
+
+
+def cancel_autorun() -> Dict[str, Any]:
+    with _AUTORUN_LOCK:
+        _AUTORUN_STATE["cancel_requested"] = True
+    return {"ok": True, "message": "Cancelamento do Auto Run solicitado."}
+
+
+def _ar_log(msg: str) -> None:
+    ts = time.strftime("%H:%M:%S")
+    with _AUTORUN_LOCK:
+        _AUTORUN_STATE["logs"].append(f"[{ts}] {msg}")
+        _AUTORUN_STATE["updated_at"] = time.time()
+
+
+def start_autorun(
+    mode: str = "spec",
+    playbook_name: str = "",
+    goal: str = "",
+    model_id: str = "free:qwen-coder",
+    max_iters: int = 4,
+) -> Dict[str, Any]:
+    with _AUTORUN_LOCK:
+        if _AUTORUN_STATE["running"]:
+            return {"ok": False, "started": False, "message": "Já existe um Auto Run em execução."}
+        _AUTORUN_STATE.update({
+            "running": True,
+            "mode": mode,
+            "playbook": playbook_name,
+            "goal": goal,
+            "total_tasks": 0,
+            "completed_tasks": 0,
+            "current_task": "Inicializando Auto Run...",
+            "logs": [],
+            "cancel_requested": False,
+            "updated_at": time.time(),
+        })
+
+    def _worker():
+        try:
+            if mode == "goal":
+                iters = max(1, min(int(max_iters or 4), 8))
+                with _AUTORUN_LOCK:
+                    _AUTORUN_STATE["total_tasks"] = iters
+                _ar_log(f"🎯 Goal-Driven Auto Run iniciado: {goal[:100]}")
+                history_summary = []
+                for i in range(1, iters + 1):
+                    if _AUTORUN_STATE["cancel_requested"]:
+                        _ar_log("⏹ Auto Run cancelado pelo usuário.")
+                        break
+                    with _AUTORUN_LOCK:
+                        _AUTORUN_STATE["current_task"] = f"Iteração {i}/{iters}"
+                    sess_id = f"autorun-goal-{uuid.uuid4().hex[:6]}"
+                    prompt = (
+                        f"AUTO RUN (GOAL-DRIVEN) — Iteração {i}/{iters} (Sessão Isolada {sess_id}).\n"
+                        f"Objetivo principal: {goal}\n"
+                        + (f"Progresso anterior:\n" + "\n".join(history_summary[-3:]) + "\n" if history_summary else "")
+                        + "Execute um incremento objetivo e concreto. Se o objetivo estiver 100% concluído, inclua `[GOAL_REACHED]` no final."
+                    )
+                    res = run_maestri_canvas_agent(
+                        node_id=sess_id,
+                        agent_name=f"AutoRun #{i}",
+                        agent_role="Agente Autônomo Goal-Driven",
+                        model_id=model_id,
+                        prompt=prompt,
+                    )
+                    out = (res.get("output") or "").strip()
+                    history_summary.append(f"- Iteração {i}: {out[:240]}")
+                    _ar_log(f"✔ Iteração {i}/{iters} concluída: {out[:160]}")
+                    with _AUTORUN_LOCK:
+                        _AUTORUN_STATE["completed_tasks"] = i
+                    if "[GOAL_REACHED]" in out:
+                        _ar_log("🏁 Objetivo atingido ([GOAL_REACHED])!")
+                        break
+            else:
+                pb_res = read_playbook(playbook_name)
+                if not pb_res.get("ok"):
+                    _ar_log(f"❌ {pb_res.get('error')}")
+                    return
+                pb_path = get_playbooks_dir() / pb_res["name"]
+                content = pb_res["content"]
+                lines = content.splitlines()
+                pending_indices = [
+                    idx for idx, ln in enumerate(lines)
+                    if re.match(r"^\s*[-*]\s+\[\s\]\s+(.+)$", ln)
+                ]
+                with _AUTORUN_LOCK:
+                    _AUTORUN_STATE["total_tasks"] = len(pending_indices)
+                _ar_log(f"📖 Spec-Driven Auto Run: {pb_res['name']} ({len(pending_indices)} tarefas pendentes)")
+
+                done_count = 0
+                for idx in pending_indices:
+                    if _AUTORUN_STATE["cancel_requested"]:
+                        _ar_log("⏹ Auto Run cancelado pelo usuário.")
+                        break
+                    m = re.match(r"^(\s*[-*]\s+)\[\s\](\s+.+)$", lines[idx])
+                    if not m:
+                        continue
+                    task_text = m.group(2).strip()
+                    with _AUTORUN_LOCK:
+                        _AUTORUN_STATE["current_task"] = task_text
+                    sess_id = f"autorun-spec-{uuid.uuid4().hex[:6]}"
+                    _ar_log(f"▶ Executando (sessão isolada {sess_id}): {task_text}")
+                    res = run_maestri_canvas_agent(
+                        node_id=sess_id,
+                        agent_name="AutoRun Spec",
+                        agent_role="Executor Spec-Driven",
+                        model_id=model_id,
+                        prompt=f"Playbook: {pb_res['name']}\nTarefa única (sessão isolada): {task_text}\nExecute de forma objetiva e prática.",
+                    )
+                    out = (res.get("output") or "").strip()
+                    lines[idx] = f"{m.group(1)}[x]{m.group(2)}"
+                    pb_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+                    done_count += 1
+                    with _AUTORUN_LOCK:
+                        _AUTORUN_STATE["completed_tasks"] = done_count
+                    _ar_log(f"✅ Marcado [x]: {task_text} -> {out[:140]}")
+
+            log_activity("MAESTRO", f"Auto Run ({mode}) finalizado")
+            try:
+                push_mobile_notification(
+                    title="Auto Run Maestro Concluído",
+                    body=f"Modo {mode} finalizado ({_AUTORUN_STATE['completed_tasks']}/{_AUTORUN_STATE['total_tasks']}).",
+                    category="MAESTRI",
+                    agent_name="Maestro Auto Run",
+                )
+            except Exception:
+                pass
+        finally:
+            with _AUTORUN_LOCK:
+                _AUTORUN_STATE["running"] = False
+                _AUTORUN_STATE["current_task"] = "Concluído"
+                _AUTORUN_STATE["updated_at"] = time.time()
+
+    threading.Thread(target=_worker, daemon=True).start()
+    return {"ok": True, "started": True, "message": "Auto Run iniciado em segundo plano!"}
+
+
+# --- Git Worktrees ---
+
+def list_git_worktrees(workspace: str = "") -> Dict[str, Any]:
+    ws = Path(workspace) if workspace else _active_ws()
+    flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    try:
+        res = subprocess.run(
+            ["git", "worktree", "list", "--porcelain"],
+            cwd=str(ws),
+            capture_output=True,
+            text=True,
+            timeout=10,
+            creationflags=flags,
+        )
+        if res.returncode != 0:
+            return {"ok": False, "worktrees": [], "error": res.stderr.strip() or "Repositório Git não detectado."}
+        worktrees: List[Dict[str, str]] = []
+        cur: Dict[str, str] = {}
+        for line in res.stdout.splitlines():
+            if not line.strip():
+                if cur:
+                    worktrees.append(cur)
+                    cur = {}
+                continue
+            if line.startswith("worktree "):
+                cur["path"] = line[9:].strip()
+            elif line.startswith("HEAD "):
+                cur["head"] = line[5:].strip()[:8]
+            elif line.startswith("branch "):
+                cur["branch"] = line[7:].strip().replace("refs/heads/", "")
+            elif line.strip() == "detached":
+                cur["branch"] = "(detached)"
+        if cur:
+            worktrees.append(cur)
+        return {"ok": True, "workspace": str(ws), "worktrees": worktrees}
+    except Exception as exc:
+        return {"ok": False, "worktrees": [], "error": str(exc)}
+
+
+def create_git_worktree(branch: str, node_id: str = "", workspace: str = "") -> Dict[str, Any]:
+    ws = Path(workspace) if workspace else _active_ws()
+    b_clean = re.sub(r"[^a-zA-Z0-9._/\-]", "-", branch.strip())
+    if not b_clean:
+        return {"ok": False, "message": "Nome da branch inválido."}
+    wt_root = ws / ".maestro" / "worktrees"
+    wt_root.mkdir(parents=True, exist_ok=True)
+    wt_dir = wt_root / _slugify(b_clean)
+    flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    try:
+        # Check if branch exists
+        chk = subprocess.run(["git", "rev-parse", "--verify", b_clean], cwd=str(ws), capture_output=True, text=True, creationflags=flags)
+        if chk.returncode == 0:
+            cmd = ["git", "worktree", "add", str(wt_dir), b_clean]
+        else:
+            cmd = ["git", "worktree", "add", "-b", b_clean, str(wt_dir)]
+        res = subprocess.run(cmd, cwd=str(ws), capture_output=True, text=True, timeout=20, creationflags=flags)
+        if res.returncode != 0:
+            return {"ok": False, "message": res.stderr.strip() or res.stdout.strip() or "Falha ao criar worktree."}
+        if node_id:
+            set_terminal_cwd(node_id, str(wt_dir))
+        log_activity("MAESTRO", f"Git Worktree criado: {b_clean} -> {wt_dir}")
+        return {"ok": True, "branch": b_clean, "path": str(wt_dir), "node_id": node_id, "message": f"Worktree '{b_clean}' criada em {wt_dir}"}
+    except Exception as exc:
+        return {"ok": False, "message": str(exc)}
+
+
+def remove_git_worktree(worktree_path: str, workspace: str = "") -> Dict[str, Any]:
+    ws = Path(workspace) if workspace else _active_ws()
+    flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    try:
+        res = subprocess.run(
+            ["git", "worktree", "remove", "--force", worktree_path],
+            cwd=str(ws),
+            capture_output=True,
+            text=True,
+            timeout=15,
+            creationflags=flags,
+        )
+        if res.returncode != 0:
+            return {"ok": False, "message": res.stderr.strip() or "Falha ao remover worktree."}
+        return {"ok": True, "message": f"Worktree removida: {worktree_path}"}
+    except Exception as exc:
+        return {"ok": False, "message": str(exc)}
+
+
+# --- File Explorer & Git Log ---
+
+def list_workspace_files(workspace: str = "", limit: int = 200) -> Dict[str, Any]:
+    ws = (Path(workspace) if workspace else _active_ws()).resolve()
+    ignored = {".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build", ".pytest_cache"}
+    files: List[Dict[str, Any]] = []
+    for root, dirs, fnames in os.walk(ws):
+        dirs[:] = sorted([d for d in dirs if d not in ignored and not d.startswith(".maestro/worktrees")])
+        for fn in sorted(fnames):
+            full = Path(root) / fn
+            try:
+                rel = str(full.relative_to(ws)).replace("\\", "/")
+                files.append({"path": rel, "size": full.stat().st_size})
+            except Exception:
+                continue
+            if len(files) >= limit:
+                break
+        if len(files) >= limit:
+            break
+    return {"ok": True, "workspace": str(ws), "files": files}
+
+
+def read_workspace_file(rel_path: str, workspace: str = "") -> Dict[str, Any]:
+    ws = (Path(workspace) if workspace else _active_ws()).resolve()
+    target = (ws / rel_path).resolve()
+    if not target.is_relative_to(ws) or not target.exists() or not target.is_file():
+        return {"ok": False, "error": "Arquivo inválido ou fora do workspace."}
+    try:
+        content = target.read_text(encoding="utf-8", errors="replace")[:30000]
+        return {"ok": True, "path": rel_path, "content": content}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def get_workspace_git_log(workspace: str = "", limit: int = 20) -> Dict[str, Any]:
+    ws = Path(workspace) if workspace else _active_ws()
+    flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    try:
+        br = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=str(ws), capture_output=True, text=True, timeout=8, creationflags=flags)
+        res = subprocess.run(
+            ["git", "log", f"-n{limit}", "--pretty=format:%h|%an|%ar|%s"],
+            cwd=str(ws),
+            capture_output=True,
+            text=True,
+            timeout=10,
+            creationflags=flags,
+        )
+        commits = []
+        for line in (res.stdout or "").splitlines():
+            parts = line.split("|", 3)
+            if len(parts) == 4:
+                commits.append({"hash": parts[0], "author": parts[1], "when": parts[2], "subject": parts[3]})
+        return {"ok": True, "branch": (br.stdout or "").strip(), "commits": commits}
+    except Exception as exc:
+        return {"ok": False, "branch": "", "commits": [], "error": str(exc)}
+

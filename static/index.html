@@ -697,6 +697,18 @@
             <button class="btn" onclick="openGitDiffModal()" title="Ver alterações Git e reverter arquivos">
               <i data-lucide="git-compare" class="lucide"></i> Diff & Rollback
             </button>
+            <button class="btn" onclick="openPlaybooksModal()" title="Auto Run & Playbooks (.md Spec-Driven / Goal-Driven)">
+              📖 Playbooks & Auto Run
+            </button>
+            <button class="btn" onclick="openWorktreesModal()" title="Git Worktrees isolados por agente/branch">
+              🌳 Worktrees
+            </button>
+            <button class="btn" onclick="openFilesExplorerModal()" title="Explorador de Arquivos e Git Commit Log">
+              📁 Arquivos & Log
+            </button>
+            <button class="btn" onclick="openGlobalEnvModal()" title="Variáveis de Ambiente Globais para agentes/terminais">
+              🔐 Env Vars
+            </button>
             <button class="btn" onclick="spawnNewCanvasAgent()">
               <i data-lucide="plus-square" class="lucide"></i> + Bloco Agente
             </button>
@@ -1417,6 +1429,116 @@
     </main>
   </div>
 
+  <!-- Playbooks & Auto Run Modal (Official Maestro Feature) -->
+  <div id="playbooksModal" style="display:none; position:fixed; inset:0; background:rgba(2,5,12,0.84); backdrop-filter:blur(6px); z-index:150; align-items:center; justify-content:center; padding:18px;">
+    <div style="background:rgba(11,17,32,0.98); border:1px solid var(--border-glow); border-radius:14px; width:min(960px, 96vw); max-height:88vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 24px 60px rgba(0,0,0,0.85);">
+      <div style="padding:12px 16px; border-bottom:1px solid var(--border-subtle); display:flex; justify-content:space-between; align-items:center;">
+        <strong style="color:var(--cyan); font-size:13px;">📖 Auto Run & Playbooks (.md Spec-Driven & Goal-Driven)</strong>
+        <button class="btn btn-danger" style="padding:3px 9px;" onclick="document.getElementById('playbooksModal').style.display='none'">Fechar</button>
+      </div>
+      <div style="padding:14px 16px; overflow-y:auto; display:grid; grid-template-columns:250px 1fr; gap:14px;">
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="font-size:11px; color:var(--text-muted); font-weight:700;">PLAYBOOKS (.maestro/playbooks)</div>
+          <div id="playbooksListBox" style="display:flex; flex-direction:column; gap:5px; max-height:240px; overflow-y:auto;"></div>
+          <input type="text" id="newPlaybookNameInput" class="form-control" placeholder="novo-playbook.md" style="font-size:11px;" />
+          <button class="btn" style="font-size:11px;" onclick="createNewPlaybook()">+ Criar / Abrir Playbook</button>
+          <div style="border-top:1px solid var(--border-subtle); padding-top:8px; margin-top:4px; display:flex; flex-direction:column; gap:6px;">
+            <label style="font-size:11px; color:var(--text-muted);">Modo Auto Run:</label>
+            <select id="autoRunModeSelect" class="form-control" style="font-size:11px;" onchange="toggleAutoRunModeUI()">
+              <option value="spec">Spec-Driven (Checklist .md)</option>
+              <option value="goal">Goal-Driven (Objetivo Autônomo)</option>
+            </select>
+            <select id="autoRunModelSelect" class="form-control" style="font-size:11px;">
+              <option value="free:qwen-coder">Qwen 2.5 Coder 32B</option>
+              <option value="free:deepseek">DeepSeek R1/V3</option>
+              <option value="free:openai">GPT-4o Mini</option>
+            </select>
+            <div style="display:flex; gap:6px;">
+              <button class="btn btn-glow" style="flex:1; font-size:11px;" onclick="startAutoRunNow()">▶ Auto Run</button>
+              <button class="btn btn-danger" style="font-size:11px;" onclick="cancelAutoRunNow()">⏹</button>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div id="autoRunSpecBox" style="display:flex; flex-direction:column; gap:6px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong id="activePlaybookTitle" style="font-size:12px; color:var(--emerald);">Selecione um playbook</strong>
+              <button class="btn" style="padding:3px 9px; font-size:11px;" onclick="saveActivePlaybook()">💾 Salvar .md</button>
+            </div>
+            <textarea id="playbookEditorBox" rows="9" class="form-control" style="font-family:'JetBrains Mono',monospace; font-size:11px;" placeholder="- [ ] Tarefa 1&#10;- [ ] Tarefa 2"></textarea>
+          </div>
+          <div id="autoRunGoalBox" style="display:none; flex-direction:column; gap:6px;">
+            <label style="font-size:11.5px; color:var(--cyan);">Objetivo Autônomo (Goal-Driven, sessões isoladas):</label>
+            <textarea id="autoRunGoalInput" rows="3" class="form-control" placeholder="Ex: Auditar o projeto, mapear gargalos e propor melhorias concretas..."></textarea>
+          </div>
+          <div style="background:#020409; border:1px solid var(--border-subtle); border-radius:9px; padding:10px;">
+            <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:5px;">
+              <span id="autoRunProgressLabel" style="color:var(--cyan);">Aguardando execução...</span>
+              <span id="autoRunCounterLabel" style="color:var(--emerald);">0/0</span>
+            </div>
+            <pre id="autoRunLogsBox" style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#cbd5e1; max-height:150px; overflow:auto; white-space:pre-wrap; margin:0;"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Git Worktrees Modal (Official Maestro Feature) -->
+  <div id="worktreesModal" style="display:none; position:fixed; inset:0; background:rgba(2,5,12,0.84); backdrop-filter:blur(6px); z-index:150; align-items:center; justify-content:center; padding:18px;">
+    <div style="background:rgba(11,17,32,0.98); border:1px solid var(--border-glow); border-radius:14px; width:min(760px, 95vw); max-height:84vh; display:flex; flex-direction:column; overflow:hidden;">
+      <div style="padding:12px 16px; border-bottom:1px solid var(--border-subtle); display:flex; justify-content:space-between; align-items:center;">
+        <strong style="color:var(--emerald); font-size:13px;">🌳 Git Worktrees Isolados (Agentes em Branches Paralelas)</strong>
+        <button class="btn btn-danger" style="padding:3px 9px;" onclick="document.getElementById('worktreesModal').style.display='none'">Fechar</button>
+      </div>
+      <div style="padding:14px 16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <input type="text" id="wtBranchInput" class="form-control" placeholder="Nome da branch (ex: feat/nova-api)" style="flex:1; min-width:180px;" />
+          <select id="wtAgentSelect" class="form-control" style="max-width:210px;">
+            <option value="">Sem vincular a agente</option>
+          </select>
+          <button class="btn btn-glow" onclick="createWorktreeNow()">+ Criar Worktree</button>
+        </div>
+        <div id="worktreesListBox" style="display:flex; flex-direction:column; gap:7px; font-size:11.5px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- File Explorer & Git Log Modal (Official Maestro Feature) -->
+  <div id="filesExplorerModal" style="display:none; position:fixed; inset:0; background:rgba(2,5,12,0.84); backdrop-filter:blur(6px); z-index:150; align-items:center; justify-content:center; padding:18px;">
+    <div style="background:rgba(11,17,32,0.98); border:1px solid var(--border-glow); border-radius:14px; width:min(980px, 96vw); max-height:88vh; display:flex; flex-direction:column; overflow:hidden;">
+      <div style="padding:12px 16px; border-bottom:1px solid var(--border-subtle); display:flex; justify-content:space-between; align-items:center;">
+        <strong style="color:var(--cyan); font-size:13px;">📁 Explorador de Arquivos & Git Commit Log</strong>
+        <button class="btn btn-danger" style="padding:3px 9px;" onclick="document.getElementById('filesExplorerModal').style.display='none'">Fechar</button>
+      </div>
+      <div style="padding:12px 16px; overflow-y:auto; display:grid; grid-template-columns:280px 1fr; gap:12px; flex:1;">
+        <div style="display:flex; flex-direction:column; gap:8px; overflow:hidden;">
+          <input type="text" id="fileExplorerFilter" class="form-control" placeholder="Filtrar arquivos..." oninput="filterExplorerFiles(this.value)" style="font-size:11px;" />
+          <div id="fileExplorerList" style="overflow-y:auto; max-height:36vh; display:flex; flex-direction:column; gap:3px; font-size:11px;"></div>
+          <div style="font-size:11px; color:var(--emerald); font-weight:700; margin-top:4px;">🕒 Git Log (<span id="gitLogBranchBadge">-</span>)</div>
+          <div id="gitLogList" style="overflow-y:auto; max-height:24vh; display:flex; flex-direction:column; gap:4px; font-size:10.5px;"></div>
+        </div>
+        <pre id="fileExplorerContent" style="background:#020409; border:1px solid var(--border-subtle); border-radius:9px; padding:12px; font-size:11px; font-family:'JetBrains Mono',monospace; color:#cbd5e1; overflow:auto; max-height:66vh; white-space:pre-wrap; margin:0;">Selecione um arquivo à esquerda para visualizar.</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Environment Variables Modal (Official Maestro Feature) -->
+  <div id="globalEnvModal" style="display:none; position:fixed; inset:0; background:rgba(2,5,12,0.84); backdrop-filter:blur(6px); z-index:150; align-items:center; justify-content:center; padding:18px;">
+    <div style="background:rgba(11,17,32,0.98); border:1px solid var(--border-glow); border-radius:14px; width:min(620px, 95vw); display:flex; flex-direction:column; overflow:hidden;">
+      <div style="padding:12px 16px; border-bottom:1px solid var(--border-subtle); display:flex; justify-content:space-between; align-items:center;">
+        <strong style="color:var(--amber); font-size:13px;">🔐 Variáveis de Ambiente Globais (Agentes & Terminais)</strong>
+        <button class="btn btn-danger" style="padding:3px 9px;" onclick="document.getElementById('globalEnvModal').style.display='none'">Fechar</button>
+      </div>
+      <div style="padding:14px 16px; display:flex; flex-direction:column; gap:10px;">
+        <small style="color:var(--text-muted);">Uma por linha no formato <code>CHAVE=VALOR</code>. Aplicadas automaticamente em todos os terminais e agentes do Maestri.</small>
+        <textarea id="globalEnvTextarea" rows="8" class="form-control" style="font-family:'JetBrains Mono',monospace; font-size:11.5px;" placeholder="NODE_ENV=development&#10;API_URL=http://localhost:8000"></textarea>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <button class="btn btn-glow" onclick="saveGlobalEnvVars()">💾 Salvar Variáveis Globais</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Git Diff & Rollback Modal -->
   <div id="gitDiffModal" style="display:none; position:fixed; inset:0; background:rgba(2,5,12,0.82); backdrop-filter:blur(6px); z-index:150; align-items:center; justify-content:center; padding:18px;">
     <div style="background:rgba(11,17,32,0.98); border:1px solid var(--border-glow); border-radius:14px; width:min(920px, 96vw); max-height:86vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 24px 60px rgba(0,0,0,0.85);">
@@ -1761,9 +1883,10 @@
             <!-- Live Interactive Agent Terminal (Prompt Input + Live Working Trace + Result) -->
             <div class="tile-terminal">
               <div class="tile-term-bar">
-                <span>>_ TERMINAL DO AGENTE</span>
+                <span>>_ TERMINAL DO AGENTE <span id="queue-badge-${node.id}" style="display:none;color:var(--amber);font-size:9.5px;margin-left:4px;"></span></span>
                 <div style="display:flex; align-items:center; gap:5px;">
-                  <span id="cwd-${node.id}" style="color:var(--text-muted);max-width:115px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${cwdText}</span>
+                  <input type="text" placeholder="🔍 Filtrar..." oninput="filterTileOutput('${node.id}', this.value)" style="width:74px;padding:1px 5px;font-size:9px;background:rgba(5,8,16,0.8);border:1px solid var(--border-subtle);border-radius:4px;color:#cbd5e1;" />
+                  <span id="cwd-${node.id}" style="color:var(--text-muted);max-width:95px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${cwdText}</span>
                   <button class="btn" style="padding:1px 5px; font-size:9px;" onclick="clearTileTerminal('${node.id}')" title="Limpar Terminal">Limpar</button>
                   <button class="btn" style="padding:1px 5px; font-size:9px;" onclick="copyTileOutput('${node.id}')" title="Copiar Saída">Copiar</button>
                 </div>
@@ -1777,7 +1900,7 @@
                   id="term-input-${node.id}"
                   value=""
                   oninput="updateNodePrompt('${node.id}', this.value)"
-                  placeholder="${safePromptAttr || 'Digite o prompt do agente ou comando ($ dir, git...) e Enter'}"
+                  placeholder="${safePromptAttr || 'Prompt, @agente para consultar outro bloco, ou $ cmd'}"
                   onkeydown="handleTileTerminalKey(event, '${node.id}')"
                 />
                 <button class="btn btn-primary" style="padding:2px 7px; font-size:10px;" onclick="execTileTerminal('${node.id}')">Enviar</button>
@@ -1833,13 +1956,56 @@
       }
     }
 
-    async function execTileTerminal(nodeId) {
+    const tileMessageQueues = {};
+    const tileRawOutputs = {};
+
+    function filterTileOutput(nodeId, query) {
+      const screen = document.getElementById(`term-screen-${nodeId}`);
+      if (!screen) return;
+      if (!tileRawOutputs[nodeId]) tileRawOutputs[nodeId] = screen.textContent || '';
+      const raw = tileRawOutputs[nodeId];
+      const q = (query || '').trim();
+      if (!q) {
+        screen.textContent = raw;
+        return;
+      }
+      let matcher = null;
+      if (q.startsWith('/') && q.endsWith('/') && q.length > 2) {
+        try { matcher = new RegExp(q.slice(1, -1), 'i'); } catch (e) {}
+      }
+      const lines = raw.split('\n').filter(ln => matcher ? matcher.test(ln) : ln.toLowerCase().includes(q.toLowerCase()));
+      screen.textContent = lines.length ? lines.join('\n') : `(Nenhuma linha corresponde a "${q}")`;
+    }
+
+    function _updateQueueBadge(nodeId) {
+      const b = document.getElementById(`queue-badge-${nodeId}`);
+      const q = tileMessageQueues[nodeId] || [];
+      if (!b) return;
+      if (q.length > 0) {
+        b.style.display = 'inline';
+        b.textContent = `📬 Fila (${q.length})`;
+      } else {
+        b.style.display = 'none';
+      }
+    }
+
+    async function execTileTerminal(nodeId, queuedPrompt = null) {
       const inp = document.getElementById(`term-input-${nodeId}`);
       const screen = document.getElementById(`term-screen-${nodeId}`);
       const cwdEl = document.getElementById(`cwd-${nodeId}`);
       const node = canvasNodes.find(n => n.id === nodeId);
-      const rawText = (inp && inp.value.trim()) ? inp.value.trim() : (node ? node.prompt : '');
+      const rawText = queuedPrompt !== null ? queuedPrompt : ((inp && inp.value.trim()) ? inp.value.trim() : (node ? node.prompt : ''));
       if (!rawText) return;
+
+      // Message Queueing: if agent is busy, queue the message instead of dropping or colliding
+      if (queuedPrompt === null && node && node.status === 'running') {
+        if (!tileMessageQueues[nodeId]) tileMessageQueues[nodeId] = [];
+        tileMessageQueues[nodeId].push(rawText);
+        if (inp) inp.value = '';
+        _updateQueueBadge(nodeId);
+        showToast(`📬 Mensagem enfileirada para <strong>${node.name}</strong> (${tileMessageQueues[nodeId].length} na fila).`);
+        return;
+      }
 
       if (!tileCmdHistory[nodeId]) tileCmdHistory[nodeId] = [];
       tileCmdHistory[nodeId].push(rawText);
@@ -1921,6 +2087,14 @@
         if (screen) {
           screen.textContent += `\n❌ [ERRO NO TERMINAL]: ${e}`;
           screen.scrollTop = screen.scrollHeight;
+        }
+      } finally {
+        if (screen) tileRawOutputs[nodeId] = screen.textContent || '';
+        const q = tileMessageQueues[nodeId];
+        if (q && q.length > 0) {
+          const nextMsg = q.shift();
+          _updateQueueBadge(nodeId);
+          setTimeout(() => execTileTerminal(nodeId, nextMsg), 150);
         }
       }
     }
@@ -3362,6 +3536,238 @@
       const res = await fetch('/api/maestri/runmaestro/launch', { method: 'POST' });
       const d = await res.json();
       showToast(d.message || 'RunMaestro verificado.');
+    }
+
+    // --- Official Maestro Features: Playbooks & Auto Run, Worktrees, File Explorer, Global Env ---
+    let activePlaybookName = '';
+    let autoRunPollTimer = null;
+    let cachedExplorerFiles = [];
+
+    async function openPlaybooksModal() {
+      document.getElementById('playbooksModal').style.display = 'flex';
+      await loadPlaybooksList();
+      pollAutoRunStatus();
+    }
+
+    function toggleAutoRunModeUI() {
+      const mode = document.getElementById('autoRunModeSelect')?.value || 'spec';
+      document.getElementById('autoRunSpecBox').style.display = mode === 'spec' ? 'flex' : 'none';
+      document.getElementById('autoRunGoalBox').style.display = mode === 'goal' ? 'flex' : 'none';
+    }
+
+    async function loadPlaybooksList() {
+      const res = await fetch('/api/maestri/playbooks');
+      const d = await res.json();
+      const box = document.getElementById('playbooksListBox');
+      const list = d.playbooks || [];
+      box.innerHTML = list.map(p => `
+        <button class="btn" style="justify-content:space-between; font-size:11px; padding:5px 8px;" onclick="selectPlaybook('${p.name.replace(/'/g, "\\'")}')">
+          <span style="overflow:hidden;text-overflow:ellipsis;">📄 ${p.name}</span>
+          <span style="color:var(--emerald);font-size:10px;">${p.done}/${p.total}</span>
+        </button>
+      `).join('');
+      if (list.length && !activePlaybookName) {
+        await selectPlaybook(list[0].name);
+      }
+    }
+
+    async function selectPlaybook(name) {
+      activePlaybookName = name;
+      document.getElementById('activePlaybookTitle').textContent = name;
+      const res = await fetch(`/api/maestri/playbooks/${encodeURIComponent(name)}`);
+      const d = await res.json();
+      document.getElementById('playbookEditorBox').value = d.content || '';
+    }
+
+    async function createNewPlaybook() {
+      const inp = document.getElementById('newPlaybookNameInput');
+      const name = (inp ? inp.value : '').trim();
+      if (!name) return;
+      await fetch('/api/maestri/playbooks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, content: `# Playbook: ${name}\n\n- [ ] Tarefa 1\n- [ ] Tarefa 2\n` })
+      });
+      inp.value = '';
+      await loadPlaybooksList();
+      await selectPlaybook(name.endsWith('.md') ? name : `${name}.md`);
+    }
+
+    async function saveActivePlaybook() {
+      if (!activePlaybookName) return;
+      const content = document.getElementById('playbookEditorBox').value;
+      const res = await fetch('/api/maestri/playbooks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: activePlaybookName, content })
+      });
+      const d = await res.json();
+      if (d.ok) {
+        showToast(`Playbook <strong>${d.name}</strong> salvo!`);
+        await loadPlaybooksList();
+      }
+    }
+
+    async function startAutoRunNow() {
+      const mode = document.getElementById('autoRunModeSelect')?.value || 'spec';
+      const model_id = document.getElementById('autoRunModelSelect')?.value || 'free:qwen-coder';
+      const goal = document.getElementById('autoRunGoalInput')?.value.trim() || '';
+      if (mode === 'spec' && activePlaybookName) await saveActivePlaybook();
+      const res = await fetch('/api/maestri/autorun/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, playbook_name: activePlaybookName, goal, model_id, max_iters: 4 })
+      });
+      const d = await res.json();
+      showToast(d.message || 'Auto Run iniciado.');
+      if (d.started) {
+        if (autoRunPollTimer) clearInterval(autoRunPollTimer);
+        autoRunPollTimer = setInterval(pollAutoRunStatus, 2000);
+      }
+    }
+
+    async function cancelAutoRunNow() {
+      const res = await fetch('/api/maestri/autorun/cancel', { method: 'POST' });
+      const d = await res.json();
+      showToast(d.message || 'Cancelamento solicitado.');
+    }
+
+    async function pollAutoRunStatus() {
+      try {
+        const res = await fetch('/api/maestri/autorun/status');
+        const st = await res.json();
+        document.getElementById('autoRunProgressLabel').textContent = st.running ? `▶ ${st.current_task}` : (st.current_task || 'Pronto');
+        document.getElementById('autoRunCounterLabel').textContent = `${st.completed_tasks || 0}/${st.total_tasks || 0}`;
+        document.getElementById('autoRunLogsBox').textContent = (st.logs || []).join('\n') || 'Sem logs ainda.';
+        if (!st.running && autoRunPollTimer) {
+          clearInterval(autoRunPollTimer);
+          autoRunPollTimer = null;
+          await loadPlaybooksList();
+          if (activePlaybookName) await selectPlaybook(activePlaybookName);
+        }
+      } catch (e) {}
+    }
+
+    async function openWorktreesModal() {
+      document.getElementById('worktreesModal').style.display = 'flex';
+      const sel = document.getElementById('wtAgentSelect');
+      sel.innerHTML = '<option value="">Sem vincular a agente</option>' +
+        canvasNodes.map(n => `<option value="${n.id}">${n.name} (${n.id})</option>`).join('');
+      await loadWorktreesList();
+    }
+
+    async function loadWorktreesList() {
+      const res = await fetch('/api/maestri/worktrees');
+      const d = await res.json();
+      const box = document.getElementById('worktreesListBox');
+      if (!d.worktrees || !d.worktrees.length) {
+        box.innerHTML = `<span style="color:var(--text-muted);">${d.error || 'Nenhuma worktree encontrada.'}</span>`;
+        return;
+      }
+      box.innerHTML = d.worktrees.map((wt, idx) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;background:rgba(15,23,42,0.85);border:1px solid var(--border-subtle);border-radius:9px;padding:8px 11px;">
+          <div style="overflow:hidden;">
+            <strong style="color:var(--emerald);">🌿 ${wt.branch || 'main'}</strong> <code style="color:var(--cyan);font-size:10px;">${wt.head || ''}</code>
+            <div style="font-size:10.5px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;">${wt.path}</div>
+          </div>
+          ${idx > 0 ? `<button class="btn btn-danger" style="padding:3px 8px;font-size:10px;" onclick="removeWorktreeNow('${wt.path.replace(/'/g, "\\'")}')">Remover</button>` : '<span style="font-size:10px;color:var(--cyan);">Principal</span>'}
+        </div>
+      `).join('');
+    }
+
+    async function createWorktreeNow() {
+      const branch = document.getElementById('wtBranchInput').value.trim();
+      const node_id = document.getElementById('wtAgentSelect').value;
+      if (!branch) return;
+      const res = await fetch('/api/maestri/worktrees/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ branch, node_id })
+      });
+      const d = await res.json();
+      showToast(d.message || 'Worktree processada.');
+      if (d.ok) {
+        document.getElementById('wtBranchInput').value = '';
+        if (node_id) {
+          const cwdEl = document.getElementById(`cwd-${node_id}`);
+          if (cwdEl) cwdEl.textContent = d.path;
+        }
+        await loadWorktreesList();
+      }
+    }
+
+    async function removeWorktreeNow(worktree_path) {
+      const res = await fetch('/api/maestri/worktrees/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ worktree_path })
+      });
+      const d = await res.json();
+      showToast(d.message || 'Worktree removida.');
+      await loadWorktreesList();
+    }
+
+    async function openFilesExplorerModal() {
+      document.getElementById('filesExplorerModal').style.display = 'flex';
+      const [fRes, lRes] = await Promise.all([fetch('/api/workspace/files'), fetch('/api/workspace/log')]);
+      const fData = await fRes.json();
+      const lData = await lRes.json();
+      cachedExplorerFiles = fData.files || [];
+      filterExplorerFiles(document.getElementById('fileExplorerFilter').value || '');
+      document.getElementById('gitLogBranchBadge').textContent = lData.branch || 'HEAD';
+      document.getElementById('gitLogList').innerHTML = (lData.commits || []).map(c => `
+        <div style="background:rgba(15,23,42,0.7);padding:4px 7px;border-radius:6px;border-left:2px solid var(--cyan);">
+          <code style="color:var(--amber);">${c.hash}</code> <span style="color:#e2e8f0;">${c.subject}</span>
+          <div style="font-size:9.5px;color:var(--text-muted);">${c.author} • ${c.when}</div>
+        </div>
+      `).join('') || '<span style="color:var(--text-muted);">Sem histórico Git.</span>';
+    }
+
+    function filterExplorerFiles(q) {
+      const box = document.getElementById('fileExplorerList');
+      const ql = (q || '').trim().toLowerCase();
+      const items = ql ? cachedExplorerFiles.filter(f => f.path.toLowerCase().includes(ql)) : cachedExplorerFiles;
+      box.innerHTML = items.slice(0, 120).map(f => `
+        <button class="btn" style="justify-content:flex-start;text-align:left;padding:3px 7px;font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" onclick="viewWorkspaceFile('${f.path.replace(/'/g, "\\'")}')">
+          📄 ${f.path}
+        </button>
+      `).join('');
+    }
+
+    async function viewWorkspaceFile(path) {
+      const box = document.getElementById('fileExplorerContent');
+      box.textContent = 'Carregando...';
+      const res = await fetch(`/api/workspace/file?path=${encodeURIComponent(path)}`);
+      const d = await res.json();
+      box.textContent = d.ok ? d.content : (d.error || 'Erro ao ler arquivo.');
+    }
+
+    async function openGlobalEnvModal() {
+      document.getElementById('globalEnvModal').style.display = 'flex';
+      const res = await fetch('/api/settings');
+      const s = await res.json();
+      const envObj = s.global_env_vars || {};
+      document.getElementById('globalEnvTextarea').value = Object.entries(envObj).map(([k, v]) => `${k}=${v}`).join('\n');
+    }
+
+    async function saveGlobalEnvVars() {
+      const raw = document.getElementById('globalEnvTextarea').value || '';
+      const envObj = {};
+      raw.split('\n').forEach(line => {
+        const idx = line.indexOf('=');
+        if (idx > 0) {
+          const k = line.slice(0, idx).trim();
+          const v = line.slice(idx + 1).trim();
+          if (k) envObj[k] = v;
+        }
+      });
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ global_env_vars: envObj })
+      });
+      showToast(`Variáveis globais salvas (${Object.keys(envObj).length} chaves)!`);
+      document.getElementById('globalEnvModal').style.display = 'none';
     }
 
     window.addEventListener('DOMContentLoaded', () => {

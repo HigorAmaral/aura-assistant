@@ -844,6 +844,7 @@ def get_settings() -> Dict[str, Any]:
         "auto_restart_on_update": True,
         "remote_pin": "",
         "active_workspace": str(Path.cwd()),
+        "global_env_vars": {},
     }
     with get_conn() as conn:
         rows = conn.execute("SELECT key, value FROM settings").fetchall()
