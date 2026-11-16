@@ -860,7 +860,7 @@
         </div>
         ${NAV.map(([k, i, l]) => `<button class="nv${st.view === k ? ' on' : ''}" data-v="${k}">${i} ${l}${counts[k] ? `<span class="c">${counts[k]}</span>` : ''}</button>`).join('')}
         <div class="side-foot">
-          <button class="sbtn primary" data-act="open-app" title="Abrir Quadro Maestri 2D Completo">Maestri 2D</button>
+          <button class="sbtn primary" data-act="open-app" title="Abrir Painel Completo AURA OS">Painel AURA</button>
           <button class="sbtn" data-act="collapse" title="Recolher entalho">▲</button>
         </div>
       `;
@@ -1007,7 +1007,7 @@
         ? `<img src="https://api.qrserver.com/v1/create-qr-code/?size=74x74&data=${encodeURIComponent(st.remote.active_qr_url)}" style="width:68px;height:68px;border-radius:8px;background:#fff;padding:3px;" alt="QR" />`
         : '';
       return `
-        <h4>Sistema & Maestri</h4>
+        <h4>Sistema & Controles</h4>
         <div class="sub">Atalhos rápidos, terminal e acesso celular 4G/5G</div>
         <div class="scroll-area">
           <div class="sys-grid">

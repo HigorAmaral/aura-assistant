@@ -201,13 +201,13 @@
 </head>
 <body>
 
-  <!-- Real-time Notification Popup when Maestri or AI finishes -->
+  <!-- Real-time Notification Popup when AI or System task finishes -->
   <div class="notif-banner" id="notifBanner" onclick="this.classList.remove('show')">
     <div style="display:flex;justify-content:space-between;align-items:center;">
       <strong id="notifTitle" style="font-size:13.5px;">Notificação AURA</strong>
       <small style="opacity:0.85;">Toque para fechar</small>
     </div>
-    <div id="notifBody" style="font-size:12px;line-height:1.4;">Sua tarefa no Maestri ficou pronta!</div>
+    <div id="notifBody" style="font-size:12px;line-height:1.4;">Sua tarefa na AURA OS ficou pronta!</div>
   </div>
 
   <div class="header">
@@ -250,13 +250,13 @@
   <!-- PAGE 1: DECK REMOTO & POMODORO -->
   <div class="mob-page active" id="mpage-deck">
     <div class="card">
-      <div class="card-title"><i data-lucide="bell-ring" class="lucide"></i> Alertas do Maestri, IA & Automações</div>
+      <div class="card-title"><i data-lucide="bell-ring" class="lucide"></i> Alertas da AURA, IA & Automações</div>
       <div style="display:flex;gap:8px;">
         <button class="send-btn" style="flex:1;" onclick="enableBrowserPush()"><i data-lucide="check-circle" class="lucide"></i> Ativar Som & Push</button>
         <button class="touch-btn" style="padding:8px 12px;flex-direction:row;" onclick="testMobilePush()"><i data-lucide="send" class="lucide"></i> Testar</button>
       </div>
       <div id="notifFeed" style="max-height:145px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
-        <small style="color:var(--muted);">Quando um agente do Maestri ou timer terminar no PC, o aviso aparece aqui com som e vibração.</small>
+        <small style="color:var(--muted);">Quando uma tarefa da IA ou timer terminar no PC, o aviso aparece aqui com som e vibração.</small>
       </div>
     </div>
 
@@ -339,7 +339,7 @@
         Se você estiver no 4G/5G fora do Wi-Fi de casa, informe o <strong>Código do Canal Cloud</strong> exibido no seu PC:
       </p>
       <div style="display:flex;gap:8px;">
-        <input type="text" id="cloudChannelInput" placeholder="Ex: aura-maestri-xxxxxxxx" />
+        <input type="text" id="cloudChannelInput" placeholder="Ex: aura-pc-xxxxxxxx" />
         <button class="send-btn" onclick="connectCloudRelay()">Vincular 4G</button>
       </div>
     </div>

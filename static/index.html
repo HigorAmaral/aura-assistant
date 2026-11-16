@@ -253,194 +253,6 @@
       min-height: 170px; max-height: 260px; overflow-y: auto; white-space: pre-wrap; line-height: 1.5;
     }
 
-    /* --- MAESTRI 2D INFINITE WORKSPACE CANVAS (WITH LIVE TERMINALS) --- */
-    .canvas-toolbar {
-      padding: 8px 14px;
-      background: rgba(6, 10, 20, 0.94);
-      border-bottom: 1px solid var(--border-subtle);
-      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
-      gap: 8px;
-      z-index: 10;
-    }
-    .canvas-toolbar > div {
-      display: flex; flex-wrap: wrap; align-items: center; gap: 6px; max-width: 100%;
-    }
-    .maestri-dropdown { position: relative; display: inline-block; }
-    .maestri-dropdown-menu {
-      display: none; position: absolute; right: 0; top: calc(100% + 5px);
-      min-width: 225px; background: rgba(10, 16, 30, 0.98);
-      border: 1px solid var(--border-glow); border-radius: 10px;
-      padding: 6px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8);
-      z-index: 90; flex-direction: column; gap: 3px;
-    }
-    .maestri-dropdown-menu.open { display: flex; }
-    .maestri-dropdown-item {
-      background: transparent; border: none; color: var(--text-primary);
-      text-align: left; padding: 7px 10px; border-radius: 7px;
-      font-size: 11.5px; cursor: pointer; display: flex; align-items: center; gap: 8px;
-      width: 100%;
-    }
-    .maestri-dropdown-item:hover { background: rgba(56, 189, 248, 0.14); color: #fff; }
-    .zoom-pill {
-      display: inline-flex; align-items: center;
-      border: 1px solid var(--border-subtle); border-radius: 8px; overflow: hidden;
-      background: rgba(15, 23, 42, 0.65);
-    }
-    .zoom-pill button {
-      border: none; border-radius: 0; background: transparent; padding: 4px 8px; font-size: 11px;
-    }
-    .zoom-pill button:hover { background: rgba(56, 189, 248, 0.15); }
-    .canvas-viewport {
-      flex: 1;
-      position: relative;
-      overflow: hidden;
-      background-color: #03060c;
-      background-image:
-        linear-gradient(rgba(148, 163, 184, 0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(148, 163, 184, 0.04) 1px, transparent 1px),
-        radial-gradient(rgba(56, 189, 248, 0.18) 1px, transparent 1px);
-      background-size: 120px 120px, 120px 120px, 24px 24px;
-      cursor: grab;
-      user-select: none;
-    }
-    .canvas-viewport:active { cursor: grabbing; }
-    .canvas-world {
-      position: absolute;
-      top: 0; left: 0;
-      width: 3400px; height: 2200px;
-      transform-origin: 0 0;
-    }
-    .edges-svg {
-      position: absolute;
-      top: 0; left: 0;
-      width: 3400px; height: 2200px;
-      pointer-events: none;
-      z-index: 3;
-    }
-    .edge-group { pointer-events: auto; cursor: pointer; }
-    .edge-group:hover .edge-visible { stroke: #fb7185 !important; stroke-width: 3.5 !important; }
-    .edge-del-pill { opacity: 0.75; transition: opacity 0.15s, transform 0.15s; }
-    .edge-group:hover .edge-del-pill { opacity: 1; }
-    .node-port {
-      position: absolute; top: 130px; width: 15px; height: 15px; border-radius: 50%;
-      background: #0b1120; border: 2.5px solid #38bdf8; cursor: crosshair; z-index: 6;
-      transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
-    }
-    .node-port:hover, .node-port.connecting {
-      transform: scale(1.35); background: #34d399; border-color: #34d399;
-      box-shadow: 0 0 12px rgba(52, 211, 153, 0.85);
-    }
-    .node-port-in { left: -8px; }
-    .node-port-out { right: -8px; }
-
-    /* Maestri Workspace Tile (Agent + Live Terminal) */
-    .agent-node {
-      position: absolute;
-      width: 425px;
-      background: rgba(11, 17, 32, 0.96);
-      backdrop-filter: blur(20px);
-      border: 1.5px solid rgba(56, 189, 248, 0.45);
-      border-radius: 14px;
-      box-shadow: 0 20px 44px rgba(0, 0, 0, 0.82);
-      z-index: 2;
-      display: flex; flex-direction: column;
-      cursor: default;
-    }
-    .agent-node.running {
-      border-color: var(--amber);
-      box-shadow: 0 0 32px rgba(251, 191, 36, 0.48);
-    }
-    .agent-node-header {
-      padding: 9px 12px;
-      border-bottom: 1px solid var(--border-subtle);
-      background: linear-gradient(90deg, rgba(56, 189, 248, 0.08), transparent);
-      border-radius: 13px 13px 0 0;
-      cursor: move;
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .agent-node-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
-    .agent-node textarea {
-      width: 100%; background: rgba(5, 8, 16, 0.9); border: 1px solid var(--border-subtle);
-      color: #f8fafc; border-radius: 7px; padding: 6px 8px; font-size: 11px; resize: vertical;
-    }
-
-    /* Live Terminal Emulator inside Maestri Tile (Prompt + Working Trace + Result) */
-    .tile-terminal {
-      background: #020409;
-      border: 1px solid rgba(56, 189, 248, 0.4);
-      border-radius: 9px;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.85);
-    }
-    .tile-term-bar {
-      background: rgba(15, 23, 42, 0.96);
-      padding: 5px 9px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 10px;
-      color: var(--emerald);
-      border-bottom: 1px solid rgba(56, 189, 248, 0.22);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .tile-term-screen {
-      padding: 9px 10px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 10.8px;
-      line-height: 1.48;
-      color: #a7f3d0;
-      max-height: 240px;
-      min-height: 155px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-      user-select: text;
-    }
-    .tile-term-input-row {
-      display: flex;
-      align-items: center;
-      background: #050914;
-      border-top: 1px solid rgba(56, 189, 248, 0.25);
-      padding: 4px 8px;
-      gap: 5px;
-    }
-    .tile-term-prompt {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 10.5px;
-      color: var(--cyan);
-      font-weight: 700;
-      white-space: nowrap;
-    }
-    .tile-term-input {
-      flex: 1;
-      background: transparent !important;
-      border: none !important;
-      color: #fff !important;
-      font-family: 'JetBrains Mono', monospace !important;
-      font-size: 11px !important;
-      padding: 5px 3px !important;
-      outline: none !important;
-    }
-
-    .agent-output {
-      background: rgba(5, 8, 17, 0.92);
-      border: 1px solid var(--border-subtle);
-      border-radius: 8px;
-      padding: 7px 9px;
-      font-size: 10.5px;
-      color: var(--text-secondary);
-      max-height: 76px;
-      overflow-y: auto;
-      line-height: 1.4;
-      white-space: pre-wrap;
-      user-select: text;
-    }
-    .port-dot {
-      width: 11px; height: 11px; border-radius: 50%;
-      background: var(--cyan); border: 2px solid #050811;
-    }
-
     /* Cards & Grids */
     .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(195px, 1fr)); gap: 14px; margin-bottom: 16px; }
     .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; margin-bottom: 16px; }
@@ -1071,11 +883,23 @@
           </div>
 
           <div class="card">
-            <h3><span class="card-title-left"><i data-lucide="cpu" class="lucide" style="color:var(--indigo);"></i> Top Processos em Execução</span></h3>
-            <table>
-              <thead><tr><th>Processo</th><th>PID</th><th>RAM %</th><th>Ação</th></tr></thead>
-              <tbody id="processTableBody"></tbody>
-            </table>
+            <h3>
+              <span class="card-title-left"><i data-lucide="cpu" class="lucide" style="color:var(--indigo);"></i> Top Processos em Execução</span>
+              <div style="display:flex; gap:5px; align-items:center;">
+                <button class="btn" style="padding:3px 8px; font-size:10.5px;" onclick="loadProcessManager('cpu')">CPU</button>
+                <button class="btn" style="padding:3px 8px; font-size:10.5px;" onclick="loadProcessManager('ram')">RAM</button>
+                <button class="btn btn-primary" style="padding:3px 8px; font-size:10.5px;" onclick="loadProcessManager()"><i data-lucide="refresh-cw" class="lucide"></i></button>
+              </div>
+            </h3>
+            <div style="margin-bottom:8px;">
+              <input type="text" id="processFilterInput" placeholder="Filtrar processo por nome ou PID..." oninput="renderProcessList()" style="width:100%; padding:5px 9px; font-size:11px;" />
+            </div>
+            <div style="max-height:310px; overflow-y:auto;">
+              <table>
+                <thead><tr><th>Processo</th><th>PID</th><th>CPU</th><th>RAM</th><th>Ação</th></tr></thead>
+                <tbody id="processTableBody"></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </section>
@@ -1131,7 +955,7 @@
               <i data-lucide="sliders-horizontal" class="lucide" style="color:var(--cyan);"></i>
               Central de Configuração Completa do Sistema (AURA OS 5.0)
             </h2>
-            <small style="color:var(--text-muted); font-size:11.5px;">Personalize Identidade, Motores de IA, Comportamento do Terminal Maestri, Painel HUD Superior, Alertas Mobile e Sincronização de Apps</small>
+            <small style="color:var(--text-muted); font-size:11.5px;">Personalize Identidade, Motores de IA, Terminal do Sistema, Painel HUD Superior, Alertas Mobile e Sincronização de Apps</small>
           </div>
           <div style="display:flex; gap:8px;">
             <button class="btn" onclick="loadSystemSettings()"><i data-lucide="rotate-ccw" class="lucide"></i> Recarregar</button>
@@ -1215,9 +1039,9 @@
             </div>
           </div>
 
-          <!-- Card 3: Terminal do Agente Maestri 2D -->
+          <!-- Card 3: Terminal do Sistema & Comandos -->
           <div class="card">
-            <h3><span class="card-title-left"><i data-lucide="terminal-square" class="lucide" style="color:var(--emerald);"></i> 3. Terminal do Agente (Maestri 2D)</span></h3>
+            <h3><span class="card-title-left"><i data-lucide="terminal-square" class="lucide" style="color:var(--emerald);"></i> 3. Terminal do Sistema & Comandos</span></h3>
             <div class="cfg-group">
               <label class="cfg-label">Modo de Entrada do Terminal (`aura-agent❯`)</label>
               <select id="cfg_terminal_input_mode">
@@ -1285,8 +1109,8 @@
           <div class="card">
             <h3><span class="card-title-left"><i data-lucide="smartphone" class="lucide" style="color:var(--cyan);"></i> 5. Notificações Celular & Alertas</span></h3>
             <div class="cfg-toggle-row">
-              <span>Notificar Celular quando Agente Maestri Terminar</span>
-              <select id="cfg_notify_on_maestri" style="width:95px; padding:4px 8px;">
+              <span>Notificar Celular quando Tarefas/Rotinas Terminarem</span>
+              <select id="cfg_notify_on_tasks" style="width:95px; padding:4px 8px;">
                 <option value="true">SIM</option>
                 <option value="false">NÃO</option>
               </select>
@@ -1323,9 +1147,6 @@
             <div style="display:flex; flex-direction:column; gap:8px;">
               <button class="btn btn-primary" onclick="syncSystemAppsNow()">
                 <i data-lucide="refresh-cw" class="lucide"></i> Escanear e Sincronizar Todos os Apps do PC
-              </button>
-              <button class="btn" onclick="applyMaestriTemplate('default')">
-                <i data-lucide="layout-template" class="lucide"></i> Restaurar Quadro Maestri 2D Padrão
               </button>
               <button class="btn" onclick="triggerCleanTemp()">
                 <i data-lucide="sparkles" class="lucide"></i> Limpar Arquivos Temporários do Sistema
@@ -1376,7 +1197,7 @@
               </select>
             </div>
             <div class="cfg-group" style="margin-top:8px;">
-              <label class="cfg-label">PIN de Segurança Remoto (opcional) <span class="cfg-hint">Protege terminal/Maestro fora de localhost</span></label>
+              <label class="cfg-label">PIN de Segurança Remoto (opcional) <span class="cfg-hint">Protege terminal e API fora de localhost</span></label>
               <input type="password" id="cfgRemotePin" placeholder="Deixe vazio para desativar" />
             </div>
             <div style="display:flex; flex-direction:column; gap:7px; margin-top:10px;">
@@ -1467,19 +1288,6 @@
     let voiceReplyEnabled = true;
     let recognition = null;
     let isListening = false;
-
-    // Maestri 2D Canvas State
-    let canvasNodes = [];
-    let canvasEdges = [];
-    let panX = 20;
-    let panY = 20;
-    let zoomScale = 1.0;
-    let isPanning = false;
-    let panStartX = 0;
-    let panStartY = 0;
-    let draggingNodeId = null;
-    let dragOffsetX = 0;
-    let dragOffsetY = 0;
 
     function refreshIcons() {
       if (window.lucide) lucide.createIcons();
@@ -1616,685 +1424,6 @@
       }
     }
 
-    // --- MAESTRI 2D INFINITE WORKSPACE (WITH REAL LIVE TERMINALS) ---
-    async function loadCanvasState() {
-      const res = await fetch('/api/canvas');
-      const data = await res.json();
-      canvasNodes = data.nodes || [];
-      canvasEdges = data.edges || [];
-      renderCanvasNodes();
-      renderCanvasEdges();
-      renderMinimap();
-    }
-
-    async function applyMaestriTemplate(templateKey) {
-      const res = await fetch('/api/canvas/load-template', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ template_key: templateKey })
-      });
-      const data = await res.json();
-      canvasNodes = data.nodes || [];
-      canvasEdges = data.edges || [];
-      renderCanvasNodes();
-      renderCanvasEdges();
-      renderMinimap();
-      showToast('Template Maestri 2D carregado com sucesso!');
-    }
-
-    async function exportMaestriMarkdown() {
-      const res = await fetch('/api/canvas/export', { method: 'POST' });
-      const data = await res.json();
-      showToast(data.message);
-    }
-
-    function renderMinimap() {
-      const box = document.getElementById('minimapDots');
-      if (!box) return;
-      const cntEl = document.getElementById('minimapCount');
-      if (cntEl) cntEl.textContent = `${canvasNodes.length} nós`;
-
-      const worldW = 3400;
-      const worldH = 2200;
-      const mapW = 205;
-      const mapH = 108;
-      const sx = mapW / worldW;
-      const sy = mapH / worldH;
-
-      // Render viewport camera rectangle
-      const vp = document.getElementById('canvasViewport');
-      const vpW = vp ? vp.clientWidth : 900;
-      const vpH = vp ? vp.clientHeight : 600;
-      const camX = Math.max(0, (-panX / zoomScale) * sx);
-      const camY = Math.max(0, (-panY / zoomScale) * sy);
-      const camW = Math.min(mapW, (vpW / zoomScale) * sx);
-      const camH = Math.min(mapH, (vpH / zoomScale) * sy);
-
-      const camRect = `<div style="position:absolute;left:${camX.toFixed(1)}px;top:${camY.toFixed(1)}px;width:${camW.toFixed(1)}px;height:${camH.toFixed(1)}px;border:1.5px solid #38bdf8;background:rgba(56,189,248,0.12);border-radius:3px;pointer-events:none;"></div>`;
-
-      const dots = canvasNodes.map(n => {
-        const mx = Math.min(mapW - 22, Math.max(2, Math.round((n.x || 0) * sx)));
-        const my = Math.min(mapH - 12, Math.max(2, Math.round((n.y || 0) * sy)));
-        const isRun = n.status === 'running';
-        const col = isRun ? '#fbbf24' : (n.color || '#38bdf8');
-        const glow = isRun ? 'box-shadow:0 0 8px #fbbf24;' : '';
-        return `<div style="position:absolute;left:${mx}px;top:${my}px;width:24px;height:13px;background:${col};border-radius:3px;opacity:0.92;${glow}border:1px solid rgba(255,255,255,0.35);" title="${n.name}"></div>`;
-      }).join('');
-
-      box.innerHTML = camRect + dots;
-    }
-
-    function autoLayoutCanvasNodes() {
-      const cols = Math.max(2, Math.min(3, canvasNodes.length));
-      canvasNodes.forEach((n, idx) => {
-        const col = idx % cols;
-        const row = Math.floor(idx / cols);
-        n.x = 40 + col * 485;
-        n.y = 40 + row * 380;
-      });
-      panX = 20; panY = 20; zoomScale = 0.88;
-      renderCanvasNodes();
-      renderCanvasEdges();
-      applyWorldTransform();
-      persistCanvas();
-      showToast('Blocos Maestri 2D auto-organizados!');
-    }
-
-    async function persistCanvas() {
-      const cleanNodes = canvasNodes.map(({ terminal, ...rest }) => rest);
-      await fetch('/api/canvas/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nodes: cleanNodes, edges: canvasEdges })
-      });
-    }
-
-    function applyWorldTransform() {
-      const world = document.getElementById('canvasWorld');
-      if (world) world.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomScale})`;
-      document.getElementById('zoomBadge').textContent = `${Math.round(zoomScale * 100)}%`;
-      renderMinimap();
-    }
-
-    function zoomCanvas(delta) {
-      zoomScale = Math.max(0.5, Math.min(1.5, zoomScale + delta));
-      applyWorldTransform();
-    }
-
-    function resetCanvasCamera() {
-      panX = 20; panY = 20; zoomScale = 1.0;
-      applyWorldTransform();
-    }
-
-    function formatTerminalHistory(termObj) {
-      if (!termObj || !termObj.history) return 'aura-agent❯ Terminal do Agente pronto. Digite seu prompt ou comando abaixo.';
-      return termObj.history.map(h => {
-        const prefix = (h.cmd && h.cmd.startsWith('aura-agent❯')) ? h.cmd : `aura-agent❯ ${h.cmd}`;
-        return `[${h.ts}] ${prefix}\n${h.output}`;
-      }).join('\n\n────────────────────────────────────────\n\n');
-    }
-
-    function renderCanvasNodes() {
-      const layer = document.getElementById('nodesLayer');
-      layer.innerHTML = canvasNodes.map((node, idx) => {
-        if (node.x === 510 || node.x === 540) node.x = 560;
-        if (node.x === 930 || node.x === 1000) node.x = 1050;
-        const termText = formatTerminalHistory(node.terminal);
-        const cwdText = (node.terminal && node.terminal.cwd) ? node.terminal.cwd : '~';
-        const safePromptAttr = (node.prompt || '').replace(/"/g, '&quot;');
-        const st = (node.status || 'idle').toLowerCase();
-        const badgeStyle = st === 'running'
-          ? 'background:rgba(56,189,248,0.2);color:#38bdf8;border:1px solid rgba(56,189,248,0.5);'
-          : st === 'done'
-            ? 'background:rgba(52,211,153,0.18);color:#34d399;border:1px solid rgba(52,211,153,0.45);'
-            : st === 'error'
-              ? 'background:rgba(248,113,113,0.18);color:#f87171;border:1px solid rgba(248,113,113,0.45);'
-              : 'background:rgba(148,163,184,0.12);color:#94a3b8;border:1px solid rgba(148,163,184,0.25);';
-        const badgeLabel = st === 'running' ? '● EXECUTANDO' : st === 'done' ? '✓ CONCLUÍDO' : st === 'error' ? '⚠ ERRO' : '○ IDLE';
-        return `
-        <div class="agent-node ${st === 'running' ? 'running' : ''}" id="node-${node.id}" style="left:${node.x}px; top:${node.y}px; border-color:${node.color || '#38bdf8'};" onclick="if(connectingFromId && connectingFromId !== '${node.id}') completeConnectTo('${node.id}')">
-          <div class="node-port node-port-in" title="Porta de Entrada: arraste até aqui ou clique para concluir conexão" onmouseup="completeConnectTo('${node.id}', event)" onclick="event.stopPropagation(); completeConnectTo('${node.id}', event)"></div>
-          <div class="node-port node-port-out ${connectingFromId === node.id ? 'connecting' : ''}" title="Porta de Saída: arraste ou clique para conectar a outro agente" onmousedown="startConnectPort(event, '${node.id}')" onclick="event.stopPropagation(); toggleConnectFrom('${node.id}')"></div>
-          <div class="agent-node-header" onmousedown="startDragNode(event, '${node.id}')">
-            <div style="display:flex; align-items:center; gap:7px; overflow:hidden;">
-              <span class="port-dot" style="background:${node.color || '#38bdf8'};"></span>
-              <strong style="font-size:12px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${node.name}</strong>
-              <span id="status-badge-${node.id}" style="font-size:9px; font-weight:700; padding:1px 6px; border-radius:999px; flex-shrink:0; ${badgeStyle}">${badgeLabel}</span>
-            </div>
-            <div style="display:flex; gap:4px;">
-              <button class="btn" style="padding:3px 6px; font-size:10.5px;" onclick="event.stopPropagation(); toggleConnectFrom('${node.id}')" title="Conectar este agente a outro">🔗</button>
-              <button class="btn" style="padding:3px 6px; font-size:10.5px;" onclick="event.stopPropagation(); editCanvasNode('${node.id}')" title="Editar Nome e Papel (ex: Front, Back, DB)">✏️</button>
-              <button class="btn btn-primary" style="padding:3px 8px; font-size:10.5px;" onclick="event.stopPropagation(); runSingleCanvasNode('${node.id}')" title="Executar Prompt no Terminal do Agente">▶</button>
-              <button class="btn btn-danger" style="padding:3px 6px; font-size:10.5px;" onclick="event.stopPropagation(); removeCanvasNode('${node.id}')">×</button>
-            </div>
-          </div>
-
-          <div class="agent-node-body">
-            <div style="font-size:10px; color:var(--text-muted); line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${(node.role || '').replace(/"/g, '&quot;')}">${node.role || 'Agente especialista do canvas'}</div>
-            <div id="live-step-${node.id}" style="display:${st === 'running' ? 'block' : 'none'}; font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--cyan); background:rgba(56,189,248,0.08); border:1px solid rgba(56,189,248,0.28); border-radius:6px; padding:3px 7px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
-              <select onchange="updateNodeModel('${node.id}', this.value)" style="flex:1; font-size:10.5px; padding:4px 7px;">
-                <option value="free:openai" ${node.model==='free:openai'?'selected':''}>IA Gratuita: GPT-4o Mini</option>
-                <option value="free:mistral" ${node.model==='free:mistral'?'selected':''}>IA Gratuita: Mistral Small 3</option>
-                <option value="free:qwen-coder" ${node.model==='free:qwen-coder'?'selected':''}>IA Gratuita: Qwen 2.5 Coder 32B</option>
-                <option value="free:deepseek" ${node.model==='free:deepseek'?'selected':''}>IA Gratuita: DeepSeek R1/V3</option>
-                <option value="gemini:gemini-3.8-flash" ${node.model==='gemini:gemini-3.8-flash'?'selected':''}>Gemini 3.8 Flash</option>
-              </select>
-              <span style="font-size:9.5px; color:var(--emerald); font-family:'JetBrains Mono',monospace; padding:2px 6px; border:1px solid rgba(52,211,153,0.35); border-radius:6px;">PROMPT + SHELL</span>
-            </div>
-
-            <!-- Live Interactive Agent Terminal (Prompt Input + Live Working Trace + Result) -->
-            <div class="tile-terminal">
-              <div class="tile-term-bar">
-                <span>>_ TERMINAL DO AGENTE <span id="queue-badge-${node.id}" style="display:none;color:var(--amber);font-size:9.5px;margin-left:4px;"></span></span>
-                <div style="display:flex; align-items:center; gap:5px;">
-                  <input type="text" placeholder="🔍 Filtrar..." oninput="filterTileOutput('${node.id}', this.value)" style="width:74px;padding:1px 5px;font-size:9px;background:rgba(5,8,16,0.8);border:1px solid var(--border-subtle);border-radius:4px;color:#cbd5e1;" />
-                  <span id="cwd-${node.id}" style="color:var(--text-muted);max-width:95px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${cwdText}</span>
-                  <button class="btn" style="padding:1px 5px; font-size:9px;" onclick="clearTileTerminal('${node.id}')" title="Limpar Terminal">Limpar</button>
-                  <button class="btn" style="padding:1px 5px; font-size:9px;" onclick="copyTileOutput('${node.id}')" title="Copiar Saída">Copiar</button>
-                </div>
-              </div>
-              <div class="tile-term-screen" id="term-screen-${node.id}">${termText}</div>
-              <div class="tile-term-input-row">
-                <span class="tile-term-prompt">aura-agent❯</span>
-                <input
-                  type="text"
-                  class="tile-term-input"
-                  id="term-input-${node.id}"
-                  value=""
-                  oninput="updateNodePrompt('${node.id}', this.value)"
-                  placeholder="${safePromptAttr || 'Prompt, @agente para consultar outro bloco, ou $ cmd'}"
-                  onkeydown="handleTileTerminalKey(event, '${node.id}')"
-                />
-                <button class="btn btn-primary" style="padding:2px 7px; font-size:10px;" onclick="execTileTerminal('${node.id}')">Enviar</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      `}).join('');
-    }
-
-    const tileCmdHistory = {};
-    const tileCmdCursor = {};
-
-    function handleTileTerminalKey(e, nodeId) {
-      const inp = document.getElementById(`term-input-${nodeId}`);
-      if (!inp) return;
-      if (e.key === 'Enter') {
-        execTileTerminal(nodeId);
-        return;
-      }
-      const hist = tileCmdHistory[nodeId] || [];
-      if (!hist.length) return;
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        const cur = tileCmdCursor[nodeId] === undefined ? hist.length : tileCmdCursor[nodeId];
-        const nextIdx = Math.max(0, cur - 1);
-        tileCmdCursor[nodeId] = nextIdx;
-        inp.value = hist[nextIdx];
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        const cur = tileCmdCursor[nodeId] === undefined ? hist.length : tileCmdCursor[nodeId];
-        const nextIdx = Math.min(hist.length, cur + 1);
-        tileCmdCursor[nodeId] = nextIdx;
-        inp.value = nextIdx < hist.length ? hist[nextIdx] : '';
-      }
-    }
-
-    async function clearTileTerminal(nodeId) {
-      await fetch('/api/terminal/exec', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ node_id: nodeId, command: 'clear', node_name: 'Terminal', notify_mobile: false })
-      });
-      const screen = document.getElementById(`term-screen-${nodeId}`);
-      if (screen) screen.textContent = 'aura-agent❯ Terminal limpo. Pronto para o próximo prompt ou comando.';
-    }
-
-    function copyTileOutput(nodeId) {
-      const screen = document.getElementById(`term-screen-${nodeId}`);
-      if (screen && navigator.clipboard) {
-        navigator.clipboard.writeText(screen.textContent);
-        showToast('Saída do terminal copiada para a área de transferência!');
-      }
-    }
-
-    const tileMessageQueues = {};
-    const tileRawOutputs = {};
-
-    function filterTileOutput(nodeId, query) {
-      const screen = document.getElementById(`term-screen-${nodeId}`);
-      if (!screen) return;
-      if (!tileRawOutputs[nodeId]) tileRawOutputs[nodeId] = screen.textContent || '';
-      const raw = tileRawOutputs[nodeId];
-      const q = (query || '').trim();
-      if (!q) {
-        screen.textContent = raw;
-        return;
-      }
-      let matcher = null;
-      if (q.startsWith('/') && q.endsWith('/') && q.length > 2) {
-        try { matcher = new RegExp(q.slice(1, -1), 'i'); } catch (e) {}
-      }
-      const lines = raw.split('\n').filter(ln => matcher ? matcher.test(ln) : ln.toLowerCase().includes(q.toLowerCase()));
-      screen.textContent = lines.length ? lines.join('\n') : `(Nenhuma linha corresponde a "${q}")`;
-    }
-
-    function _updateQueueBadge(nodeId) {
-      const b = document.getElementById(`queue-badge-${nodeId}`);
-      const q = tileMessageQueues[nodeId] || [];
-      if (!b) return;
-      if (q.length > 0) {
-        b.style.display = 'inline';
-        b.textContent = `📬 Fila (${q.length})`;
-      } else {
-        b.style.display = 'none';
-      }
-    }
-
-    async function execTileTerminal(nodeId, queuedPrompt = null) {
-      const inp = document.getElementById(`term-input-${nodeId}`);
-      const screen = document.getElementById(`term-screen-${nodeId}`);
-      const cwdEl = document.getElementById(`cwd-${nodeId}`);
-      const node = canvasNodes.find(n => n.id === nodeId);
-      const rawText = queuedPrompt !== null ? queuedPrompt : ((inp && inp.value.trim()) ? inp.value.trim() : (node ? node.prompt : ''));
-      if (!rawText) return;
-
-      // Message Queueing: if agent is busy, queue the message instead of dropping or colliding
-      if (queuedPrompt === null && node && node.status === 'running') {
-        if (!tileMessageQueues[nodeId]) tileMessageQueues[nodeId] = [];
-        tileMessageQueues[nodeId].push(rawText);
-        if (inp) inp.value = '';
-        _updateQueueBadge(nodeId);
-        showToast(`📬 Mensagem enfileirada para <strong>${node.name}</strong> (${tileMessageQueues[nodeId].length} na fila).`);
-        return;
-      }
-
-      if (!tileCmdHistory[nodeId]) tileCmdHistory[nodeId] = [];
-      tileCmdHistory[nodeId].push(rawText);
-      tileCmdCursor[nodeId] = tileCmdHistory[nodeId].length;
-      if (inp) {
-        inp.value = '';
-        inp.placeholder = rawText;
-      }
-
-      if (node) {
-        node.prompt = rawText;
-        node.status = 'running';
-      }
-      renderMinimap();
-      const nodeEl = document.getElementById(`node-${nodeId}`);
-      if (nodeEl) nodeEl.classList.add('running');
-
-      const upstreamIds = canvasEdges.filter(e => e.to === nodeId).map(e => e.from);
-      const upstreamOutputs = canvasNodes
-        .filter(n => upstreamIds.includes(n.id))
-        .map(n => ({ name: n.name, output: n.output }));
-
-      // Live step-by-step working animation inside the agent's terminal
-      const baseHistory = screen.textContent;
-      screen.textContent = `${baseHistory}\n\n────────────────────────────────────────\n[AGORA] aura-agent❯ ${rawText}\n⚙ [INICIANDO AGENTE] Preparando execução no terminal de '${node ? node.name : nodeId}'...`;
-      screen.scrollTop = screen.scrollHeight;
-
-      let stepCount = 0;
-      const liveSteps = [
-        '💻 [SHELL & AMBIENTE] Inspecionando diretório, processos e contexto do sistema...',
-        '📊 [FERRAMENTAS AURA] Coletando telemetria em tempo real para o agente...',
-        '🧠 [IA PROCESSANDO] Gerando raciocínio e resposta detalhada no terminal...'
-      ];
-      const stepTimer = setInterval(() => {
-        if (stepCount < liveSteps.length && screen) {
-          screen.textContent += `\n${liveSteps[stepCount]}`;
-          screen.scrollTop = screen.scrollHeight;
-          stepCount++;
-        }
-      }, 480);
-
-      try {
-        const res = await fetch('/api/terminal/input', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            node_id: nodeId,
-            raw_input: rawText,
-            agent_name: node ? node.name : 'Agente Maestri',
-            agent_role: node ? node.role : '',
-            model_id: node ? node.model : 'free:openai',
-            mode: 'auto',
-            upstream_outputs: upstreamOutputs
-          })
-        });
-        clearInterval(stepTimer);
-        const data = await res.json();
-        const sess = data.terminal_session || data.session;
-        if (node) {
-          node.status = 'idle';
-          if (sess) node.terminal = sess;
-          if (data.output) node.output = data.output;
-        }
-        if (nodeEl) nodeEl.classList.remove('running');
-        if (sess && screen) {
-          screen.textContent = formatTerminalHistory(sess);
-          screen.scrollTop = screen.scrollHeight;
-          if (cwdEl && sess.cwd) cwdEl.textContent = sess.cwd;
-        }
-        if (data.provider_used) {
-          document.getElementById('providerText').textContent = data.provider_used;
-        }
-        showToast(`<strong>${node ? node.name : 'Terminal'} concluído!</strong> Resultado exibido no terminal.`);
-        persistCanvas();
-      } catch (e) {
-        clearInterval(stepTimer);
-        if (node) node.status = 'idle';
-        if (nodeEl) nodeEl.classList.remove('running');
-        if (screen) {
-          screen.textContent += `\n❌ [ERRO NO TERMINAL]: ${e}`;
-          screen.scrollTop = screen.scrollHeight;
-        }
-      } finally {
-        if (screen) tileRawOutputs[nodeId] = screen.textContent || '';
-        const q = tileMessageQueues[nodeId];
-        if (q && q.length > 0) {
-          const nextMsg = q.shift();
-          _updateQueueBadge(nodeId);
-          setTimeout(() => execTileTerminal(nodeId, nextMsg), 150);
-        }
-      }
-    }
-
-    let connectingFromId = null;
-    let isDraggingPort = false;
-    let tempLineCoords = null;
-
-    function renderCanvasEdges() {
-      const svg = document.getElementById('edgesSvg');
-      if (!svg) return;
-      let pathsHtml = '';
-      canvasEdges.forEach((edge, idx) => {
-        const fromNode = canvasNodes.find(n => n.id === edge.from);
-        const toNode = canvasNodes.find(n => n.id === edge.to);
-        if (!fromNode || !toNode) return;
-        const x1 = fromNode.x + 425;
-        const y1 = fromNode.y + 135;
-        const x2 = toNode.x;
-        const y2 = toNode.y + 135;
-        const cx1 = x1 + Math.abs(x2 - x1) * 0.45;
-        const cx2 = x2 - Math.abs(x2 - x1) * 0.45;
-        const mx = Math.round((x1 + x2) / 2);
-        const my = Math.round((y1 + y2) / 2);
-        const isActive = (typeof activeMaestroEdges !== 'undefined') && activeMaestroEdges.some(ae => ae.from === edge.from && ae.to === edge.to);
-        const strokeColor = isActive ? 'rgba(52, 211, 153, 0.95)' : 'rgba(56, 189, 248, 0.65)';
-        const strokeW = isActive ? '3.5' : '2.5';
-        const dotColor = isActive ? '#34d399' : '#38bdf8';
-        pathsHtml += `
-          <g class="edge-group" onclick="event.stopPropagation(); removeCanvasEdge(${idx})" title="Clique para remover ligação (${fromNode.name} → ${toNode.name})">
-            <path d="M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}" fill="none" stroke="transparent" stroke-width="14" />
-            <path d="M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}"
-                  class="edge-visible ${isActive ? 'edge-active' : ''}"
-                  fill="none" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-dasharray="6,4" />
-            <circle cx="${x2}" cy="${y2}" r="5" fill="${dotColor}" />
-            <g class="edge-del-pill" transform="translate(${mx}, ${my})">
-              <circle r="10" fill="#0b1120" stroke="rgba(248,113,113,0.7)" stroke-width="1.5" />
-              <text x="0" y="3.5" text-anchor="middle" fill="#fb7185" font-size="12" font-weight="bold">×</text>
-            </g>
-          </g>
-        `;
-      });
-      if (isDraggingPort && tempLineCoords) {
-        const { x1, y1, x2, y2 } = tempLineCoords;
-        const cx1 = x1 + Math.abs(x2 - x1) * 0.4;
-        const cx2 = x2 - Math.abs(x2 - x1) * 0.4;
-        pathsHtml += `<path d="M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}" fill="none" stroke="#34d399" stroke-width="3" stroke-dasharray="5,4" />`;
-      }
-      svg.innerHTML = pathsHtml;
-    }
-
-    function startConnectPort(e, nodeId) {
-      e.stopPropagation();
-      e.preventDefault();
-      connectingFromId = nodeId;
-      isDraggingPort = true;
-      const n = canvasNodes.find(x => x.id === nodeId);
-      if (n) tempLineCoords = { x1: n.x + 425, y1: n.y + 135, x2: n.x + 425, y2: n.y + 135 };
-      renderCanvasNodes();
-      renderCanvasEdges();
-    }
-
-    function toggleConnectFrom(nodeId) {
-      if (connectingFromId === nodeId) {
-        connectingFromId = null;
-        isDraggingPort = false;
-        tempLineCoords = null;
-        showToast('Modo conexão cancelado.');
-      } else {
-        connectingFromId = nodeId;
-        const src = canvasNodes.find(x => x.id === nodeId);
-        showToast(`<strong>Conectando a partir de [${src ? src.name : nodeId}]:</strong> clique no bloco ou porta de entrada de destino.`);
-      }
-      renderCanvasNodes();
-      renderCanvasEdges();
-    }
-
-    function completeConnectTo(targetId, e) {
-      if (e) e.stopPropagation();
-      if (!connectingFromId || connectingFromId === targetId) {
-        connectingFromId = null;
-        isDraggingPort = false;
-        tempLineCoords = null;
-        renderCanvasNodes();
-        renderCanvasEdges();
-        return;
-      }
-      const exists = canvasEdges.some(ed => ed.from === connectingFromId && ed.to === targetId);
-      if (!exists) {
-        const src = canvasNodes.find(x => x.id === connectingFromId);
-        const dst = canvasNodes.find(x => x.id === targetId);
-        canvasEdges.push({ id: 'edge-' + Date.now(), from: connectingFromId, to: targetId });
-        persistCanvas();
-        showToast(`<strong>Ligação criada:</strong> ${src ? src.name : connectingFromId} → ${dst ? dst.name : targetId}`);
-      } else {
-        showToast('Esses dois agentes já estão conectados.');
-      }
-      connectingFromId = null;
-      isDraggingPort = false;
-      tempLineCoords = null;
-      renderCanvasNodes();
-      renderCanvasEdges();
-    }
-
-    function removeCanvasEdge(idx) {
-      const ed = canvasEdges[idx];
-      if (!ed) return;
-      canvasEdges.splice(idx, 1);
-      persistCanvas();
-      renderCanvasEdges();
-      showToast('Ligação removida do canvas.');
-    }
-
-    function editCanvasNode(nodeId) {
-      const node = canvasNodes.find(n => n.id === nodeId);
-      if (!node) return;
-      const newName = prompt('Nome do Agente (ex: Engenheiro Frontend, Banco de Dados, Maestro):', node.name || '');
-      if (newName === null) return;
-      const newRole = prompt('Papel / Especialidade do Agente:', node.role || '');
-      if (newRole === null) return;
-      if (newName.trim()) node.name = newName.trim();
-      if (newRole.trim()) node.role = newRole.trim();
-      persistCanvas();
-      renderCanvasNodes();
-      renderCanvasEdges();
-      showToast(`Bloco <strong>${node.name}</strong> atualizado!`);
-    }
-
-    function startDragNode(e, nodeId) {
-      e.stopPropagation();
-      draggingNodeId = nodeId;
-      const node = canvasNodes.find(n => n.id === nodeId);
-      dragOffsetX = (e.clientX / zoomScale) - node.x;
-      dragOffsetY = (e.clientY / zoomScale) - node.y;
-    }
-
-    function updateNodeModel(nodeId, val) {
-      const n = canvasNodes.find(x => x.id === nodeId);
-      if (n) { n.model = val; persistCanvas(); }
-    }
-
-    function updateNodePrompt(nodeId, val) {
-      const n = canvasNodes.find(x => x.id === nodeId);
-      if (n) { n.prompt = val; persistCanvas(); }
-    }
-
-    function spawnNewCanvasAgent() {
-      const name = prompt('Nome do novo Bloco (Agente + Terminal):', 'Agente DevOps & Terminal');
-      if (!name) return;
-      const id = 'agent-' + Date.now();
-      const colors = ['#38bdf8', '#818cf8', '#34d399', '#c084fc', '#fbbf24'];
-      const newNode = {
-        id,
-        name,
-        role: 'Executa prompts e comandos direto no terminal com saída passo a passo.',
-        model: 'free:qwen-coder',
-        x: 180 + (canvasNodes.length * 60) % 500,
-        y: 120 + (canvasNodes.length * 50) % 300,
-        prompt: 'Verifique os processos e status do sistema no terminal e resuma os pontos principais.',
-        output: 'Bloco criado. Digite seu prompt direto no terminal acima.',
-        status: 'idle',
-        color: colors[canvasNodes.length % colors.length],
-        terminal: { history: [{ ts: 'Agora', cmd: 'aura-agent❯ Inicializar Agente', output: '⚙ [AGENTE PRONTO] Digite seu prompt na linha aura-agent❯ abaixo e pressione Enter.' }], cwd: '~' }
-      };
-      if (canvasNodes.length > 0) {
-        canvasEdges.push({ from: canvasNodes[canvasNodes.length - 1].id, to: id });
-      }
-      canvasNodes.push(newNode);
-      renderCanvasNodes();
-      renderCanvasEdges();
-      persistCanvas();
-    }
-
-    function removeCanvasNode(nodeId) {
-      canvasNodes = canvasNodes.filter(n => n.id !== nodeId);
-      canvasEdges = canvasEdges.filter(e => e.from !== nodeId && e.to !== nodeId);
-      renderCanvasNodes();
-      renderCanvasEdges();
-      persistCanvas();
-    }
-
-    async function runSingleCanvasNode(nodeId) {
-      await execTileTerminal(nodeId);
-    }
-
-    async function orchestrateAllCanvasAgents() {
-      showToast('Orquestrando todos os blocos Maestri (Agentes + Terminais)...');
-      for (const node of canvasNodes) {
-        await runSingleCanvasNode(node.id);
-      }
-      showToast('Fluxo Maestri concluído! Notificação enviada ao seu celular.');
-      loadFreeAiPool();
-    }
-
-    function initCanvasInteractions() {
-      const vp = document.getElementById('canvasViewport');
-      const minimap = document.getElementById('canvasMinimap');
-      let isMinimapDragging = false;
-
-      function panFromMinimapEvent(e) {
-        const dots = document.getElementById('minimapDots');
-        if (!dots || !vp) return;
-        const rect = dots.getBoundingClientRect();
-        const relX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
-        const relY = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
-        const worldX = (relX / rect.width) * 3400;
-        const worldY = (relY / rect.height) * 2200;
-        panX = Math.round(-(worldX * zoomScale) + vp.clientWidth / 2);
-        panY = Math.round(-(worldY * zoomScale) + vp.clientHeight / 2);
-        applyWorldTransform();
-      }
-
-      if (minimap) {
-        minimap.addEventListener('mousedown', (e) => {
-          e.stopPropagation();
-          isMinimapDragging = true;
-          panFromMinimapEvent(e);
-        });
-      }
-
-      vp.addEventListener('mousedown', (e) => {
-        if (e.target === vp || e.target.id === 'canvasWorld' || e.target.id === 'edgesSvg') {
-          isPanning = true;
-          panStartX = e.clientX - panX;
-          panStartY = e.clientY - panY;
-        }
-      });
-
-      vp.addEventListener('wheel', (e) => {
-        if (e.ctrlKey || e.target === vp || e.target.id === 'canvasWorld' || e.target.id === 'edgesSvg') {
-          e.preventDefault();
-          const delta = e.deltaY < 0 ? 0.08 : -0.08;
-          zoomCanvas(delta);
-        }
-      }, { passive: false });
-
-      vp.addEventListener('touchstart', (e) => {
-        if (e.touches.length === 1 && (e.target === vp || e.target.id === 'canvasWorld' || e.target.id === 'edgesSvg')) {
-          isPanning = true;
-          panStartX = e.touches[0].clientX - panX;
-          panStartY = e.touches[0].clientY - panY;
-        }
-      }, { passive: true });
-      vp.addEventListener('touchmove', (e) => {
-        if (isPanning && e.touches.length === 1) {
-          panX = e.touches[0].clientX - panStartX;
-          panY = e.touches[0].clientY - panStartY;
-          applyWorldTransform();
-        }
-      }, { passive: true });
-      vp.addEventListener('touchend', () => { isPanning = false; });
-
-      window.addEventListener('mousemove', (e) => {
-        if (isMinimapDragging) {
-          panFromMinimapEvent(e);
-        } else if (isDraggingPort && connectingFromId) {
-          const rect = vp.getBoundingClientRect();
-          const worldX = Math.round((e.clientX - rect.left - panX) / zoomScale);
-          const worldY = Math.round((e.clientY - rect.top - panY) / zoomScale);
-          const src = canvasNodes.find(n => n.id === connectingFromId);
-          if (src) {
-            tempLineCoords = { x1: src.x + 425, y1: src.y + 135, x2: worldX, y2: worldY };
-            renderCanvasEdges();
-          }
-        } else if (draggingNodeId) {
-          const node = canvasNodes.find(n => n.id === draggingNodeId);
-          if (node) {
-            node.x = Math.max(10, Math.round((e.clientX / zoomScale) - dragOffsetX));
-            node.y = Math.max(10, Math.round((e.clientY / zoomScale) - dragOffsetY));
-            const dom = document.getElementById(`node-${node.id}`);
-            if (dom) { dom.style.left = node.x + 'px'; dom.style.top = node.y + 'px'; }
-            renderCanvasEdges();
-            renderMinimap();
-          }
-        } else if (isPanning) {
-          panX = e.clientX - panStartX;
-          panY = e.clientY - panStartY;
-          applyWorldTransform();
-        }
-      });
-      window.addEventListener('mouseup', () => {
-        if (isDraggingPort) {
-          isDraggingPort = false;
-          tempLineCoords = null;
-          renderCanvasEdges();
-        }
-        if (draggingNodeId) {
-          draggingNodeId = null;
-          persistCanvas();
-          renderMinimap();
-        }
-        isPanning = false;
-        isMinimapDragging = false;
-      });
-    }
-
-    // --- REMOTE 4G/5G & NOTIFICATIONS ---
     async function sendTestMobileNotification() {
       await fetch('/api/mobile/test-notification', { method: 'POST' });
       showToast('Notificação enviada! Confira na tela do seu celular.');
@@ -2465,16 +1594,14 @@
           if (sessCnt) sessCnt.textContent = `${d.pomodoro.completed_sessions} sessões`;
         }
 
-        const tbody = document.getElementById('processTableBody');
-        if (tbody) {
-          tbody.innerHTML = d.top_processes.map(p => `
-            <tr>
-              <td><strong>${p.name}</strong></td>
-              <td style="font-family:'JetBrains Mono',monospace;color:var(--text-muted);">${p.pid}</td>
-              <td><span style="color:var(--cyan);font-weight:700;">${p.memory_percent}%</span></td>
-              <td><button class="btn btn-danger" style="padding:3px 8px;font-size:10.5px;" onclick="killProcess('${p.pid}')">Encerrar</button></td>
-            </tr>
-          `).join('');
+        if (!document.getElementById('processFilterInput')?.value && lastProcessSort === 'cpu') {
+          cachedProcesses = (d.top_processes || []).map(p => ({
+            pid: p.pid,
+            name: p.name,
+            cpu_percent: p.cpu_percent ?? 0,
+            memory_mb: p.memory_mb ?? `${p.memory_percent}%`
+          }));
+          renderProcessList();
         }
       } catch (e) {}
     }
@@ -2584,15 +1711,45 @@
       inp.value = '';
     }
 
+    let cachedProcesses = [];
+    let lastProcessSort = 'cpu';
+
+    async function loadProcessManager(sortBy = null) {
+      if (sortBy) lastProcessSort = sortBy;
+      try {
+        const res = await fetch(`/api/system/processes?limit=30&sort=${lastProcessSort}`);
+        const d = await res.json();
+        cachedProcesses = d.processes || [];
+        renderProcessList();
+      } catch (e) {}
+    }
+
+    function renderProcessList() {
+      const tbody = document.getElementById('processTableBody');
+      if (!tbody) return;
+      const q = (document.getElementById('processFilterInput')?.value || '').trim().toLowerCase();
+      const filtered = cachedProcesses.filter(p => !q || String(p.name).toLowerCase().includes(q) || String(p.pid).includes(q));
+      tbody.innerHTML = filtered.map(p => `
+        <tr>
+          <td><strong>${p.name}</strong></td>
+          <td style="font-family:'JetBrains Mono',monospace;color:var(--text-muted);">${p.pid}</td>
+          <td><span style="color:var(--emerald);font-weight:700;">${p.cpu_percent ?? 0}%</span></td>
+          <td><span style="color:var(--cyan);font-weight:700;">${typeof p.memory_mb === 'number' ? p.memory_mb + ' MB' : p.memory_mb}</span></td>
+          <td><button class="btn btn-danger" style="padding:3px 8px;font-size:10.5px;" onclick="killProcess('${p.pid}')">Encerrar</button></td>
+        </tr>
+      `).join('');
+    }
+
     async function killProcess(pid) {
-      const res = await fetch('/api/system/close', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target: String(pid) })
-      });
+      const numPid = parseInt(pid, 10);
+      const url = !isNaN(numPid) ? `/api/system/processes/${numPid}/kill` : '/api/system/close';
+      const opts = !isNaN(numPid)
+        ? { method: 'POST' }
+        : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target: String(pid) }) };
+      const res = await fetch(url, opts);
       const data = await res.json();
       showToast(data.message);
-      refreshSystemStats();
+      loadProcessManager();
       loadQuickApps();
     }
 
@@ -2600,6 +1757,9 @@
       const res = await fetch('/api/system/screenshot', { method: 'POST' });
       const data = await res.json();
       showToast(data.message);
+      if (data.filename) {
+        appendMessage('aura', `📸 Print capturado:<br><img src="/api/system/screenshot-file/${encodeURIComponent(data.filename)}" alt="Screenshot" style="max-width:100%;border-radius:8px;margin-top:6px;border:1px solid var(--border-subtle);" />`);
+      }
     }
 
     async function triggerMedia(action) {
@@ -2935,7 +2095,7 @@
       'voice_reply', 'auto_learn_memory', 'terminal_input_mode',
       'agent_auto_exec_shell', 'default_terminal_cwd', 'terminal_timeout_sec',
       'hud_compact_w', 'hud_expanded_w', 'hud_expanded_h',
-      'notify_on_maestri', 'notify_on_terminal', 'notify_on_chat',
+      'notify_on_tasks', 'notify_on_terminal', 'notify_on_chat',
       'hardware_alert_threshold',
       'auto_update_enabled', 'update_repo', 'update_branch',
       'update_check_interval_sec', 'auto_restart_on_update'
@@ -3060,106 +2220,6 @@
       window.location.href = '/api/updates/download-bundle';
     }
 
-    async function loadMaestriClis() {
-      const bar = document.getElementById('maestriClisBar');
-      try {
-        const res = await fetch('/api/maestri/clis');
-        if (!res.ok) {
-          if (bar) bar.textContent = 'CLIs: reinicie a AURA (nova rota)';
-          return;
-        }
-        const d = await res.json();
-        if (bar && Array.isArray(d.clis)) {
-          const priority = ['gh', 'vercel', 'supabase', 'antigravity', 'git', 'python', 'node', 'npm', 'powershell', 'code'];
-          const sorted = [...d.clis].sort((a, b) => {
-            const ia = priority.indexOf(a.cmd);
-            const ib = priority.indexOf(b.cmd);
-            return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
-          });
-          const active = sorted.filter(c => c.installed);
-          bar.innerHTML = 'CLIs: ' + (active.length
-            ? active.slice(0, 9).map(c => {
-                const suffix = c.via_npx ? ' (npx)' : '';
-                const installBtn = c.via_npx
-                  ? ` onclick="installGlobalCli('${c.cmd}')" title="Clique para instalar ${c.label} globalmente via npm"`
-                  : ` title="${c.label}: ${c.path}"`;
-                const cursor = c.via_npx ? 'cursor:pointer; text-decoration:underline dotted;' : '';
-                return `<code${installBtn} style="background:rgba(56,189,248,0.14);color:var(--cyan);padding:1px 6px;border-radius:4px;${cursor}">${c.cmd}${suffix}</code>`;
-              }).join(' ')
-            : 'nenhuma');
-        }
-      } catch (e) {
-        if (bar) bar.textContent = 'CLIs: indisponível';
-      }
-    }
-
-    async function installGlobalCli(cliCmd) {
-      showToast(`Instalando <strong>${cliCmd}</strong> globalmente via npm...`);
-      const res = await fetch('/api/maestri/clis/install', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cli: cliCmd })
-      });
-      const d = await res.json();
-      showToast(d.message || 'Processo concluído.');
-      await loadMaestriClis();
-    }
-
-    let activeMaestroEdges = [];
-    let maestroPollTimer = null;
-
-    function applyMaestroLiveStatus(st) {
-      const bar = document.getElementById('maestroMissionBar');
-      const pill = document.getElementById('maestroPhasePill');
-      const strat = document.getElementById('maestroStrategyText');
-      const elap = document.getElementById('maestroElapsedText');
-      if (!bar) return;
-
-      const phaseLabels = {
-        planning: '🧠 PLANEJANDO DAG',
-        spawning: '⚡ SPAWNING AGENTES',
-        executing: '⚙ EXECUTANDO SWARM',
-        auditing: '🔍 AUDITANDO QUALIDADE',
-        synthesizing: '✨ SINTETIZANDO',
-        done: '✔ CONCLUÍDO',
-        idle: 'IDLE'
-      };
-      bar.style.display = 'flex';
-      if (pill) pill.textContent = phaseLabels[st.phase] || (st.phase || '').toUpperCase();
-      if (strat) strat.textContent = st.strategy || st.goal || 'Orquestrando...';
-      if (elap) elap.textContent = `${Number(st.elapsed_sec || 0).toFixed(1)}s`;
-
-      activeMaestroEdges = st.active_edges || [];
-      if (st.node_states) {
-        let changed = false;
-        for (const [nid, info] of Object.entries(st.node_states)) {
-          const n = canvasNodes.find(x => x.id === nid);
-          if (n && n.status !== info.status) {
-            n.status = info.status;
-            changed = true;
-          }
-          const badge = document.getElementById(`status-badge-${nid}`);
-          if (badge) {
-            const s = info.status;
-            badge.textContent = s === 'running' ? '● EXECUTANDO' : s === 'done' ? '✓ CONCLUÍDO' : s === 'error' ? '⚠ ERRO' : '○ IDLE';
-            badge.style.color = s === 'running' ? '#38bdf8' : s === 'done' ? '#34d399' : s === 'error' ? '#f87171' : '#94a3b8';
-          }
-          const card = document.getElementById(`node-${nid}`);
-          if (card) card.classList.toggle('running', info.status === 'running');
-          const stepEl = document.getElementById(`live-step-${nid}`);
-          if (stepEl) {
-            if (info.status === 'running' && info.step) {
-              stepEl.style.display = 'block';
-              stepEl.textContent = info.step;
-            } else if (info.status !== 'running') {
-              stepEl.style.display = 'none';
-            }
-          }
-        }
-        if (changed) renderCanvasEdges();
-      }
-    }
-
     function toggleMobileChat(forceState) {
       const sb = document.getElementById('chatSidebar');
       const bd = document.getElementById('chatBackdrop');
@@ -3167,162 +2227,6 @@
       const shouldOpen = typeof forceState === 'boolean' ? forceState : !sb.classList.contains('open');
       sb.classList.toggle('open', shouldOpen);
       bd.classList.toggle('open', shouldOpen);
-    }
-
-    function runMaestroPreset(goalText) {
-      const inp = document.getElementById('maestroGoalInput');
-      if (inp) inp.value = goalText;
-      runMaestroModeNow();
-    }
-
-    let maestroEventSource = null;
-
-    async function cancelMaestroNow() {
-      await fetch('/api/canvas/maestro-cancel', { method: 'POST' });
-      showToast('Cancelamento solicitado ao Maestro...');
-    }
-
-    async function runMaestroModeNow() {
-      const inp = document.getElementById('maestroGoalInput');
-      const btn = document.getElementById('maestroRunBtn');
-      const cancelBtn = document.getElementById('maestroCancelBtn');
-      const goal = (inp ? inp.value : '').trim();
-      if (!goal) {
-        showToast('Digite um objetivo para o Modo Maestro executar.');
-        return;
-      }
-      if (btn) btn.disabled = true;
-      if (cancelBtn) cancelBtn.style.display = 'inline-flex';
-      showToast(`<strong>Modo Maestro iniciado:</strong> planejando DAG para "${goal}"...`);
-
-      if (maestroPollTimer) { clearInterval(maestroPollTimer); maestroPollTimer = null; }
-      if (maestroEventSource) { maestroEventSource.close(); maestroEventSource = null; }
-
-      try {
-        maestroEventSource = new EventSource('/api/canvas/maestro-stream');
-        maestroEventSource.onmessage = (ev) => {
-          try { applyMaestroLiveStatus(JSON.parse(ev.data)); } catch (_) {}
-        };
-        maestroEventSource.onerror = () => {
-          if (maestroEventSource) { maestroEventSource.close(); maestroEventSource = null; }
-        };
-      } catch (_) {
-        maestroPollTimer = setInterval(async () => {
-          try {
-            const r = await fetch('/api/canvas/maestro-status');
-            if (r.ok) applyMaestroLiveStatus(await r.json());
-          } catch (_) {}
-        }, 700);
-      }
-
-      try {
-        const res = await fetch('/api/canvas/maestro-run', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ goal })
-        });
-        const d = await res.json();
-        if (d.ok) {
-          showToast(`<strong>Modo Maestro concluído em ${d.elapsed_sec}s!</strong> Confira a Síntese Executiva no Maestro.`);
-        } else if (d.cancelled) {
-          showToast(`<strong>Maestro cancelado</strong> após ${d.elapsed_sec}s.`);
-        } else {
-          showToast(`Erro no Modo Maestro: ${d.error || 'falha'}`);
-        }
-        await loadCanvasState();
-        const stRes = await fetch('/api/canvas/maestro-status');
-        if (stRes.ok) applyMaestroLiveStatus(await stRes.json());
-      } finally {
-        if (maestroEventSource) { maestroEventSource.close(); maestroEventSource = null; }
-        if (maestroPollTimer) { clearInterval(maestroPollTimer); maestroPollTimer = null; }
-        activeMaestroEdges = [];
-        if (btn) btn.disabled = false;
-        if (cancelBtn) cancelBtn.style.display = 'none';
-      }
-    }
-
-    async function loadWorkspaceProjects() {
-      const sel = document.getElementById('activeWorkspaceSelect');
-      if (!sel) return;
-      try {
-        const res = await fetch('/api/workspace/projects');
-        const d = await res.json();
-        sel.innerHTML = (d.projects || []).map(p =>
-          `<option value="${p.path.replace(/"/g, '&quot;')}" ${p.path === d.active ? 'selected' : ''}>📁 ${p.name}</option>`
-        ).join('');
-      } catch (_) {}
-    }
-
-    async function setWorkspaceProject(path) {
-      if (!path) return;
-      const res = await fetch('/api/workspace/set', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path })
-      });
-      const d = await res.json();
-      if (d.ok) {
-        showToast(`<strong>Projeto Ativo sincronizado:</strong> ${d.cwd} (${d.updated_sessions} terminais)`);
-        await loadCanvasState();
-      }
-    }
-
-    async function openGitDiffModal() {
-      const modal = document.getElementById('gitDiffModal');
-      const filesEl = document.getElementById('gitDiffFilesList');
-      const codeEl = document.getElementById('gitDiffCodeBox');
-      if (!modal) return;
-      modal.style.display = 'flex';
-      filesEl.innerHTML = '<span style="color:var(--text-muted);font-size:11.5px;">Carregando git status...</span>';
-      codeEl.textContent = '';
-      const res = await fetch('/api/workspace/diff');
-      const d = await res.json();
-      if (!d.files || !d.files.length) {
-        filesEl.innerHTML = `<span style="color:var(--emerald);font-size:12px;">✔ Nenhuma alteração pendente em ${d.workspace || 'workspace'}.</span>`;
-        codeEl.textContent = d.diff || '(working tree clean)';
-        return;
-      }
-      filesEl.innerHTML = d.files.map(f => `
-        <div style="display:flex;align-items:center;gap:6px;background:rgba(15,23,42,0.85);border:1px solid var(--border-subtle);padding:4px 9px;border-radius:8px;font-size:11px;">
-          <code style="color:var(--amber);">${f.status}</code>
-          <span>${f.file}</span>
-          <button class="btn btn-danger" style="padding:1px 6px;font-size:10px;" onclick="revertGitFile('${f.file.replace(/'/g, "\\'")}')">Reverter</button>
-        </div>
-      `).join('');
-      codeEl.textContent = d.diff || '(Sem diff textual — arquivos novos não rastreados)';
-    }
-
-    async function revertGitFile(filePath) {
-      if (!confirm(`Reverter alterações de '${filePath}'?`)) return;
-      const res = await fetch('/api/workspace/revert', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file_path: filePath })
-      });
-      const d = await res.json();
-      showToast(d.message || 'Arquivo revertido.');
-      await openGitDiffModal();
-    }
-
-    async function commitGitWorkspace(push) {
-      const inp = document.getElementById('gitCommitMsgInput');
-      const msg = inp ? inp.value.trim() : '';
-      if (!msg) {
-        showToast('Digite uma mensagem para o commit.');
-        return;
-      }
-      showToast(push ? 'Executando git add, commit e push...' : 'Executando git add e commit...');
-      const res = await fetch('/api/workspace/commit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg, push })
-      });
-      const d = await res.json();
-      showToast(d.message || (d.ok ? 'Commit concluído.' : 'Falha no commit.'));
-      if (d.ok) {
-        if (inp) inp.value = '';
-        await openGitDiffModal();
-      }
     }
 
     async function loadChatHistory() {
@@ -3459,244 +2363,6 @@
       const d = await res.json();
       showToast(d.message || 'Varredura concluída.');
       await scanDriversNow();
-    }
-
-    async function launchRunMaestroNow() {
-      const res = await fetch('/api/maestri/runmaestro/launch', { method: 'POST' });
-      const d = await res.json();
-      showToast(d.message || 'RunMaestro verificado.');
-    }
-
-    // --- Official Maestro Features: Playbooks & Auto Run, Worktrees, File Explorer, Global Env ---
-    let activePlaybookName = '';
-    let autoRunPollTimer = null;
-    let cachedExplorerFiles = [];
-
-    async function openPlaybooksModal() {
-      document.getElementById('playbooksModal').style.display = 'flex';
-      await loadPlaybooksList();
-      pollAutoRunStatus();
-    }
-
-    function toggleAutoRunModeUI() {
-      const mode = document.getElementById('autoRunModeSelect')?.value || 'spec';
-      document.getElementById('autoRunSpecBox').style.display = mode === 'spec' ? 'flex' : 'none';
-      document.getElementById('autoRunGoalBox').style.display = mode === 'goal' ? 'flex' : 'none';
-    }
-
-    async function loadPlaybooksList() {
-      const res = await fetch('/api/maestri/playbooks');
-      const d = await res.json();
-      const box = document.getElementById('playbooksListBox');
-      const list = d.playbooks || [];
-      box.innerHTML = list.map(p => `
-        <button class="btn" style="justify-content:space-between; font-size:11px; padding:5px 8px;" onclick="selectPlaybook('${p.name.replace(/'/g, "\\'")}')">
-          <span style="overflow:hidden;text-overflow:ellipsis;">📄 ${p.name}</span>
-          <span style="color:var(--emerald);font-size:10px;">${p.done}/${p.total}</span>
-        </button>
-      `).join('');
-      if (list.length && !activePlaybookName) {
-        await selectPlaybook(list[0].name);
-      }
-    }
-
-    async function selectPlaybook(name) {
-      activePlaybookName = name;
-      document.getElementById('activePlaybookTitle').textContent = name;
-      const res = await fetch(`/api/maestri/playbooks/${encodeURIComponent(name)}`);
-      const d = await res.json();
-      document.getElementById('playbookEditorBox').value = d.content || '';
-    }
-
-    async function createNewPlaybook() {
-      const inp = document.getElementById('newPlaybookNameInput');
-      const name = (inp ? inp.value : '').trim();
-      if (!name) return;
-      await fetch('/api/maestri/playbooks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, content: `# Playbook: ${name}\n\n- [ ] Tarefa 1\n- [ ] Tarefa 2\n` })
-      });
-      inp.value = '';
-      await loadPlaybooksList();
-      await selectPlaybook(name.endsWith('.md') ? name : `${name}.md`);
-    }
-
-    async function saveActivePlaybook() {
-      if (!activePlaybookName) return;
-      const content = document.getElementById('playbookEditorBox').value;
-      const res = await fetch('/api/maestri/playbooks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: activePlaybookName, content })
-      });
-      const d = await res.json();
-      if (d.ok) {
-        showToast(`Playbook <strong>${d.name}</strong> salvo!`);
-        await loadPlaybooksList();
-      }
-    }
-
-    async function startAutoRunNow() {
-      const mode = document.getElementById('autoRunModeSelect')?.value || 'spec';
-      const model_id = document.getElementById('autoRunModelSelect')?.value || 'free:qwen-coder';
-      const goal = document.getElementById('autoRunGoalInput')?.value.trim() || '';
-      if (mode === 'spec' && activePlaybookName) await saveActivePlaybook();
-      const res = await fetch('/api/maestri/autorun/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode, playbook_name: activePlaybookName, goal, model_id, max_iters: 4 })
-      });
-      const d = await res.json();
-      showToast(d.message || 'Auto Run iniciado.');
-      if (d.started) {
-        if (autoRunPollTimer) clearInterval(autoRunPollTimer);
-        autoRunPollTimer = setInterval(pollAutoRunStatus, 2000);
-      }
-    }
-
-    async function cancelAutoRunNow() {
-      const res = await fetch('/api/maestri/autorun/cancel', { method: 'POST' });
-      const d = await res.json();
-      showToast(d.message || 'Cancelamento solicitado.');
-    }
-
-    async function pollAutoRunStatus() {
-      try {
-        const res = await fetch('/api/maestri/autorun/status');
-        const st = await res.json();
-        document.getElementById('autoRunProgressLabel').textContent = st.running ? `▶ ${st.current_task}` : (st.current_task || 'Pronto');
-        document.getElementById('autoRunCounterLabel').textContent = `${st.completed_tasks || 0}/${st.total_tasks || 0}`;
-        document.getElementById('autoRunLogsBox').textContent = (st.logs || []).join('\n') || 'Sem logs ainda.';
-        if (!st.running && autoRunPollTimer) {
-          clearInterval(autoRunPollTimer);
-          autoRunPollTimer = null;
-          await loadPlaybooksList();
-          if (activePlaybookName) await selectPlaybook(activePlaybookName);
-        }
-      } catch (e) {}
-    }
-
-    async function openWorktreesModal() {
-      document.getElementById('worktreesModal').style.display = 'flex';
-      const sel = document.getElementById('wtAgentSelect');
-      sel.innerHTML = '<option value="">Sem vincular a agente</option>' +
-        canvasNodes.map(n => `<option value="${n.id}">${n.name} (${n.id})</option>`).join('');
-      await loadWorktreesList();
-    }
-
-    async function loadWorktreesList() {
-      const res = await fetch('/api/maestri/worktrees');
-      const d = await res.json();
-      const box = document.getElementById('worktreesListBox');
-      if (!d.worktrees || !d.worktrees.length) {
-        box.innerHTML = `<span style="color:var(--text-muted);">${d.error || 'Nenhuma worktree encontrada.'}</span>`;
-        return;
-      }
-      box.innerHTML = d.worktrees.map((wt, idx) => `
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;background:rgba(15,23,42,0.85);border:1px solid var(--border-subtle);border-radius:9px;padding:8px 11px;">
-          <div style="overflow:hidden;">
-            <strong style="color:var(--emerald);">🌿 ${wt.branch || 'main'}</strong> <code style="color:var(--cyan);font-size:10px;">${wt.head || ''}</code>
-            <div style="font-size:10.5px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;">${wt.path}</div>
-          </div>
-          ${idx > 0 ? `<button class="btn btn-danger" style="padding:3px 8px;font-size:10px;" onclick="removeWorktreeNow('${wt.path.replace(/'/g, "\\'")}')">Remover</button>` : '<span style="font-size:10px;color:var(--cyan);">Principal</span>'}
-        </div>
-      `).join('');
-    }
-
-    async function createWorktreeNow() {
-      const branch = document.getElementById('wtBranchInput').value.trim();
-      const node_id = document.getElementById('wtAgentSelect').value;
-      if (!branch) return;
-      const res = await fetch('/api/maestri/worktrees/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ branch, node_id })
-      });
-      const d = await res.json();
-      showToast(d.message || 'Worktree processada.');
-      if (d.ok) {
-        document.getElementById('wtBranchInput').value = '';
-        if (node_id) {
-          const cwdEl = document.getElementById(`cwd-${node_id}`);
-          if (cwdEl) cwdEl.textContent = d.path;
-        }
-        await loadWorktreesList();
-      }
-    }
-
-    async function removeWorktreeNow(worktree_path) {
-      const res = await fetch('/api/maestri/worktrees/remove', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ worktree_path })
-      });
-      const d = await res.json();
-      showToast(d.message || 'Worktree removida.');
-      await loadWorktreesList();
-    }
-
-    async function openFilesExplorerModal() {
-      document.getElementById('filesExplorerModal').style.display = 'flex';
-      const [fRes, lRes] = await Promise.all([fetch('/api/workspace/files'), fetch('/api/workspace/log')]);
-      const fData = await fRes.json();
-      const lData = await lRes.json();
-      cachedExplorerFiles = fData.files || [];
-      filterExplorerFiles(document.getElementById('fileExplorerFilter').value || '');
-      document.getElementById('gitLogBranchBadge').textContent = lData.branch || 'HEAD';
-      document.getElementById('gitLogList').innerHTML = (lData.commits || []).map(c => `
-        <div style="background:rgba(15,23,42,0.7);padding:4px 7px;border-radius:6px;border-left:2px solid var(--cyan);">
-          <code style="color:var(--amber);">${c.hash}</code> <span style="color:#e2e8f0;">${c.subject}</span>
-          <div style="font-size:9.5px;color:var(--text-muted);">${c.author} • ${c.when}</div>
-        </div>
-      `).join('') || '<span style="color:var(--text-muted);">Sem histórico Git.</span>';
-    }
-
-    function filterExplorerFiles(q) {
-      const box = document.getElementById('fileExplorerList');
-      const ql = (q || '').trim().toLowerCase();
-      const items = ql ? cachedExplorerFiles.filter(f => f.path.toLowerCase().includes(ql)) : cachedExplorerFiles;
-      box.innerHTML = items.slice(0, 120).map(f => `
-        <button class="btn" style="justify-content:flex-start;text-align:left;padding:3px 7px;font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" onclick="viewWorkspaceFile('${f.path.replace(/'/g, "\\'")}')">
-          📄 ${f.path}
-        </button>
-      `).join('');
-    }
-
-    async function viewWorkspaceFile(path) {
-      const box = document.getElementById('fileExplorerContent');
-      box.textContent = 'Carregando...';
-      const res = await fetch(`/api/workspace/file?path=${encodeURIComponent(path)}`);
-      const d = await res.json();
-      box.textContent = d.ok ? d.content : (d.error || 'Erro ao ler arquivo.');
-    }
-
-    async function openGlobalEnvModal() {
-      document.getElementById('globalEnvModal').style.display = 'flex';
-      const res = await fetch('/api/settings');
-      const s = await res.json();
-      const envObj = s.global_env_vars || {};
-      document.getElementById('globalEnvTextarea').value = Object.entries(envObj).map(([k, v]) => `${k}=${v}`).join('\n');
-    }
-
-    async function saveGlobalEnvVars() {
-      const raw = document.getElementById('globalEnvTextarea').value || '';
-      const envObj = {};
-      raw.split('\n').forEach(line => {
-        const idx = line.indexOf('=');
-        if (idx > 0) {
-          const k = line.slice(0, idx).trim();
-          const v = line.slice(idx + 1).trim();
-          if (k) envObj[k] = v;
-        }
-      });
-      await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ global_env_vars: envObj })
-      });
-      showToast(`Variáveis globais salvas (${Object.keys(envObj).length} chaves)!`);
-      document.getElementById('globalEnvModal').style.display = 'none';
     }
 
     // --- CENTRAL IA & PC: TERMINAL RÁPIDO & OTIMIZAÇÃO ---

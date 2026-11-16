@@ -19,6 +19,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt pytest httpx
       - name: Syntax check
-        run: python -m py_compile app.py storage.py free_ai_router.py maestri_orchestrator.py terminal_manager.py system_optimizer.py
+        run: python -m py_compile app.py storage.py free_ai_router.py terminal_manager.py system_optimizer.py
       - name: Run pytest
         run: pytest -v

@@ -1230,39 +1230,46 @@ def power_control(action: str, delay_minutes: int = 30) -> Dict[str, Any]:
         return {"success": False, "message": f"Erro de energia: {e}"}
 
 
-def export_maestri_report(nodes: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Export all Maestri 2D canvas agent outputs & terminal logs into a clean Markdown report."""
-    out_dir = Path.home() / "Documents" / "Relatorios_AURA"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filepath = out_dir / f"Relatorio_Maestri_{ts}.md"
+def get_top_processes(limit: int = 25, sort_by: str = "cpu") -> List[Dict[str, Any]]:
+    """Return top running processes sorted by CPU or RAM usage."""
+    procs: List[Dict[str, Any]] = []
+    for p in psutil.process_iter(["pid", "name", "cpu_percent", "memory_info", "status"]):
+        try:
+            info = p.info
+            mem_mb = round((info["memory_info"].rss if info.get("memory_info") else 0) / (1024 * 1024), 1)
+            procs.append({
+                "pid": info["pid"],
+                "name": info.get("name") or "unknown",
+                "cpu_percent": round(float(info.get("cpu_percent") or 0.0), 1),
+                "memory_mb": mem_mb,
+                "status": info.get("status") or "running",
+            })
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            continue
 
-    lines = [
-        f"# Relatório de Orquestração Maestri 2D — AURA OS",
-        f"**Gerado em:** {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | **SO:** {OS_NAME}",
-        "",
-        "---",
-        "",
-    ]
-    for idx, n in enumerate(nodes, 1):
-        lines.append(f"## {idx}. {n.get('name', 'Agente')} (`{n.get('model', 'IA')}`)")
-        lines.append(f"- **Papel:** {n.get('role', '')}")
-        lines.append(f"- **Prompt / Missão:** {n.get('prompt', '')}")
-        if n.get("terminal_cmd"):
-            lines.append(f"- **Comando Terminal:** `{n.get('terminal_cmd')}`")
-        lines.append("")
-        lines.append("### Saída do Agente IA:")
-        lines.append(n.get("output", "Sem saída registrada."))
-        lines.append("")
-        lines.append("---")
-        lines.append("")
+    key = "memory_mb" if sort_by == "ram" else "cpu_percent"
+    procs.sort(key=lambda x: (x[key], x["memory_mb"]), reverse=True)
+    return procs[: max(1, min(limit, 100))]
 
-    filepath.write_text("\n".join(lines), encoding="utf-8")
-    log_activity("RELATÓRIO", f"Exportado: {filepath.name}")
-    return {
-        "success": True,
-        "path": str(filepath),
-        "filename": filepath.name,
-        "message": f"Relatório Markdown exportado em `{filepath}`!",
-    }
+
+def kill_process_by_pid(pid: int) -> Dict[str, Any]:
+    """Safely terminate a running process by PID."""
+    if pid <= 0 or pid == os.getpid():
+        return {"success": False, "message": "PID inválido ou protegido (processo atual da AURA)."}
+    try:
+        proc = psutil.Process(pid)
+        name = proc.name()
+        proc.terminate()
+        try:
+            proc.wait(timeout=3)
+        except psutil.TimeoutExpired:
+            proc.kill()
+        log_activity("PROCESSOS", f"Processo encerrado: {name} (PID {pid})")
+        return {"success": True, "message": f"Processo **{name}** (PID `{pid}`) encerrado com sucesso."}
+    except psutil.NoSuchProcess:
+        return {"success": False, "message": f"Processo PID {pid} não encontrado."}
+    except psutil.AccessDenied:
+        return {"success": False, "message": f"Permissão negada para encerrar PID {pid}."}
+    except Exception as e:
+        return {"success": False, "message": f"Erro ao encerrar PID {pid}: {e}"}
 

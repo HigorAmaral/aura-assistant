@@ -32,7 +32,7 @@ def get_or_create_cloud_channel() -> str:
     channel = s.get("cloud_channel_id", "")
     if not channel:
         short_id = uuid.uuid4().hex[:10]
-        channel = f"aura-maestri-{short_id}"
+        channel = f"aura-pc-{short_id}"
         update_settings({"cloud_channel_id": channel})
     return channel
 
@@ -40,7 +40,7 @@ def get_or_create_cloud_channel() -> str:
 def push_mobile_notification(
     title: str,
     body: str,
-    category: str = "MAESTRI",
+    category: str = "AURA",
     agent_name: str = "AURA",
 ) -> Dict[str, Any]:
     """

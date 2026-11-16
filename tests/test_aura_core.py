@@ -1,3 +1,4 @@
+import asyncio
 import sys
 from pathlib import Path
 
@@ -8,17 +9,8 @@ if str(ROOT) not in sys.path:
 import storage  # noqa: E402
 import free_ai_router  # noqa: E402
 import terminal_manager  # noqa: E402
-import maestri_orchestrator  # noqa: E402
 import system_optimizer  # noqa: E402
-
-
-def test_coding_squad_template_exists():
-    tpls = storage.get_maestri_templates()
-    assert "coding_squad" in tpls
-    squad = tpls["coding_squad"]
-    node_ids = {n["id"] for n in squad["nodes"]}
-    assert {"squad-maestro", "squad-db", "squad-backend", "squad-frontend", "squad-qa"} <= node_ids
-    assert len(squad["edges"]) >= 5
+import system_tools  # noqa: E402
 
 
 def test_chat_history_persistence():
@@ -38,6 +30,7 @@ def test_settings_remote_pin_and_workspace():
     s = storage.get_settings()
     assert "remote_pin" in s
     assert "active_workspace" in s
+    assert "notify_on_tasks" in s
 
 
 def test_free_ai_router_clean_and_routing():
@@ -59,13 +52,6 @@ def test_terminal_sync_cwd(tmp_path):
     assert terminal_manager.get_or_init_terminal_session("test-node-sync")["cwd"] == str(tmp_path.resolve())
 
 
-def test_maestro_cancel_state():
-    res = maestri_orchestrator.cancel_maestro_run()
-    assert res["ok"] is True
-    st = maestri_orchestrator.get_maestro_live_status()
-    assert st["phase"] == "cancelling"
-
-
 def test_system_optimizer_smoke():
     opt = system_optimizer.run_pc_optimization(["trim_ram"])
     assert opt["ok"] is True
@@ -78,8 +64,16 @@ def test_system_optimizer_smoke():
     assert "running" in st
 
 
+def test_process_manager_smoke():
+    procs = system_tools.get_top_processes(limit=10, sort_by="ram")
+    assert isinstance(procs, list)
+    assert len(procs) >= 1
+    assert {"pid", "name", "cpu_percent", "memory_mb"} <= set(procs[0].keys())
+    blocked = system_tools.kill_process_by_pid(-1)
+    assert blocked["success"] is False
+
+
 def test_api_endpoints_and_pin_guard():
-    import asyncio
     import httpx
     import app as aura_app
 
@@ -90,17 +84,17 @@ def test_api_endpoints_and_pin_guard():
             assert r_hist.status_code == 200
             assert "items" in r_hist.json()
 
+            r_stats = await client.get("/api/system/stats")
+            assert r_stats.status_code == 200
+            assert "cpu" in r_stats.json() and "ram" in r_stats.json()
+
+            r_procs = await client.get("/api/system/processes?limit=10&sort=ram")
+            assert r_procs.status_code == 200
+            assert len(r_procs.json()["processes"]) >= 1
+
             r_ws = await client.get("/api/workspace/projects")
             assert r_ws.status_code == 200
             assert "projects" in r_ws.json()
-
-            r_m_st = await client.get("/api/canvas/maestro-status")
-            assert r_m_st.status_code == 200
-            assert "phase" in r_m_st.json()
-
-            r_m_cancel = await client.post("/api/canvas/maestro-cancel")
-            assert r_m_cancel.status_code == 200
-            assert r_m_cancel.json()["ok"] is True
 
             r_opt = await client.post("/api/optimizer/run", json={"tasks": ["trim_ram"]})
             assert r_opt.status_code == 200
@@ -124,36 +118,3 @@ def test_api_endpoints_and_pin_guard():
             storage.update_settings({"remote_pin": orig_pin})
 
     asyncio.run(_run())
-
-
-def test_official_maestro_features():
-    import asyncio
-    import httpx
-    import app as aura_app
-
-    async def _run():
-        transport = httpx.ASGITransport(app=aura_app.app)
-        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-            r_pb = await client.get("/api/maestri/playbooks")
-            assert r_pb.status_code == 200
-            assert len(r_pb.json().get("playbooks", [])) >= 1
-
-            r_ar = await client.get("/api/maestri/autorun/status")
-            assert r_ar.status_code == 200
-            assert "running" in r_ar.json()
-
-            r_wt = await client.get("/api/maestri/worktrees")
-            assert r_wt.status_code == 200
-            assert r_wt.json()["ok"] is True
-
-            r_files = await client.get("/api/workspace/files?limit=20")
-            assert r_files.status_code == 200
-            assert len(r_files.json().get("files", [])) >= 1
-
-            r_log = await client.get("/api/workspace/log?limit=5")
-            assert r_log.status_code == 200
-            assert r_log.json()["ok"] is True
-
-    asyncio.run(_run())
-
-

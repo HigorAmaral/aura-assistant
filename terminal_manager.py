@@ -93,9 +93,9 @@ def execute_terminal_command(
     node_id: str,
     command: str,
     notify_mobile: bool = False,
-    node_name: str = "Terminal Maestri",
+    node_name: str = "Terminal AURA",
 ) -> Dict[str, Any]:
-    """Execute a real shell command inside a Maestri Canvas Tile's terminal session."""
+    """Execute a real shell command inside an AURA terminal session."""
     sess = get_or_init_terminal_session(node_id)
     cmd_clean = command.strip()
     if cmd_clean.startswith(("$ ", "! ", "> ")):
@@ -186,14 +186,14 @@ def execute_terminal_command(
     sess["history"].append(entry)
     del sess["history"][:-30]
 
-    log_activity("MAESTRI TERM", f"[{node_name}] $ {cmd_clean[:40]} (código {code})")
+    log_activity("TERMINAL", f"[{node_name}] $ {cmd_clean[:40]} (código {code})")
 
     if (notify_mobile or elapsed >= 2.0) and s.get("notify_on_terminal", True):
         status_txt = "Concluído com sucesso" if code == 0 else f"Finalizado com código {code}"
         push_mobile_notification(
             title=f"{node_name} — {status_txt}",
             body=f"$ {cmd_clean}\n{out[:180]}",
-            category="TERMINAL MAESTRI",
+            category="TERMINAL AURA",
             agent_name=node_name,
         )
 
@@ -201,7 +201,7 @@ def execute_terminal_command(
 
 
 def sync_all_terminal_cwds(target_dir: str) -> Dict[str, Any]:
-    """Synchronize working directory across all active Maestri terminal sessions."""
+    """Synchronize working directory across all active AURA terminal sessions."""
     p = Path(target_dir).expanduser()
     if not p.exists() or not p.is_dir():
         return {"ok": False, "error": f"Diretório não encontrado: {target_dir}"}
@@ -212,7 +212,7 @@ def sync_all_terminal_cwds(target_dir: str) -> Dict[str, Any]:
 
 
 def set_terminal_cwd(node_id: str, target_dir: str) -> Dict[str, Any]:
-    """Set working directory for a single Maestri agent session (e.g. Git Worktree isolation)."""
+    """Set working directory for a single AURA terminal session."""
     p = Path(target_dir).expanduser()
     if not p.exists() or not p.is_dir():
         return {"ok": False, "error": f"Diretório não encontrado: {target_dir}"}

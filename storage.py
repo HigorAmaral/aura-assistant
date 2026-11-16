@@ -124,7 +124,7 @@ def init_db() -> None:
             now = datetime.now().strftime("%Y-%m-%d %H:%M")
             conn.execute(
                 "INSERT INTO tasks (title, category, priority, due_time, done, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                ("Explorar o Quadro Infinito Maestri 2D com múltiplos agentes", "Agentes IA", "alta", "Hoje", 0, now),
+                ("Explorar a Central IA & PC e o Terminal Rápido", "Sistema", "alta", "Hoje", 0, now),
             )
             conn.execute(
                 "INSERT INTO tasks (title, category, priority, due_time, done, created_at) VALUES (?, ?, ?, ?, ?, ?)",
@@ -140,7 +140,7 @@ def init_db() -> None:
             )
             conn.execute(
                 "INSERT INTO memories (category, fact, confidence, source, created_at) VALUES (?, ?, ?, ?, ?)",
-                ("Ambiente", "O usuário utiliza automação multi-agente estilo Maestri e barra superior em segundo plano.", 1.0, "sistema", now),
+                ("Ambiente", "O usuário utiliza a AURA OS como assistente pessoal do computador e barra superior em segundo plano.", 1.0, "sistema", now),
             )
 
         # Seed default custom trigger if empty
@@ -204,296 +204,6 @@ def init_db() -> None:
                 ),
             )
 
-        # Seed default Maestri 2D Canvas nodes & edges if empty
-        if conn.execute("SELECT COUNT(*) as cnt FROM canvas_state").fetchone()["cnt"] == 0:
-            now = datetime.now().strftime("%Y-%m-%d %H:%M")
-            tpl = get_maestri_templates()["default"]
-            conn.execute(
-                "INSERT INTO canvas_state (id, nodes_json, edges_json, updated_at) VALUES (1, ?, ?, ?)",
-                (
-                    json.dumps(tpl["nodes"], ensure_ascii=False),
-                    json.dumps(tpl["edges"], ensure_ascii=False),
-                    now,
-                ),
-            )
-
-
-def get_maestri_templates() -> Dict[str, Dict[str, Any]]:
-    """Pre-built multi-agent + live terminal Maestri 2D templates."""
-    return {
-        "default": {
-            "name": "Orquestração Geral & Sistema",
-            "description": "4 agentes conectados com terminal ao vivo para produtividade, pesquisa e telemetria.",
-            "nodes": [
-                {
-                    "id": "agent-maestro",
-                    "name": "Maestro Orquestrador",
-                    "role": "Coordena o objetivo geral e sintetiza o trabalho dos agentes conectados.",
-                    "model": "free:openai",
-                    "x": 70,
-                    "y": 90,
-                    "prompt": "Planeje uma rotina de alta produtividade e delegue subtarefas técnicas e de pesquisa.",
-                    "terminal_cmd": "python --version",
-                    "view_mode": "split",
-                    "output": "Pronto para orquestrar os agentes no canvas.",
-                    "status": "idle",
-                    "color": "#38bdf8",
-                },
-                {
-                    "id": "agent-researcher",
-                    "name": "Agente Pesquisador Web",
-                    "role": "Busca dados em tempo real na internet e resume tendências.",
-                    "model": "free:mistral",
-                    "x": 510,
-                    "y": 40,
-                    "prompt": "Pesquise e resuma as principais tendências de agentes autônomos de IA.",
-                    "terminal_cmd": "",
-                    "view_mode": "split",
-                    "output": "Aguardando execução do fluxo ou comando individual.",
-                    "status": "idle",
-                    "color": "#818cf8",
-                },
-                {
-                    "id": "agent-sysops",
-                    "name": "Agente Engenheiro PC (Win/Ubuntu)",
-                    "role": "Analisa telemetria do sistema, processos, arquivos e automações locais.",
-                    "model": "free:qwen-coder",
-                    "x": 510,
-                    "y": 380,
-                    "prompt": "Analise o status atual de CPU e Memória RAM do computador e recomende otimizações.",
-                    "terminal_cmd": "whoami",
-                    "view_mode": "split",
-                    "output": "Aguardando execução do fluxo ou comando individual.",
-                    "status": "idle",
-                    "color": "#34d399",
-                },
-                {
-                    "id": "agent-memory",
-                    "name": "Agente Estrategista & Memória",
-                    "role": "Consulta a memória evolutiva do usuário e gera plano de ação e tarefas.",
-                    "model": "free:deepseek",
-                    "x": 960,
-                    "y": 200,
-                    "prompt": "Com base nas descobertas anteriores e na memória do usuário, crie 3 ações práticas.",
-                    "terminal_cmd": "",
-                    "view_mode": "split",
-                    "output": "Aguardando contexto dos agentes anteriores.",
-                    "status": "idle",
-                    "color": "#c084fc",
-                },
-            ],
-            "edges": [
-                {"from": "agent-maestro", "to": "agent-researcher"},
-                {"from": "agent-maestro", "to": "agent-sysops"},
-                {"from": "agent-researcher", "to": "agent-memory"},
-                {"from": "agent-sysops", "to": "agent-memory"},
-            ],
-        },
-        "software_factory": {
-            "name": "Fábrica de Software Full-Stack",
-            "description": "Arquiteto de Sistema -> Dev Backend + Dev Frontend -> QA & Testes no Terminal.",
-            "nodes": [
-                {
-                    "id": "node-arch",
-                    "name": "Arquiteto de Software",
-                    "role": "Define arquitetura limpa, contratos de API REST e estrutura de banco de dados.",
-                    "model": "free:openai",
-                    "x": 70,
-                    "y": 160,
-                    "prompt": "Defina a arquitetura enxuta de um microsserviço em Python FastAPI + SQLite com autenticação.",
-                    "terminal_cmd": "python --version",
-                    "view_mode": "split",
-                    "output": "Pronto para projetar a arquitetura.",
-                    "status": "idle",
-                    "color": "#38bdf8",
-                },
-                {
-                    "id": "node-backend",
-                    "name": "Engenheiro Backend & API",
-                    "role": "Implementa endpoints, regras de negócio, SQL e segurança.",
-                    "model": "free:qwen-coder",
-                    "x": 510,
-                    "y": 40,
-                    "prompt": "Com base na arquitetura recebida, escreva o código dos endpoints principais e modelos Pydantic.",
-                    "terminal_cmd": "pip --version",
-                    "view_mode": "split",
-                    "output": "Aguardando especificação do Arquiteto.",
-                    "status": "idle",
-                    "color": "#34d399",
-                },
-                {
-                    "id": "node-frontend",
-                    "name": "Especialista UI/UX & CSS",
-                    "role": "Cria interfaces modernas, responsivas e componentes interativos.",
-                    "model": "free:mistral",
-                    "x": 510,
-                    "y": 380,
-                    "prompt": "Projete os componentes visuais e chamadas fetch() para consumir a API definida pelo Arquiteto.",
-                    "terminal_cmd": "",
-                    "view_mode": "split",
-                    "output": "Aguardando especificação do Arquiteto.",
-                    "status": "idle",
-                    "color": "#818cf8",
-                },
-                {
-                    "id": "node-qa",
-                    "name": "Engenheiro QA & DevSecOps",
-                    "role": "Revisa código, identifica bugs/vulnerabilidades e valida testes no terminal.",
-                    "model": "free:deepseek",
-                    "x": 960,
-                    "y": 200,
-                    "prompt": "Revise o Backend e Frontend gerados, aponte melhorias de segurança e liste o checklist de deploy.",
-                    "terminal_cmd": "git --version",
-                    "view_mode": "split",
-                    "output": "Aguardando entregas de Backend e Frontend.",
-                    "status": "idle",
-                    "color": "#fbbf24",
-                },
-            ],
-            "edges": [
-                {"from": "node-arch", "to": "node-backend"},
-                {"from": "node-arch", "to": "node-frontend"},
-                {"from": "node-backend", "to": "node-qa"},
-                {"from": "node-frontend", "to": "node-qa"},
-            ],
-        },
-        "coding_squad": {
-            "name": "Squad Full-Stack Pro (Maestro + DB + Back + Front + QA)",
-            "description": "Maestro Comandante coordena Banco de Dados, Backend API, Frontend UI/UX e QA com testes reais.",
-            "nodes": [
-                {
-                    "id": "squad-maestro",
-                    "name": "Maestro Comandante (Tech Lead)",
-                    "role": "Comanda o squad de código: define arquitetura, contratos de API, delega para DB/Back/Front e sintetiza.",
-                    "model": "free:deepseek",
-                    "x": 60,
-                    "y": 210,
-                    "prompt": "Coordene o desenvolvimento completo, definindo arquitetura, contratos de dados e delegando para DB, Backend, Frontend e QA.",
-                    "terminal_cmd": "git status",
-                    "view_mode": "split",
-                    "output": "Comandante pronto para orquestrar o Squad de Código.",
-                    "status": "idle",
-                    "color": "#38bdf8",
-                },
-                {
-                    "id": "squad-db",
-                    "name": "Arquiteto Banco de Dados (SQL)",
-                    "role": "Modela tabelas SQLite/PostgreSQL, relacionamentos, índices, migrations e queries otimizadas.",
-                    "model": "free:qwen-coder",
-                    "x": 540,
-                    "y": 40,
-                    "prompt": "Projete o schema de banco de dados (tabelas, chaves, índices) e crie/valide os arquivos SQL ou models.",
-                    "terminal_cmd": "",
-                    "view_mode": "split",
-                    "output": "Aguardando diretriz do Maestro Comandante.",
-                    "status": "idle",
-                    "color": "#fbbf24",
-                },
-                {
-                    "id": "squad-backend",
-                    "name": "Engenheiro Backend (API)",
-                    "role": "Implementa APIs REST/FastAPI/Node, validação Pydantic, autenticação e integração com o Banco de Dados.",
-                    "model": "free:qwen-coder",
-                    "x": 540,
-                    "y": 380,
-                    "prompt": "Implemente as rotas da API consumindo o schema do Banco de Dados e expondo endpoints limpos para o Frontend.",
-                    "terminal_cmd": "python3 --version",
-                    "view_mode": "split",
-                    "output": "Aguardando schema do Banco de Dados.",
-                    "status": "idle",
-                    "color": "#34d399",
-                },
-                {
-                    "id": "squad-frontend",
-                    "name": "Engenheiro Frontend (UI/UX)",
-                    "role": "Constrói interfaces responsivas HTML/CSS/JS/React conectadas às rotas reais do Backend.",
-                    "model": "free:qwen-coder",
-                    "x": 1030,
-                    "y": 140,
-                    "prompt": "Construa a interface responsiva consumindo os endpoints reais definidos pelo Backend.",
-                    "terminal_cmd": "",
-                    "view_mode": "split",
-                    "output": "Aguardando contratos do Backend.",
-                    "status": "idle",
-                    "color": "#818cf8",
-                },
-                {
-                    "id": "squad-qa",
-                    "name": "QA & Revisor de Código",
-                    "role": "Executa pytest, ruff/lint, py_compile, valida segurança e integração completa Front + Back + DB.",
-                    "model": "free:deepseek",
-                    "x": 1030,
-                    "y": 470,
-                    "prompt": "Rode testes e linters nos arquivos gerados/alterados, aponte bugs e valide a entrega final.",
-                    "terminal_cmd": "",
-                    "view_mode": "split",
-                    "output": "Aguardando código de Backend e Frontend.",
-                    "status": "idle",
-                    "color": "#fb7185",
-                },
-            ],
-            "edges": [
-                {"id": "e-sq-1", "from": "squad-maestro", "to": "squad-db", "label": "Arquitetura"},
-                {"id": "e-sq-2", "from": "squad-maestro", "to": "squad-backend", "label": "Contratos"},
-                {"id": "e-sq-3", "from": "squad-db", "to": "squad-backend", "label": "Schema DB"},
-                {"id": "e-sq-4", "from": "squad-backend", "to": "squad-frontend", "label": "API REST"},
-                {"id": "e-sq-5", "from": "squad-backend", "to": "squad-qa", "label": "Código Back"},
-                {"id": "e-sq-6", "from": "squad-frontend", "to": "squad-qa", "label": "Código Front"},
-            ],
-        },
-        "pc_audit": {
-            "name": "Auditoria & Diagnóstico Profundo do PC",
-            "description": "Inspeciona rede, portas, processos e armazenamento com comandos reais no terminal.",
-            "nodes": [
-                {
-                    "id": "audit-net",
-                    "name": "Auditor de Rede & Conectividade",
-                    "role": "Inspeciona interfaces de rede, IP local e conexões ativas no terminal.",
-                    "model": "free:qwen-coder",
-                    "x": 80,
-                    "y": 80,
-                    "prompt": "Analise a saída de rede do terminal e verifique se a conectividade local está saudável.",
-                    "terminal_cmd": "ipconfig" if Path("C:\\").exists() else "ip addr",
-                    "view_mode": "split",
-                    "output": "Pronto para auditar a rede.",
-                    "status": "idle",
-                    "color": "#38bdf8",
-                },
-                {
-                    "id": "audit-proc",
-                    "name": "Analista de Performance & RAM",
-                    "role": "Avalia processos ativos, consumo de memória e gargalos de CPU.",
-                    "model": "free:openai",
-                    "x": 80,
-                    "y": 400,
-                    "prompt": "Analise o consumo atual de CPU, RAM e Disco do PC e identifique possíveis gargalos.",
-                    "terminal_cmd": "whoami",
-                    "view_mode": "split",
-                    "output": "Pronto para auditar processos e hardware.",
-                    "status": "idle",
-                    "color": "#34d399",
-                },
-                {
-                    "id": "audit-report",
-                    "name": "Consultor Chefe de Otimização",
-                    "role": "Consolida os diagnósticos de rede e hardware em um laudo executivo.",
-                    "model": "free:deepseek",
-                    "x": 580,
-                    "y": 230,
-                    "prompt": "Consolide os dados de Rede e Hardware em um diagnóstico claro com 3 recomendações.",
-                    "terminal_cmd": "",
-                    "view_mode": "split",
-                    "output": "Aguardando dados dos auditores.",
-                    "status": "idle",
-                    "color": "#c084fc",
-                },
-            ],
-            "edges": [
-                {"from": "audit-net", "to": "audit-report"},
-                {"from": "audit-proc", "to": "audit-report"},
-            ],
-        },
-    }
 
 
 def log_activity(action_type: str, description: str) -> None:
@@ -723,44 +433,6 @@ def delete_clipboard_item(clip_id: int) -> bool:
         return cur.rowcount > 0
 
 
-# --- Maestri Canvas State ---
-def get_canvas_state() -> Dict[str, Any]:
-    with get_conn() as conn:
-        row = conn.execute("SELECT nodes_json, edges_json, updated_at FROM canvas_state WHERE id = 1").fetchone()
-        if not row:
-            return {"nodes": [], "edges": [], "updated_at": ""}
-        return {
-            "nodes": json.loads(row["nodes_json"]),
-            "edges": json.loads(row["edges_json"]),
-            "updated_at": row["updated_at"],
-        }
-
-
-def save_canvas_state(nodes: List[Dict[str, Any]], edges: List[Dict[str, Any]]) -> Dict[str, Any]:
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    with get_conn() as conn:
-        conn.execute(
-            """
-            INSERT INTO canvas_state (id, nodes_json, edges_json, updated_at)
-            VALUES (1, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                nodes_json = excluded.nodes_json,
-                edges_json = excluded.edges_json,
-                updated_at = excluded.updated_at
-            """,
-            (json.dumps(nodes, ensure_ascii=False), json.dumps(edges, ensure_ascii=False), now),
-        )
-    return get_canvas_state()
-
-
-def load_maestri_template(template_key: str) -> Dict[str, Any]:
-    templates = get_maestri_templates()
-    tpl = templates.get(template_key) or templates["default"]
-    state = save_canvas_state(tpl["nodes"], tpl["edges"])
-    log_activity("MAESTRI", f"Template carregado: {tpl['name']}")
-    return state
-
-
 # --- Synced User Applications ---
 def save_synced_apps_batch(apps: List[Dict[str, str]]) -> int:
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -833,7 +505,7 @@ def get_settings() -> Dict[str, Any]:
         "hud_compact_w": 735,
         "hud_expanded_w": 750,
         "hud_expanded_h": 510,
-        "notify_on_maestri": True,
+        "notify_on_tasks": True,
         "notify_on_terminal": True,
         "notify_on_chat": True,
         "hardware_alert_threshold": 88,

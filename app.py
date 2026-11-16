@@ -22,10 +22,6 @@ from storage import (
     get_settings,
     update_settings,
     get_recent_logs,
-    get_canvas_state,
-    save_canvas_state,
-    get_maestri_templates,
-    load_maestri_template,
     list_automations,
     add_automation,
     toggle_automation,
@@ -41,6 +37,8 @@ from storage import (
 )
 from system_tools import (
     get_system_stats,
+    get_top_processes,
+    kill_process_by_pid,
     open_application,
     close_application,
     get_quick_apps_catalog,
@@ -56,7 +54,6 @@ from system_tools import (
     create_desktop_launcher,
     get_network_diagnostics,
     power_control,
-    export_maestri_report,
     IS_WINDOWS,
 )
 from file_tools import (
@@ -94,31 +91,7 @@ from automation_engine import (
     stop_pomodoro,
     get_pomodoro_status,
 )
-from ai_engine import process_chat_message, run_maestri_canvas_agent
-from maestri_orchestrator import (
-    ipc_check,
-    ipc_ask,
-    ipc_spawn,
-    run_maestro_mode,
-    cancel_maestro_run,
-    get_maestro_live_status,
-    detect_installed_clis,
-    install_cli_tool,
-    detect_runmaestro,
-    launch_or_open_runmaestro,
-    list_playbooks,
-    read_playbook,
-    save_playbook,
-    start_autorun,
-    get_autorun_status,
-    cancel_autorun,
-    list_git_worktrees,
-    create_git_worktree,
-    remove_git_worktree,
-    list_workspace_files,
-    read_workspace_file,
-    get_workspace_git_log,
-)
+from ai_engine import process_chat_message
 from terminal_manager import sync_all_terminal_cwds, set_terminal_cwd
 from project_builder import PROJECTS_ROOT
 from system_optimizer import (
@@ -259,14 +232,14 @@ class CanvasRunAgentRequest(BaseModel):
 class TerminalExecRequest(BaseModel):
     node_id: str
     command: str
-    node_name: str = "Terminal Maestri"
+    node_name: str = "Terminal AURA"
     notify_mobile: bool = False
 
 
 class TerminalAgentInputRequest(BaseModel):
     node_id: str
     raw_input: str
-    agent_name: str = "Agente Maestri"
+    agent_name: str = "Assistente AURA"
     agent_role: str = "Agente Autônomo de Terminal"
     model_id: str = "free:openai"
     mode: str = "auto"  # 'auto', 'prompt', 'shell'
@@ -320,7 +293,7 @@ class SettingsUpdateRequest(BaseModel):
     hud_compact_w: Optional[int] = None
     hud_expanded_w: Optional[int] = None
     hud_expanded_h: Optional[int] = None
-    notify_on_maestri: Optional[bool] = None
+    notify_on_tasks: Optional[bool] = None
     notify_on_terminal: Optional[bool] = None
     notify_on_chat: Optional[bool] = None
     hardware_alert_threshold: Optional[int] = None
@@ -382,7 +355,7 @@ class AppUpgradeRequest(BaseModel):
 @app.middleware("http")
 async def remote_pin_guard(request: Request, call_next):
     path = request.url.path
-    protected_prefixes = ("/api/terminal/", "/api/canvas/maestro-run", "/api/optimizer/", "/api/workspace/")
+    protected_prefixes = ("/api/terminal/", "/api/optimizer/", "/api/workspace/")
     if path.startswith(protected_prefixes):
         client_host = request.client.host if request.client else ""
         is_local = client_host in ("127.0.0.1", "::1", "localhost", "testclient")
@@ -447,103 +420,6 @@ def api_add_trigger(req: MemoryTriggerRequest):
 @app.delete("/api/memory/trigger/{trig_id}")
 def api_delete_trigger(trig_id: int):
     return {"deleted": delete_custom_trigger(trig_id)}
-
-
-# --- Maestri 2D Canvas & Templates ---
-@app.get("/api/canvas")
-def api_get_canvas():
-    state = get_canvas_state()
-    for n in state.get("nodes", []):
-        sess = get_or_init_terminal_session(n["id"], n.get("cwd", ""))
-        n["terminal"] = sess
-    return state
-
-
-@app.post("/api/canvas/save")
-def api_save_canvas(req: CanvasSaveRequest):
-    return save_canvas_state(req.nodes, req.edges)
-
-
-@app.get("/api/canvas/templates")
-def api_get_canvas_templates():
-    tpls = get_maestri_templates()
-    return {
-        "templates": [
-            {"key": k, "name": v["name"], "description": v["description"], "node_count": len(v["nodes"])}
-            for k, v in tpls.items()
-        ]
-    }
-
-
-@app.post("/api/canvas/load-template")
-def api_load_canvas_template(req: CanvasTemplateRequest):
-    state = load_maestri_template(req.template_key)
-    for n in state.get("nodes", []):
-        n["terminal"] = get_or_init_terminal_session(n["id"], n.get("cwd", ""))
-    return state
-
-
-@app.post("/api/canvas/export")
-def api_export_canvas():
-    state = get_canvas_state()
-    return export_maestri_report(state.get("nodes", []))
-
-
-@app.post("/api/canvas/run-agent")
-def api_run_canvas_agent(req: CanvasRunAgentRequest):
-    return run_maestri_canvas_agent(
-        node_id=req.node_id,
-        agent_name=req.agent_name,
-        agent_role=req.agent_role,
-        model_id=req.model_id,
-        prompt=req.prompt,
-        terminal_cmd=req.terminal_cmd,
-        upstream_outputs=req.upstream_outputs,
-    )
-
-
-class MaestroGoalRequest(BaseModel):
-    goal: str
-
-
-class IpcAskRequest(BaseModel):
-    target: str
-    prompt: str
-
-
-class IpcSpawnRequest(BaseModel):
-    name: str
-    role: str
-    prompt: str = ""
-    model: str = "free:openai"
-
-
-@app.post("/api/canvas/maestro-run")
-def api_canvas_maestro_run(req: MaestroGoalRequest):
-    return run_maestro_mode(req.goal)
-
-
-@app.get("/api/canvas/maestro-status")
-def api_canvas_maestro_status():
-    return get_maestro_live_status()
-
-
-@app.post("/api/canvas/maestro-cancel")
-def api_canvas_maestro_cancel():
-    return cancel_maestro_run()
-
-
-@app.get("/api/canvas/maestro-stream")
-async def api_canvas_maestro_stream():
-    async def event_gen():
-        for _ in range(180):
-            st = get_maestro_live_status()
-            yield f"data: {json.dumps(st, ensure_ascii=False)}\n\n"
-            if not st.get("running") and st.get("phase") in ("done", "cancelled", "idle"):
-                break
-            await asyncio.sleep(0.6)
-
-    return StreamingResponse(event_gen(), media_type="text/event-stream")
 
 
 @app.get("/api/chat/history")
@@ -665,110 +541,18 @@ def api_optimizer_run(req: OptimizerRunRequest):
     return run_pc_optimization(req.tasks)
 
 
-@app.get("/api/canvas/ipc/check")
-def api_canvas_ipc_check():
-    return ipc_check()
+# --- Gerenciador de Processos do Sistema ---
+@app.get("/api/system/processes")
+def api_system_processes(limit: int = 25, sort: str = "cpu"):
+    return {"processes": get_top_processes(limit=limit, sort_by=sort)}
 
 
-@app.post("/api/canvas/ipc/ask")
-def api_canvas_ipc_ask(req: IpcAskRequest):
-    return ipc_ask(req.target, req.prompt)
+@app.post("/api/system/processes/{pid}/kill")
+def api_kill_process(pid: int):
+    return kill_process_by_pid(pid)
 
 
-@app.post("/api/canvas/ipc/spawn")
-def api_canvas_ipc_spawn(req: IpcSpawnRequest):
-    return ipc_spawn(req.name, req.role, req.prompt, req.model)
-
-
-@app.get("/api/maestri/clis")
-def api_maestri_clis():
-    return {
-        "clis": detect_installed_clis(),
-        "runmaestro": detect_runmaestro(),
-    }
-
-
-class CliInstallRequest(BaseModel):
-    cli: str
-
-
-@app.post("/api/maestri/clis/install")
-def api_maestri_cli_install(req: CliInstallRequest):
-    return install_cli_tool(req.cli)
-
-
-@app.post("/api/maestri/runmaestro/launch")
-def api_launch_runmaestro():
-    return launch_or_open_runmaestro()
-
-
-@app.get("/api/maestri/playbooks")
-def api_maestri_list_playbooks():
-    return list_playbooks()
-
-
-@app.get("/api/maestri/playbooks/{name}")
-def api_maestri_read_playbook(name: str):
-    return read_playbook(name)
-
-
-@app.post("/api/maestri/playbooks")
-def api_maestri_save_playbook(req: PlaybookSaveRequest):
-    return save_playbook(req.name, req.content)
-
-
-@app.post("/api/maestri/autorun/start")
-def api_maestri_autorun_start(req: AutoRunStartRequest):
-    return start_autorun(
-        mode=req.mode,
-        playbook_name=req.playbook_name,
-        goal=req.goal,
-        model_id=req.model_id,
-        max_iters=req.max_iters,
-    )
-
-
-@app.get("/api/maestri/autorun/status")
-def api_maestri_autorun_status():
-    return get_autorun_status()
-
-
-@app.post("/api/maestri/autorun/cancel")
-def api_maestri_autorun_cancel():
-    return cancel_autorun()
-
-
-@app.get("/api/maestri/worktrees")
-def api_maestri_worktrees():
-    return list_git_worktrees()
-
-
-@app.post("/api/maestri/worktrees/create")
-def api_maestri_worktrees_create(req: WorktreeCreateRequest):
-    return create_git_worktree(branch=req.branch, node_id=req.node_id)
-
-
-@app.post("/api/maestri/worktrees/remove")
-def api_maestri_worktrees_remove(req: WorktreeRemoveRequest):
-    return remove_git_worktree(worktree_path=req.worktree_path)
-
-
-@app.get("/api/workspace/files")
-def api_workspace_files(limit: int = 200):
-    return list_workspace_files(limit=limit)
-
-
-@app.get("/api/workspace/file")
-def api_workspace_read_file(path: str):
-    return read_workspace_file(rel_path=path)
-
-
-@app.get("/api/workspace/log")
-def api_workspace_git_log(limit: int = 20):
-    return get_workspace_git_log(limit=limit)
-
-
-# --- Terminal (Unified Agent Prompt + Shell Execution) ---
+# --- Terminal (Unified Shell Execution) ---
 @app.get("/api/terminal/{node_id}")
 def api_get_terminal(node_id: str):
     return get_or_init_terminal_session(node_id)
@@ -787,7 +571,7 @@ def api_exec_terminal(req: TerminalExecRequest):
 @app.post("/api/terminal/input")
 def api_terminal_agent_input(req: TerminalAgentInputRequest):
     """
-    Unified Maestri Terminal Handler:
+    Unified AURA Terminal Handler:
     - If input is a direct shell command (or mode == 'shell'), executes in PowerShell/Bash.
     - Otherwise, executes as the AI Agent's Prompt directly inside the terminal, logging all
       working steps and the final result into the terminal screen!
@@ -820,17 +604,12 @@ def api_terminal_agent_input(req: TerminalAgentInputRequest):
             "terminal_session": res["session"],
         }
     else:
-        res = run_maestri_canvas_agent(
-            node_id=req.node_id,
-            agent_name=req.agent_name,
-            agent_role=req.agent_role,
-            model_id=req.model_id,
-            prompt=text,
-            terminal_cmd="",
-            upstream_outputs=req.upstream_outputs,
-        )
-        res["execution_type"] = "agent_prompt"
-        return res
+        chat_res = process_chat_message(text)
+        return {
+            "execution_type": "ai_prompt",
+            "output": chat_res.get("reply", ""),
+            "provider_used": chat_res.get("provider_used", "AURA AI"),
+        }
 
 
 # --- Automations & Cron ---
@@ -949,9 +728,9 @@ def api_mobile_notifications(since_id: int = 0):
 def api_test_mobile_notification():
     return push_mobile_notification(
         title="Teste de Notificação AURA 5.0",
-        body="O Maestri ou Agente IA concluiu uma tarefa e notificou seu celular em tempo real!",
+        body="A AURA OS concluiu uma tarefa e notificou seu celular em tempo real!",
         category="TESTE",
-        agent_name="Maestro",
+        agent_name="AURA",
     )
 
 
@@ -1265,7 +1044,7 @@ if __name__ == "__main__":
     import uvicorn
 
     print("==========================================================")
-    print("  AURA OS 5.0 - Ultimate Maestri & Automation Suite")
+    print("  AURA OS - Assistente Pessoal de Computador com IA")
     print("  Painel Local: http://localhost:8765")
     print("==========================================================")
     uvicorn.run(app, host="0.0.0.0", port=8765)

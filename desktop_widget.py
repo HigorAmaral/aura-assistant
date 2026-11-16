@@ -226,11 +226,11 @@ def start_system_tray():
     menu = pystray.Menu(
         pystray.MenuItem("Mostrar Barra CSS no Topo (Ctrl+Shift+A)", _on_show, default=True),
         pystray.MenuItem("Expandir Painel AURA 4.0", _on_expand),
-        pystray.MenuItem("Abrir Quadro Maestri 2D Completo", _on_open_full),
+        pystray.MenuItem("Abrir Central AURA OS", _on_open_full),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Encerrar AURA OS", _on_quit),
     )
-    tray_icon = pystray.Icon("AURA", create_tray_icon_image(), "AURA OS 4.0 — Maestri & 2º Plano", menu)
+    tray_icon = pystray.Icon("AURA", create_tray_icon_image(), "AURA OS — Assistente do PC", menu)
     threading.Thread(target=tray_icon.run, daemon=True).start()
 
 

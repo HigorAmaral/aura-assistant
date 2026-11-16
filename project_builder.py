@@ -313,7 +313,7 @@ def scaffold_frontend_layer(project_dir: Path, goal: str) -> Dict[str, Any]:
   <header>
     <div>
       <h1>{domain["title"]}</h1>
-      <div class="subtitle">{domain["subtitle"]} • Gerado pelo Modo Maestro AURA</div>
+      <div class="subtitle">{domain["subtitle"]} • Gerado pela AURA OS</div>
     </div>
     <div class="stats">
       <div class="stat-box"><span>Produtos</span><strong id="stProds">0</strong></div>
