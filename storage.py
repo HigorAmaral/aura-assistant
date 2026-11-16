@@ -108,6 +108,14 @@ def init_db() -> None:
                 source TEXT DEFAULT 'auto',
                 updated_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS chat_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                provider TEXT DEFAULT '',
+                created_at TEXT NOT NULL
+            );
             """
         )
 
@@ -834,6 +842,8 @@ def get_settings() -> Dict[str, Any]:
         "update_branch": "main",
         "update_check_interval_sec": 60,
         "auto_restart_on_update": True,
+        "remote_pin": "",
+        "active_workspace": str(Path.cwd()),
     }
     with get_conn() as conn:
         rows = conn.execute("SELECT key, value FROM settings").fetchall()
@@ -859,5 +869,32 @@ def update_settings(new_settings: Dict[str, Any]) -> Dict[str, Any]:
 def clear_activity_logs() -> int:
     with get_conn() as conn:
         cur = conn.execute("DELETE FROM activity_log")
+        return cur.rowcount
+
+
+# --- Persistent Chat History ---
+def get_chat_history(limit: int = 20) -> List[Dict[str, Any]]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, role, content, provider, created_at FROM chat_history ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in reversed(rows)]
+
+
+def append_chat_history(role: str, content: str, provider: str = "") -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO chat_history (role, content, provider, created_at) VALUES (?, ?, ?, ?)",
+            (role, content[:6000], provider, datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+        )
+        conn.execute(
+            "DELETE FROM chat_history WHERE id NOT IN (SELECT id FROM chat_history ORDER BY id DESC LIMIT 100)"
+        )
+
+
+def clear_chat_history() -> int:
+    with get_conn() as conn:
+        cur = conn.execute("DELETE FROM chat_history")
         return cur.rowcount
 

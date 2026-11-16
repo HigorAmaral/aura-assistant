@@ -11,6 +11,8 @@ from storage import (
     add_note,
     get_settings,
     log_activity,
+    get_chat_history,
+    append_chat_history,
 )
 from system_tools import (
     IS_WINDOWS,
@@ -533,6 +535,13 @@ def process_chat_message(message: str, preferred_model: Optional[str] = None) ->
 
     web_context = ("\n\n" + "\n\n".join(extra_contexts)) if extra_contexts else ""
 
+    if not _CHAT_HISTORY:
+        try:
+            for row in get_chat_history(6):
+                _CHAT_HISTORY.append({"role": row["role"], "content": row["content"]})
+        except Exception:
+            pass
+
     history_block = ""
     if _CHAT_HISTORY:
         recent_turns = _CHAT_HISTORY[-6:]
@@ -555,6 +564,11 @@ def process_chat_message(message: str, preferred_model: Optional[str] = None) ->
         _CHAT_HISTORY.append({"role": "assistant", "content": ai_out["reply"]})
         if len(_CHAT_HISTORY) > 16:
             del _CHAT_HISTORY[:-16]
+        try:
+            append_chat_history("user", message)
+            append_chat_history("assistant", ai_out["reply"], provider=ai_out.get("provider_name", ""))
+        except Exception:
+            pass
 
         failover_note = ""
         if ai_out.get("failover_chain"):

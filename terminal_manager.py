@@ -190,3 +190,14 @@ def execute_terminal_command(
         )
 
     return {"session": sess, "last_entry": entry}
+
+
+def sync_all_terminal_cwds(target_dir: str) -> Dict[str, Any]:
+    """Synchronize working directory across all active Maestri terminal sessions."""
+    p = Path(target_dir).expanduser()
+    if not p.exists() or not p.is_dir():
+        return {"ok": False, "error": f"Diretório não encontrado: {target_dir}"}
+    resolved = str(p.resolve())
+    for nid, sess in _TERMINAL_SESSIONS.items():
+        sess["cwd"] = resolved
+    return {"ok": True, "cwd": resolved, "updated_sessions": len(_TERMINAL_SESSIONS)}

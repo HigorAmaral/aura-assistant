@@ -295,6 +295,16 @@ _MAESTRO_LIVE_STATE: Dict[str, Any] = {
 }
 
 
+_MAESTRO_CANCEL_REQUESTED = False
+
+
+def cancel_maestro_run() -> Dict[str, Any]:
+    global _MAESTRO_CANCEL_REQUESTED
+    _MAESTRO_CANCEL_REQUESTED = True
+    _set_maestro_state(phase="cancelling", strategy="Cancelamento solicitado pelo usuário...")
+    return {"ok": True, "cancelling": True}
+
+
 def get_maestro_live_status() -> Dict[str, Any]:
     st = dict(_MAESTRO_LIVE_STATE)
     if st.get("running") and st.get("started_at"):
@@ -319,6 +329,8 @@ def run_maestro_mode(goal: str) -> Dict[str, Any]:
     - Fase 3: Auditoria de qualidade do Maestro (recuperação automática de falhas)
     - Fase 4: Síntese executiva sênior + telemetria ao vivo no canvas + notificação mobile
     """
+    global _MAESTRO_CANCEL_REQUESTED
+    _MAESTRO_CANCEL_REQUESTED = False
     t0 = time.time()
     _set_maestro_state(
         running=True,
@@ -611,7 +623,7 @@ def run_maestro_mode(goal: str) -> Dict[str, Any]:
     # Execute in topological waves respecting BOTH AI depends_on AND user-drawn canvas edges
     worker_id_set = {wk["id"] for wk in workers}
     for _wave in range(len(workers) + 1):
-        if not pending_workers:
+        if not pending_workers or _MAESTRO_CANCEL_REQUESTED:
             break
         ready = []
         deferred = []
@@ -642,6 +654,15 @@ def run_maestro_mode(goal: str) -> Dict[str, Any]:
         pending_workers = deferred
 
     worker_results = [worker_results_map[w["id"]] for w in workers if w["id"] in worker_results_map]
+
+    if _MAESTRO_CANCEL_REQUESTED:
+        elapsed = round(time.time() - t0, 2)
+        maestro_node["status"] = "idle"
+        maestro_node["last_output"] = f"⏹ Execução do Maestro cancelada pelo usuário após {elapsed}s."
+        save_canvas_state(nodes, edges)
+        _set_maestro_state(running=False, phase="cancelled", elapsed_sec=elapsed, active_edges=[])
+        _set_node_live(maestro_node["id"], "idle", "Cancelado")
+        return {"ok": False, "cancelled": True, "elapsed_sec": elapsed, "workers": worker_results, "consolidated": maestro_node["last_output"]}
 
     # --- FASE 3: Auditoria de Qualidade do Maestro (Self-Correction Gate) ---
     _set_maestro_state(phase="auditing", active_edges=[])

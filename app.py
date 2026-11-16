@@ -1,11 +1,13 @@
+import asyncio
+import json
 import subprocess
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional, List, Dict, Any
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, StreamingResponse, JSONResponse
 from pydantic import BaseModel
 
 from storage import (
@@ -34,6 +36,8 @@ from storage import (
     save_synced_apps_batch,
     delete_synced_app,
     clear_activity_logs,
+    get_chat_history,
+    clear_chat_history,
 )
 from system_tools import (
     get_system_stats,
@@ -96,11 +100,21 @@ from maestri_orchestrator import (
     ipc_ask,
     ipc_spawn,
     run_maestro_mode,
+    cancel_maestro_run,
     get_maestro_live_status,
     detect_installed_clis,
     install_cli_tool,
     detect_runmaestro,
     launch_or_open_runmaestro,
+)
+from terminal_manager import sync_all_terminal_cwds
+from project_builder import PROJECTS_ROOT
+from system_optimizer import (
+    scan_updatable_apps,
+    upgrade_apps,
+    scan_drivers_and_firmware,
+    trigger_driver_update_scan,
+    run_pc_optimization,
 )
 from updater import (
     get_update_status,
@@ -302,6 +316,40 @@ class SettingsUpdateRequest(BaseModel):
     update_branch: Optional[str] = None
     update_check_interval_sec: Optional[int] = None
     auto_restart_on_update: Optional[bool] = None
+    remote_pin: Optional[str] = None
+    active_workspace: Optional[str] = None
+
+
+class WorkspaceSetRequest(BaseModel):
+    path: str
+
+
+class WorkspaceRevertRequest(BaseModel):
+    file_path: str
+
+
+class OptimizerRunRequest(BaseModel):
+    tasks: Optional[List[str]] = None
+
+
+class AppUpgradeRequest(BaseModel):
+    app_ids: Optional[List[str]] = None
+
+
+@app.middleware("http")
+async def remote_pin_guard(request: Request, call_next):
+    path = request.url.path
+    protected_prefixes = ("/api/terminal/", "/api/canvas/maestro-run", "/api/optimizer/", "/api/workspace/")
+    if path.startswith(protected_prefixes):
+        client_host = request.client.host if request.client else ""
+        is_local = client_host in ("127.0.0.1", "::1", "localhost", "testclient")
+        if not is_local:
+            pin = str(get_settings().get("remote_pin") or "").strip()
+            if pin:
+                provided = request.headers.get("X-AURA-Pin") or request.query_params.get("pin") or ""
+                if provided != pin:
+                    return JSONResponse(status_code=401, content={"detail": "PIN remoto inválido ou ausente (X-AURA-Pin)."})
+    return await call_next(request)
 
 
 # --- HTML Pages ---
@@ -435,6 +483,110 @@ def api_canvas_maestro_run(req: MaestroGoalRequest):
 @app.get("/api/canvas/maestro-status")
 def api_canvas_maestro_status():
     return get_maestro_live_status()
+
+
+@app.post("/api/canvas/maestro-cancel")
+def api_canvas_maestro_cancel():
+    return cancel_maestro_run()
+
+
+@app.get("/api/canvas/maestro-stream")
+async def api_canvas_maestro_stream():
+    async def event_gen():
+        for _ in range(180):
+            st = get_maestro_live_status()
+            yield f"data: {json.dumps(st, ensure_ascii=False)}\n\n"
+            if not st.get("running") and st.get("phase") in ("done", "cancelled", "idle"):
+                break
+            await asyncio.sleep(0.6)
+
+    return StreamingResponse(event_gen(), media_type="text/event-stream")
+
+
+@app.get("/api/chat/history")
+def api_chat_history(limit: int = 20):
+    return {"items": get_chat_history(limit)}
+
+
+@app.delete("/api/chat/history")
+def api_clear_chat_history():
+    cleared = clear_chat_history()
+    return {"ok": True, "deleted": cleared}
+
+
+@app.get("/api/workspace/projects")
+def api_workspace_projects():
+    s = get_settings()
+    projects = []
+    if PROJECTS_ROOT.exists():
+        for p in sorted(PROJECTS_ROOT.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
+            if p.is_dir():
+                projects.append({"name": p.name, "path": str(p)})
+    cwd_path = str(Path.cwd())
+    if all(pr["path"] != cwd_path for pr in projects):
+        projects.insert(0, {"name": f"Workspace Atual ({Path.cwd().name})", "path": cwd_path})
+    return {"active": s.get("active_workspace", cwd_path), "projects": projects[:30]}
+
+
+@app.post("/api/workspace/set")
+def api_workspace_set(req: WorkspaceSetRequest):
+    sync_res = sync_all_terminal_cwds(req.path)
+    if not sync_res.get("ok"):
+        raise HTTPException(status_code=400, detail=sync_res.get("error", "Diretório inválido"))
+    update_settings({"active_workspace": sync_res["cwd"], "default_terminal_cwd": sync_res["cwd"]})
+    return sync_res
+
+
+@app.get("/api/workspace/diff")
+def api_workspace_diff():
+    ws = get_settings().get("active_workspace") or str(Path.cwd())
+    flags = subprocess.CREATE_NO_WINDOW if sys.platform.startswith("win") else 0
+    try:
+        st = subprocess.run(["git", "status", "--short"], cwd=ws, capture_output=True, text=True, timeout=10, creationflags=flags)
+        df = subprocess.run(["git", "diff", "--no-color"], cwd=ws, capture_output=True, text=True, timeout=12, creationflags=flags)
+        files = []
+        for line in (st.stdout or "").splitlines():
+            if len(line) >= 4:
+                files.append({"status": line[:2].strip(), "file": line[3:].strip()})
+        return {"ok": True, "workspace": ws, "files": files, "diff": (df.stdout or "")[:12000]}
+    except Exception as exc:
+        return {"ok": False, "workspace": ws, "files": [], "diff": "", "error": str(exc)}
+
+
+@app.post("/api/workspace/revert")
+def api_workspace_revert(req: WorkspaceRevertRequest):
+    ws = get_settings().get("active_workspace") or str(Path.cwd())
+    flags = subprocess.CREATE_NO_WINDOW if sys.platform.startswith("win") else 0
+    try:
+        res = subprocess.run(["git", "checkout", "--", req.file_path], cwd=ws, capture_output=True, text=True, timeout=10, creationflags=flags)
+        return {"ok": res.returncode == 0, "message": res.stderr.strip() or f"Arquivo '{req.file_path}' revertido."}
+    except Exception as exc:
+        return {"ok": False, "message": str(exc)}
+
+
+@app.get("/api/optimizer/apps")
+def api_optimizer_apps():
+    return scan_updatable_apps()
+
+
+@app.post("/api/optimizer/apps/upgrade")
+def api_optimizer_apps_upgrade(req: AppUpgradeRequest):
+    return upgrade_apps(req.app_ids)
+
+
+@app.get("/api/optimizer/drivers")
+def api_optimizer_drivers():
+    return scan_drivers_and_firmware()
+
+
+@app.post("/api/optimizer/drivers/scan")
+def api_optimizer_drivers_scan():
+    return trigger_driver_update_scan()
+
+
+@app.post("/api/optimizer/run")
+def api_optimizer_run(req: OptimizerRunRequest):
+    return run_pc_optimization(req.tasks)
 
 
 @app.get("/api/canvas/ipc/check")

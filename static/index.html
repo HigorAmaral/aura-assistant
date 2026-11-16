@@ -669,6 +669,9 @@
         <button class="tab-btn" data-tab="tab-settings" onclick="switchTab('tab-settings', this)">
           <i data-lucide="settings" class="lucide"></i> 7. Configurações do Sistema
         </button>
+        <button class="tab-btn" data-tab="tab-optimizer" onclick="switchTab('tab-optimizer', this)">
+          <i data-lucide="gauge" class="lucide"></i> 8. Otimizar PC, Apps & Drivers
+        </button>
       </nav>
 
       <!-- TAB 1: MAESTRI 2D INFINITE WORKSPACE (WITH LIVE TERMINALS) -->
@@ -687,6 +690,12 @@
             <span style="font-size:11px; color:var(--text-muted);" id="zoomBadge">Zoom: 100%</span>
           </div>
           <div style="display:flex; gap:6px;">
+            <select id="activeWorkspaceSelect" onchange="setWorkspaceProject(this.value)" style="padding:5px 9px; font-size:11px; border-radius:8px; max-width:210px;" title="Projeto Ativo (sincroniza o diretório de todos os agentes)">
+              <option value="">📁 Projeto Ativo...</option>
+            </select>
+            <button class="btn" onclick="openGitDiffModal()" title="Ver alterações Git e reverter arquivos">
+              <i data-lucide="git-compare" class="lucide"></i> Diff & Rollback
+            </button>
             <button class="btn" onclick="spawnNewCanvasAgent()">
               <i data-lucide="plus-square" class="lucide"></i> + Bloco Agente
             </button>
@@ -735,7 +744,10 @@
             <span id="maestroPhasePill" style="padding:2px 8px; border-radius:999px; font-weight:700; font-size:10px; background:rgba(52,211,153,0.2); color:#34d399; border:1px solid rgba(52,211,153,0.45); text-transform:uppercase;">PLANEJANDO</span>
             <span id="maestroStrategyText" style="color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Orquestrando agentes...</span>
           </div>
-          <span id="maestroElapsedText" style="font-family:'JetBrains Mono',monospace; color:var(--cyan); font-size:10.5px; flex-shrink:0;">0.0s</span>
+          <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+            <span id="maestroElapsedText" style="font-family:'JetBrains Mono',monospace; color:var(--cyan); font-size:10.5px;">0.0s</span>
+            <button class="btn btn-danger" id="maestroCancelBtn" style="padding:2px 8px; font-size:10px; display:none;" onclick="cancelMaestroNow()">⏹ Parar</button>
+          </div>
         </div>
 
         <div class="canvas-viewport" id="canvasViewport">
@@ -1318,6 +1330,10 @@
                 <option value="false">NÃO</option>
               </select>
             </div>
+            <div class="cfg-group" style="margin-top:8px;">
+              <label class="cfg-label">PIN de Segurança Remoto (opcional) <span class="cfg-hint">Protege terminal/Maestro fora de localhost</span></label>
+              <input type="password" id="cfgRemotePin" placeholder="Deixe vazio para desativar" />
+            </div>
             <div style="display:flex; flex-direction:column; gap:7px; margin-top:10px;">
               <div style="display:flex; gap:6px;">
                 <button class="btn btn-primary" style="flex:1;" onclick="checkUpdatesNow()">
@@ -1339,7 +1355,79 @@
           </div>
         </div>
       </section>
+
+      <!-- TAB 8: OTIMIZAÇÃO DO PC, APPS & DRIVERS -->
+      <section class="tab-content" id="tab-optimizer">
+        <div class="grid-3">
+          <div class="card">
+            <h3>
+              <span class="card-title-left"><i data-lucide="zap" class="lucide" style="color:var(--emerald);"></i> Otimização Rápida do Sistema</span>
+            </h3>
+            <p style="font-size:11.5px; color:var(--text-muted); margin-bottom:10px;">
+              Limpeza segura de temporários, cache DNS, otimização de RAM e auditoria de processos/inicialização.
+            </p>
+            <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px; font-size:12px;">
+              <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="optCleanTemp" checked /> Limpar arquivos temporários</label>
+              <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="optFlushDns" checked /> Limpar cache DNS de rede</label>
+              <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="optTrimRam" checked /> Otimizar memória & listar consumidores</label>
+              <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="optStartup" checked /> Auditar inicialização / top processos</label>
+            </div>
+            <button class="btn btn-primary" style="width:100%;" onclick="runPcOptimizationNow()">
+              <i data-lucide="sparkles" class="lucide"></i> Otimizar PC Agora
+            </button>
+            <pre id="optimizerReportBox" style="margin-top:10px; background:rgba(3,6,14,0.9); border:1px solid var(--border-subtle); border-radius:8px; padding:10px; font-size:11px; font-family:'JetBrains Mono',monospace; color:var(--text-secondary); max-height:220px; overflow-y:auto; white-space:pre-wrap;">Pronto para otimizar.</pre>
+          </div>
+
+          <div class="card">
+            <h3>
+              <span class="card-title-left"><i data-lucide="package-check" class="lucide" style="color:var(--cyan);"></i> Atualizador de Aplicativos</span>
+              <button class="btn" style="padding:4px 9px; font-size:11px;" onclick="scanUpdatableAppsNow()">Buscar Updates</button>
+            </h3>
+            <p style="font-size:11.5px; color:var(--text-muted); margin-bottom:10px;">
+              Verifica pacotes desatualizados via <strong>winget</strong> (Windows) ou <strong>apt/snap</strong> (Linux).
+            </p>
+            <div style="display:flex; gap:6px; margin-bottom:10px;">
+              <button class="btn btn-glow" style="flex:1;" onclick="upgradeAllAppsNow()">
+                <i data-lucide="arrow-up-circle" class="lucide"></i> Atualizar Todos os Apps
+              </button>
+            </div>
+            <div id="optimizerAppsList" style="max-height:280px; overflow-y:auto; font-size:11.5px; color:var(--text-secondary);">
+              Clique em "Buscar Updates" para escanear seus aplicativos.
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>
+              <span class="card-title-left"><i data-lucide="cpu" class="lucide" style="color:var(--amber);"></i> Drivers & Firmware</span>
+              <button class="btn" style="padding:4px 9px; font-size:11px;" onclick="scanDriversNow()">Listar Drivers</button>
+            </h3>
+            <p style="font-size:11.5px; color:var(--text-muted); margin-bottom:10px;">
+              Inspeciona drivers instalados e dispara varredura de atualizações de hardware/firmware.
+            </p>
+            <button class="btn btn-glow" style="width:100%; margin-bottom:10px;" onclick="triggerDriverUpdateNow()">
+              <i data-lucide="refresh-cw" class="lucide"></i> Procurar Atualizações de Drivers
+            </button>
+            <div id="optimizerDriversList" style="max-height:280px; overflow-y:auto; font-size:11.5px; color:var(--text-secondary);">
+              Clique em "Listar Drivers" para inspecionar o hardware.
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
+  </div>
+
+  <!-- Git Diff & Rollback Modal -->
+  <div id="gitDiffModal" style="display:none; position:fixed; inset:0; background:rgba(2,5,12,0.82); backdrop-filter:blur(6px); z-index:150; align-items:center; justify-content:center; padding:18px;">
+    <div style="background:rgba(11,17,32,0.98); border:1px solid var(--border-glow); border-radius:14px; width:min(920px, 96vw); max-height:86vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 24px 60px rgba(0,0,0,0.85);">
+      <div style="padding:12px 16px; border-bottom:1px solid var(--border-subtle); display:flex; justify-content:space-between; align-items:center;">
+        <strong style="color:var(--cyan); font-size:13px;">📂 Git Diff & Rollback do Projeto Ativo</strong>
+        <button class="btn btn-danger" style="padding:3px 9px;" onclick="document.getElementById('gitDiffModal').style.display='none'">Fechar</button>
+      </div>
+      <div style="padding:12px 16px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:10px;">
+        <div id="gitDiffFilesList" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+        <pre id="gitDiffCodeBox" style="background:#020409; border:1px solid var(--border-subtle); border-radius:9px; padding:12px; font-size:11px; font-family:'JetBrains Mono',monospace; color:#cbd5e1; overflow:auto; max-height:55vh; white-space:pre-wrap;"></pre>
+      </div>
+    </div>
   </div>
 
   <div class="toast-container" id="toastContainer"></div>
@@ -2758,6 +2846,8 @@
           const hName = document.getElementById('headerAssistantName');
           if (hName) hName.textContent = cfg.assistant_name;
         }
+        const pinEl = document.getElementById('cfgRemotePin');
+        if (pinEl && cfg.remote_pin !== undefined) pinEl.value = cfg.remote_pin;
         voiceReplyEnabled = (cfg.voice_reply !== 'false');
         const btn = document.getElementById('btnToggleTts');
         if (btn) {
@@ -2775,6 +2865,8 @@
         const el = document.getElementById(`cfg_${key}`);
         if (el) payload[key] = el.value;
       });
+      const pinEl = document.getElementById('cfgRemotePin');
+      if (pinEl) payload.remote_pin = pinEl.value;
       const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2974,24 +3066,45 @@
       runMaestroModeNow();
     }
 
+    let maestroEventSource = null;
+
+    async function cancelMaestroNow() {
+      await fetch('/api/canvas/maestro-cancel', { method: 'POST' });
+      showToast('Cancelamento solicitado ao Maestro...');
+    }
+
     async function runMaestroModeNow() {
       const inp = document.getElementById('maestroGoalInput');
       const btn = document.getElementById('maestroRunBtn');
+      const cancelBtn = document.getElementById('maestroCancelBtn');
       const goal = (inp ? inp.value : '').trim();
       if (!goal) {
         showToast('Digite um objetivo para o Modo Maestro executar.');
         return;
       }
       if (btn) btn.disabled = true;
+      if (cancelBtn) cancelBtn.style.display = 'inline-flex';
       showToast(`<strong>Modo Maestro iniciado:</strong> planejando DAG para "${goal}"...`);
 
-      if (maestroPollTimer) clearInterval(maestroPollTimer);
-      maestroPollTimer = setInterval(async () => {
-        try {
-          const r = await fetch('/api/canvas/maestro-status');
-          if (r.ok) applyMaestroLiveStatus(await r.json());
-        } catch (_) {}
-      }, 700);
+      if (maestroPollTimer) { clearInterval(maestroPollTimer); maestroPollTimer = null; }
+      if (maestroEventSource) { maestroEventSource.close(); maestroEventSource = null; }
+
+      try {
+        maestroEventSource = new EventSource('/api/canvas/maestro-stream');
+        maestroEventSource.onmessage = (ev) => {
+          try { applyMaestroLiveStatus(JSON.parse(ev.data)); } catch (_) {}
+        };
+        maestroEventSource.onerror = () => {
+          if (maestroEventSource) { maestroEventSource.close(); maestroEventSource = null; }
+        };
+      } catch (_) {
+        maestroPollTimer = setInterval(async () => {
+          try {
+            const r = await fetch('/api/canvas/maestro-status');
+            if (r.ok) applyMaestroLiveStatus(await r.json());
+          } catch (_) {}
+        }, 700);
+      }
 
       try {
         const res = await fetch('/api/canvas/maestro-run', {
@@ -3002,17 +3115,171 @@
         const d = await res.json();
         if (d.ok) {
           showToast(`<strong>Modo Maestro concluído em ${d.elapsed_sec}s!</strong> Confira a Síntese Executiva no Maestro.`);
-          await loadCanvasState();
-          const stRes = await fetch('/api/canvas/maestro-status');
-          if (stRes.ok) applyMaestroLiveStatus(await stRes.json());
+        } else if (d.cancelled) {
+          showToast(`<strong>Maestro cancelado</strong> após ${d.elapsed_sec}s.`);
         } else {
           showToast(`Erro no Modo Maestro: ${d.error || 'falha'}`);
         }
+        await loadCanvasState();
+        const stRes = await fetch('/api/canvas/maestro-status');
+        if (stRes.ok) applyMaestroLiveStatus(await stRes.json());
       } finally {
+        if (maestroEventSource) { maestroEventSource.close(); maestroEventSource = null; }
         if (maestroPollTimer) { clearInterval(maestroPollTimer); maestroPollTimer = null; }
         activeMaestroEdges = [];
         if (btn) btn.disabled = false;
+        if (cancelBtn) cancelBtn.style.display = 'none';
       }
+    }
+
+    async function loadWorkspaceProjects() {
+      const sel = document.getElementById('activeWorkspaceSelect');
+      if (!sel) return;
+      try {
+        const res = await fetch('/api/workspace/projects');
+        const d = await res.json();
+        sel.innerHTML = (d.projects || []).map(p =>
+          `<option value="${p.path.replace(/"/g, '&quot;')}" ${p.path === d.active ? 'selected' : ''}>📁 ${p.name}</option>`
+        ).join('');
+      } catch (_) {}
+    }
+
+    async function setWorkspaceProject(path) {
+      if (!path) return;
+      const res = await fetch('/api/workspace/set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path })
+      });
+      const d = await res.json();
+      if (d.ok) {
+        showToast(`<strong>Projeto Ativo sincronizado:</strong> ${d.cwd} (${d.updated_sessions} terminais)`);
+        await loadCanvasState();
+      }
+    }
+
+    async function openGitDiffModal() {
+      const modal = document.getElementById('gitDiffModal');
+      const filesEl = document.getElementById('gitDiffFilesList');
+      const codeEl = document.getElementById('gitDiffCodeBox');
+      if (!modal) return;
+      modal.style.display = 'flex';
+      filesEl.innerHTML = '<span style="color:var(--text-muted);font-size:11.5px;">Carregando git status...</span>';
+      codeEl.textContent = '';
+      const res = await fetch('/api/workspace/diff');
+      const d = await res.json();
+      if (!d.files || !d.files.length) {
+        filesEl.innerHTML = `<span style="color:var(--emerald);font-size:12px;">✔ Nenhuma alteração pendente em ${d.workspace || 'workspace'}.</span>`;
+        codeEl.textContent = d.diff || '(working tree clean)';
+        return;
+      }
+      filesEl.innerHTML = d.files.map(f => `
+        <div style="display:flex;align-items:center;gap:6px;background:rgba(15,23,42,0.85);border:1px solid var(--border-subtle);padding:4px 9px;border-radius:8px;font-size:11px;">
+          <code style="color:var(--amber);">${f.status}</code>
+          <span>${f.file}</span>
+          <button class="btn btn-danger" style="padding:1px 6px;font-size:10px;" onclick="revertGitFile('${f.file.replace(/'/g, "\\'")}')">Reverter</button>
+        </div>
+      `).join('');
+      codeEl.textContent = d.diff || '(Sem diff textual — arquivos novos não rastreados)';
+    }
+
+    async function revertGitFile(filePath) {
+      if (!confirm(`Reverter alterações de '${filePath}'?`)) return;
+      const res = await fetch('/api/workspace/revert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_path: filePath })
+      });
+      const d = await res.json();
+      showToast(d.message || 'Arquivo revertido.');
+      await openGitDiffModal();
+    }
+
+    async function runPcOptimizationNow() {
+      const tasks = [];
+      if (document.getElementById('optCleanTemp')?.checked) tasks.push('clean_temp');
+      if (document.getElementById('optFlushDns')?.checked) tasks.push('flush_dns');
+      if (document.getElementById('optTrimRam')?.checked) tasks.push('trim_ram');
+      if (document.getElementById('optStartup')?.checked) tasks.push('startup_audit');
+      const box = document.getElementById('optimizerReportBox');
+      if (box) box.textContent = '⏳ Executando otimizações no sistema...';
+      const res = await fetch('/api/optimizer/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tasks })
+      });
+      const d = await res.json();
+      if (box) box.textContent = d.report || 'Concluído.';
+      showToast('Otimização do sistema concluída!');
+    }
+
+    async function scanUpdatableAppsNow() {
+      const el = document.getElementById('optimizerAppsList');
+      if (el) el.textContent = '⏳ Escaneando aplicativos instalados...';
+      const res = await fetch('/api/optimizer/apps');
+      const d = await res.json();
+      if (!d.apps || !d.apps.length) {
+        el.innerHTML = `<span style="color:var(--emerald);">✔ Todos os aplicativos verificados estão atualizados (${d.manager}).</span>`;
+        return;
+      }
+      el.innerHTML = d.apps.map(a => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-subtle);gap:8px;">
+          <div style="overflow:hidden;">
+            <strong style="color:#fff;">${a.name}</strong>
+            <div style="font-size:10px;color:var(--text-muted);">${a.current} → <span style="color:var(--emerald);">${a.available}</span> (${a.source})</div>
+          </div>
+          <button class="btn" style="padding:3px 8px;font-size:10px;" onclick="upgradeSingleApp('${a.id.replace(/'/g, "\\'")}')">Atualizar</button>
+        </div>
+      `).join('');
+    }
+
+    async function upgradeSingleApp(appId) {
+      showToast(`Atualizando <strong>${appId}</strong>...`);
+      const res = await fetch('/api/optimizer/apps/upgrade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ app_ids: [appId] })
+      });
+      const d = await res.json();
+      showToast(d.message || 'Atualização concluída.');
+      await scanUpdatableAppsNow();
+    }
+
+    async function upgradeAllAppsNow() {
+      showToast('Atualizando todos os aplicativos em lote...');
+      const res = await fetch('/api/optimizer/apps/upgrade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ app_ids: [] })
+      });
+      const d = await res.json();
+      showToast(d.message || 'Atualização concluída.');
+      await scanUpdatableAppsNow();
+    }
+
+    async function scanDriversNow() {
+      const el = document.getElementById('optimizerDriversList');
+      if (el) el.textContent = '⏳ Lendo drivers e módulos de hardware...';
+      const res = await fetch('/api/optimizer/drivers');
+      const d = await res.json();
+      if (!d.drivers || !d.drivers.length) {
+        el.textContent = d.firmware_info || 'Nenhum driver listado.';
+        return;
+      }
+      el.innerHTML = d.drivers.map(dr => `
+        <div style="padding:5px 0;border-bottom:1px solid var(--border-subtle);">
+          <strong style="color:#fff;">${dr.device}</strong>
+          <div style="font-size:10px;color:var(--text-muted);">v${dr.version} • ${dr.vendor}</div>
+        </div>
+      `).join('');
+    }
+
+    async function triggerDriverUpdateNow() {
+      showToast('Disparando varredura de drivers e firmware...');
+      const res = await fetch('/api/optimizer/drivers/scan', { method: 'POST' });
+      const d = await res.json();
+      showToast(d.message || 'Varredura concluída.');
+      await scanDriversNow();
     }
 
     async function launchRunMaestroNow() {
@@ -3027,6 +3294,7 @@
       loadSystemSettings();
       loadUpdateStatus();
       loadMaestriClis();
+      loadWorkspaceProjects();
       loadCanvasState();
       refreshSystemStats();
       loadQuickApps();
