@@ -237,6 +237,31 @@
     .canvas-toolbar > div {
       display: flex; flex-wrap: wrap; align-items: center; gap: 6px; max-width: 100%;
     }
+    .maestri-dropdown { position: relative; display: inline-block; }
+    .maestri-dropdown-menu {
+      display: none; position: absolute; right: 0; top: calc(100% + 5px);
+      min-width: 225px; background: rgba(10, 16, 30, 0.98);
+      border: 1px solid var(--border-glow); border-radius: 10px;
+      padding: 6px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8);
+      z-index: 90; flex-direction: column; gap: 3px;
+    }
+    .maestri-dropdown-menu.open { display: flex; }
+    .maestri-dropdown-item {
+      background: transparent; border: none; color: var(--text-primary);
+      text-align: left; padding: 7px 10px; border-radius: 7px;
+      font-size: 11.5px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+      width: 100%;
+    }
+    .maestri-dropdown-item:hover { background: rgba(56, 189, 248, 0.14); color: #fff; }
+    .zoom-pill {
+      display: inline-flex; align-items: center;
+      border: 1px solid var(--border-subtle); border-radius: 8px; overflow: hidden;
+      background: rgba(15, 23, 42, 0.65);
+    }
+    .zoom-pill button {
+      border: none; border-radius: 0; background: transparent; padding: 4px 8px; font-size: 11px;
+    }
+    .zoom-pill button:hover { background: rgba(56, 189, 248, 0.15); }
     .canvas-viewport {
       flex: 1;
       position: relative;
@@ -661,107 +686,104 @@
     <main class="main-area">
       <nav class="nav-tabs">
         <button class="tab-btn active" data-tab="tab-maestri" onclick="switchTab('tab-maestri', this)">
-          <i data-lucide="terminal-square" class="lucide"></i> 1. Maestri 2D (Prompt no Terminal)
+          <i data-lucide="terminal-square" class="lucide"></i> Maestri 2D
         </button>
         <button class="tab-btn" data-tab="tab-mobile" onclick="switchTab('tab-mobile', this)">
-          <i data-lucide="smartphone" class="lucide"></i> 2. Celular 4G/5G & Alertas
+          <i data-lucide="smartphone" class="lucide"></i> 4G/5G & Alertas
         </button>
         <button class="tab-btn" data-tab="tab-automations" onclick="switchTab('tab-automations', this)">
-          <i data-lucide="zap" class="lucide"></i> 3. Automações, Clipboard & Pomodoro
+          <i data-lucide="zap" class="lucide"></i> Automações
         </button>
         <button class="tab-btn" data-tab="tab-memory" onclick="switchTab('tab-memory', this)">
-          <i data-lucide="brain-circuit" class="lucide"></i> 4. Memória & Pool IA Gratuita
+          <i data-lucide="brain-circuit" class="lucide"></i> Memória & IA
         </button>
         <button class="tab-btn" data-tab="tab-pc" onclick="switchTab('tab-pc', this)">
-          <i data-lucide="cpu" class="lucide"></i> 5. Meus Apps Sincronizados & PC
+          <i data-lucide="cpu" class="lucide"></i> Apps & PC
         </button>
         <button class="tab-btn" data-tab="tab-tasks" onclick="switchTab('tab-tasks', this)">
-          <i data-lucide="check-square" class="lucide"></i> 6. Tarefas, Web & Arquivos
+          <i data-lucide="check-square" class="lucide"></i> Tarefas & Web
         </button>
         <button class="tab-btn" data-tab="tab-settings" onclick="switchTab('tab-settings', this)">
-          <i data-lucide="settings" class="lucide"></i> 7. Configurações do Sistema
+          <i data-lucide="settings" class="lucide"></i> Configurações
         </button>
         <button class="tab-btn" data-tab="tab-optimizer" onclick="switchTab('tab-optimizer', this)">
-          <i data-lucide="gauge" class="lucide"></i> 8. Otimizar PC, Apps & Drivers
+          <i data-lucide="gauge" class="lucide"></i> Otimizador
         </button>
       </nav>
 
       <!-- TAB 1: MAESTRI 2D INFINITE WORKSPACE (WITH LIVE TERMINALS) -->
       <section class="tab-content active" id="tab-maestri">
-        <div class="canvas-toolbar">
-          <div style="display:flex; align-items:center; gap:10px;">
-            <strong style="font-size:12.5px; color:var(--cyan); display:flex; align-items:center; gap:6px;">
-              <i data-lucide="workflow" class="lucide"></i> Maestri 2D Workspace
-            </strong>
-            <select id="maestriTemplateSelect" onchange="applyMaestriTemplate(this.value)" style="padding:5px 9px; font-size:11.5px; border-radius:8px;">
-              <option value="default">Template: Orquestração Geral & Sistema</option>
-              <option value="coding_squad">Template: Squad Full-Stack Pro (Maestro + DB + Back + Front + QA)</option>
-              <option value="software_factory">Template: Fábrica de Software Full-Stack</option>
-              <option value="pc_audit">Template: Auditoria & Diagnóstico do PC</option>
+        <div class="canvas-toolbar" style="padding:6px 12px;">
+          <div>
+            <select id="maestriTemplateSelect" onchange="applyMaestriTemplate(this.value)" style="padding:5px 8px; font-size:11px; border-radius:8px; max-width:220px;">
+              <option value="default">Template: Orquestração Geral</option>
+              <option value="coding_squad">Template: Squad Full-Stack Pro</option>
+              <option value="software_factory">Template: Fábrica de Software</option>
+              <option value="pc_audit">Template: Auditoria do PC</option>
             </select>
-            <span style="font-size:11px; color:var(--text-muted);" id="zoomBadge">Zoom: 100%</span>
-          </div>
-          <div style="display:flex; gap:6px;">
-            <select id="activeWorkspaceSelect" onchange="setWorkspaceProject(this.value)" style="padding:5px 9px; font-size:11px; border-radius:8px; max-width:210px;" title="Projeto Ativo (sincroniza o diretório de todos os agentes)">
+            <select id="activeWorkspaceSelect" onchange="setWorkspaceProject(this.value)" style="padding:5px 8px; font-size:11px; border-radius:8px; max-width:190px;" title="Projeto Ativo (sincroniza o diretório de todos os agentes)">
               <option value="">📁 Projeto Ativo...</option>
             </select>
-            <button class="btn" onclick="openGitDiffModal()" title="Ver alterações Git e reverter arquivos">
-              <i data-lucide="git-compare" class="lucide"></i> Diff & Rollback
+          </div>
+          <div>
+            <button class="btn" style="padding:5px 9px; font-size:11px;" onclick="spawnNewCanvasAgent()">
+              <i data-lucide="plus-square" class="lucide"></i> + Agente
             </button>
-            <button class="btn" onclick="openPlaybooksModal()" title="Auto Run & Playbooks (.md Spec-Driven / Goal-Driven)">
-              📖 Playbooks & Auto Run
+            <button class="btn btn-primary" style="padding:5px 10px; font-size:11px;" onclick="orchestrateAllCanvasAgents()">
+              <i data-lucide="play" class="lucide"></i> Orquestrar
             </button>
-            <button class="btn" onclick="openWorktreesModal()" title="Git Worktrees isolados por agente/branch">
-              🌳 Worktrees
-            </button>
-            <button class="btn" onclick="openFilesExplorerModal()" title="Explorador de Arquivos e Git Commit Log">
-              📁 Arquivos & Log
-            </button>
-            <button class="btn" onclick="openGlobalEnvModal()" title="Variáveis de Ambiente Globais para agentes/terminais">
-              🔐 Env Vars
-            </button>
-            <button class="btn" onclick="spawnNewCanvasAgent()">
-              <i data-lucide="plus-square" class="lucide"></i> + Bloco Agente
-            </button>
-            <button class="btn" onclick="autoLayoutCanvasNodes()" title="Organizar blocos no Canvas 2D sem sobreposição">
-              <i data-lucide="layout-grid" class="lucide"></i> Auto-Organizar
-            </button>
-            <button class="btn" onclick="exportMaestriMarkdown()" title="Exportar Relatório Markdown (.md)">
-              <i data-lucide="file-down" class="lucide"></i> Exportar .MD
-            </button>
-            <button class="btn" onclick="zoomCanvas(-0.1)">
-              <i data-lucide="zoom-out" class="lucide"></i>
-            </button>
-            <button class="btn" onclick="resetCanvasCamera()">
-              <i data-lucide="maximize-2" class="lucide"></i> 100%
-            </button>
-            <button class="btn" onclick="zoomCanvas(0.1)">
-              <i data-lucide="zoom-in" class="lucide"></i>
-            </button>
-            <button class="btn btn-primary" onclick="orchestrateAllCanvasAgents()">
-              <i data-lucide="play" class="lucide"></i> Orquestrar Tudo & Notificar Celular
-            </button>
+
+            <div class="maestri-dropdown">
+              <button class="btn" style="padding:5px 10px; font-size:11px;" onclick="toggleMaestriMenu('maestriToolsMenu', event)">
+                🧰 Ferramentas ▾
+              </button>
+              <div class="maestri-dropdown-menu" id="maestriToolsMenu">
+                <button class="maestri-dropdown-item" onclick="closeMaestriMenus(); openPlaybooksModal()">📖 Playbooks & Auto Run</button>
+                <button class="maestri-dropdown-item" onclick="closeMaestriMenus(); openWorktreesModal()">🌳 Git Worktrees Isolados</button>
+                <button class="maestri-dropdown-item" onclick="closeMaestriMenus(); openGitDiffModal()">📂 Git Diff, Rollback & Commit</button>
+                <button class="maestri-dropdown-item" onclick="closeMaestriMenus(); openFilesExplorerModal()">📁 Arquivos & Git Log</button>
+                <button class="maestri-dropdown-item" onclick="closeMaestriMenus(); openGlobalEnvModal()">🔐 Variáveis Globais (Env)</button>
+                <div style="border-top:1px solid var(--border-subtle); margin:3px 0;"></div>
+                <button class="maestri-dropdown-item" onclick="closeMaestriMenus(); autoLayoutCanvasNodes()">🪄 Auto-Organizar Canvas</button>
+                <button class="maestri-dropdown-item" onclick="closeMaestriMenus(); exportMaestriMarkdown()">📄 Exportar Relatório .MD</button>
+                <button class="maestri-dropdown-item" onclick="closeMaestriMenus(); launchRunMaestroNow()">🚀 Abrir RunMaestro</button>
+              </div>
+            </div>
+
+            <div class="zoom-pill">
+              <button class="btn" onclick="zoomCanvas(-0.1)" title="Diminuir Zoom">−</button>
+              <button class="btn" id="zoomBadge" onclick="resetCanvasCamera()" title="Resetar Zoom">100%</button>
+              <button class="btn" onclick="zoomCanvas(0.1)" title="Aumentar Zoom">+</button>
+            </div>
           </div>
         </div>
 
-        <!-- Modo Maestro (IPC Inter-Agentes) + CLIs Reais + RunMaestro -->
-        <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:7px 12px; background:rgba(9,14,28,0.92); border-bottom:1px solid var(--border-subtle);">
-          <span style="font-size:11px; font-weight:700; color:var(--emerald); display:flex; align-items:center; gap:5px;">
-            <i data-lucide="cpu" class="lucide"></i> MODO MAESTRO:
+        <!-- Modo Maestro Compacto -->
+        <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:6px 12px; background:rgba(9,14,28,0.92); border-bottom:1px solid var(--border-subtle);">
+          <span style="font-size:10.5px; font-weight:700; color:var(--emerald); display:flex; align-items:center; gap:4px; white-space:nowrap;">
+            <i data-lucide="cpu" class="lucide"></i> MAESTRO
           </span>
-          <input type="text" id="maestroGoalInput" placeholder="Digite um objetivo para o Maestro delegar aos agentes em DAG/paralelo (ex: auditar projeto e propor melhorias)..." style="flex:1; min-width:220px; padding:5px 10px; font-size:11.5px;" onkeydown="if(event.key==='Enter') runMaestroModeNow();" />
-          <button class="btn btn-glow" id="maestroRunBtn" style="padding:5px 11px; font-size:11.5px;" onclick="runMaestroModeNow()">
-            <i data-lucide="zap" class="lucide"></i> Executar Maestro
+          <input type="text" id="maestroGoalInput" placeholder="Objetivo para o Maestro delegar aos agentes em DAG/paralelo..." style="flex:1; min-width:200px; padding:5px 10px; font-size:11.5px;" onkeydown="if(event.key==='Enter') runMaestroModeNow();" />
+          <button class="btn btn-glow" id="maestroRunBtn" style="padding:5px 11px; font-size:11px;" onclick="runMaestroModeNow()">
+            <i data-lucide="zap" class="lucide"></i> Executar
           </button>
-          <div style="display:flex; gap:4px; flex-wrap:wrap;">
-            <span class="chip" style="font-size:10px; padding:3px 8px;" onclick="runMaestroPreset('Auditar CPU, RAM, disco, processos ativos e propor otimizações')">🔍 Auditar PC</span>
-            <span class="chip" style="font-size:10px; padding:3px 8px;" onclick="runMaestroPreset('Analisar repositório Git local, commits recentes e status do GitHub')">🐙 Git & Repos</span>
-            <span class="chip" style="font-size:10px; padding:3px 8px;" onclick="runMaestroPreset('Pesquisar melhores práticas atuais de FastAPI + IA local e resumir')">🌐 Pesquisa Pro</span>
+
+          <div class="maestri-dropdown">
+            <button class="btn" style="padding:5px 9px; font-size:11px;" onclick="toggleMaestriMenu('maestroPresetsMenu', event)">✨ Presets ▾</button>
+            <div class="maestri-dropdown-menu" id="maestroPresetsMenu">
+              <button class="maestri-dropdown-item" onclick="closeMaestriMenus(); runMaestroPreset('Auditar CPU, RAM, disco, processos ativos e propor otimizações')">🔍 Auditar PC</button>
+              <button class="maestri-dropdown-item" onclick="closeMaestriMenus(); runMaestroPreset('Analisar repositório Git local, commits recentes e status do GitHub')">🐙 Git & Repos</button>
+              <button class="maestri-dropdown-item" onclick="closeMaestriMenus(); runMaestroPreset('Pesquisar melhores práticas atuais de FastAPI + IA local e resumir')">🌐 Pesquisa Pro</button>
+            </div>
           </div>
-          <span id="maestriClisBar" style="font-size:10.5px; color:var(--text-muted); display:flex; align-items:center; gap:5px;">CLIs: carregando...</span>
-          <button class="btn" style="padding:5px 10px; font-size:11px;" onclick="launchRunMaestroNow()" title="Abrir ou baixar RunMaestro/Maestro">
-            <i data-lucide="external-link" class="lucide"></i> RunMaestro
-          </button>
+
+          <div class="maestri-dropdown">
+            <button class="btn" style="padding:5px 9px; font-size:11px;" onclick="toggleMaestriMenu('maestroClisMenu', event)">⚙️ CLIs</button>
+            <div class="maestri-dropdown-menu" id="maestroClisMenu" style="min-width:290px; padding:10px;">
+              <div style="font-size:10.5px; color:var(--text-muted); margin-bottom:6px; font-weight:700;">CLIs & Ferramentas Detectadas:</div>
+              <div id="maestriClisBar" style="font-size:10.5px; color:var(--text-muted); display:flex; flex-wrap:wrap; gap:5px;">Carregando...</div>
+            </div>
+          </div>
         </div>
         <div id="maestroMissionBar" style="display:none; align-items:center; justify-content:space-between; gap:10px; padding:5px 14px; background:linear-gradient(90deg, rgba(16,185,129,0.12), rgba(56,189,248,0.08)); border-bottom:1px solid rgba(52,211,153,0.3); font-size:11px;">
           <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
@@ -1820,7 +1842,7 @@
     function applyWorldTransform() {
       const world = document.getElementById('canvasWorld');
       if (world) world.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomScale})`;
-      document.getElementById('zoomBadge').textContent = `Zoom: ${Math.round(zoomScale * 100)}%`;
+      document.getElementById('zoomBadge').textContent = `${Math.round(zoomScale * 100)}%`;
       renderMinimap();
     }
 
@@ -3780,6 +3802,22 @@
       showToast(`Variáveis globais salvas (${Object.keys(envObj).length} chaves)!`);
       document.getElementById('globalEnvModal').style.display = 'none';
     }
+
+    function closeMaestriMenus() {
+      document.querySelectorAll('.maestri-dropdown-menu.open').forEach(el => el.classList.remove('open'));
+    }
+
+    function toggleMaestriMenu(menuId, ev) {
+      if (ev) ev.stopPropagation();
+      const target = document.getElementById(menuId);
+      const wasOpen = target && target.classList.contains('open');
+      closeMaestriMenus();
+      if (target && !wasOpen) target.classList.add('open');
+    }
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.maestri-dropdown')) closeMaestriMenus();
+    });
 
     window.addEventListener('DOMContentLoaded', () => {
       refreshIcons();
