@@ -152,7 +152,7 @@
       letter-spacing: 0.6px; color: var(--cyan); display: flex; align-items: center; gap: 7px;
     }
     .quick-prompts {
-      padding: 8px 12px; display: flex; gap: 6px; overflow-x: auto; border-bottom: 1px solid var(--border-subtle);
+      padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid var(--border-subtle);
     }
     .chip {
       white-space: nowrap; font-size: 11px; font-weight: 600; padding: 5px 10px;
@@ -207,14 +207,13 @@
     /* Right Content Area */
     .main-area { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
     .nav-tabs {
-      display: flex; gap: 6px; padding: 9px 18px;
+      display: flex; flex-wrap: wrap; gap: 5px; padding: 8px 14px;
       border-bottom: 1px solid var(--border-subtle); background: rgba(8, 13, 25, 0.72);
-      overflow-x: auto;
     }
     .tab-btn {
-      padding: 7px 13px; border-radius: var(--radius-md); font-size: 12px; font-weight: 600;
+      padding: 6px 11px; border-radius: var(--radius-md); font-size: 11.5px; font-weight: 600;
       color: var(--text-muted); background: transparent; border: 1px solid transparent;
-      cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;
+      cursor: pointer; display: flex; align-items: center; gap: 5px; white-space: nowrap;
     }
     .tab-btn:hover { color: var(--text-primary); background: rgba(255, 255, 255, 0.04); }
     .tab-btn.active {
@@ -228,11 +227,15 @@
 
     /* --- MAESTRI 2D INFINITE WORKSPACE CANVAS (WITH LIVE TERMINALS) --- */
     .canvas-toolbar {
-      padding: 9px 16px;
+      padding: 8px 14px;
       background: rgba(6, 10, 20, 0.94);
       border-bottom: 1px solid var(--border-subtle);
-      display: flex; align-items: center; justify-content: space-between;
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+      gap: 8px;
       z-index: 10;
+    }
+    .canvas-toolbar > div {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 6px; max-width: 100%;
     }
     .canvas-viewport {
       flex: 1;
@@ -501,10 +504,14 @@
     .chat-backdrop.open { display: block; }
 
     /* Responsive Breakpoints */
-    @media (max-width: 1160px) {
+    @media (max-width: 1380px) {
       .workspace { grid-template-columns: 300px 1fr; }
-      header { padding: 8px 14px; height: auto; min-height: 58px; flex-wrap: wrap; gap: 8px; }
+      header { padding: 8px 14px; height: auto; min-height: 56px; flex-wrap: wrap; gap: 8px; }
       .header-actions { flex-wrap: wrap; gap: 6px; }
+    }
+
+    @media (max-width: 1160px) {
+      .workspace { grid-template-columns: 270px 1fr; }
       .pill-info { display: none; }
     }
 
@@ -526,13 +533,17 @@
       .agent-node { width: min(390px, calc(100vw - 28px)); }
       #canvasMinimap { width: 140px !important; height: 92px !important; right: 10px !important; bottom: 10px !important; }
       .tab-content { padding: 14px 12px; }
+      #playbooksModal > div > div:nth-child(2),
+      #filesExplorerModal > div > div:nth-child(2) {
+        grid-template-columns: 1fr !important;
+      }
     }
 
     @media (max-width: 600px) {
       .brand-title small, .xp-pill, .status-pill { display: none; }
       .brand-title h1 { font-size: 14px; }
       .badge-tag { display: none; }
-      .tabs-bar { padding: 7px 10px; gap: 4px; }
+      .nav-tabs { flex-wrap: nowrap; overflow-x: auto; padding: 7px 10px; gap: 4px; }
       .tab-btn { padding: 6px 10px; font-size: 11px; }
       .toast-container { left: 12px; right: 12px; bottom: 12px; }
       .toast { max-width: 100%; }
