@@ -96,6 +96,7 @@ from maestri_orchestrator import (
     ipc_ask,
     ipc_spawn,
     run_maestro_mode,
+    get_maestro_live_status,
     detect_installed_clis,
     install_cli_tool,
     detect_runmaestro,
@@ -429,6 +430,11 @@ class IpcSpawnRequest(BaseModel):
 @app.post("/api/canvas/maestro-run")
 def api_canvas_maestro_run(req: MaestroGoalRequest):
     return run_maestro_mode(req.goal)
+
+
+@app.get("/api/canvas/maestro-status")
+def api_canvas_maestro_status():
+    return get_maestro_live_status()
 
 
 @app.get("/api/canvas/ipc/check")

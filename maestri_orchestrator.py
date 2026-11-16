@@ -283,13 +283,54 @@ def ipc_spawn(
     return {"ok": True, "node": new_node, "execution": exec_res}
 
 
+_MAESTRO_LIVE_STATE: Dict[str, Any] = {
+    "running": False,
+    "phase": "idle",
+    "goal": "",
+    "strategy": "",
+    "started_at": 0.0,
+    "elapsed_sec": 0.0,
+    "node_states": {},
+    "active_edges": [],
+}
+
+
+def get_maestro_live_status() -> Dict[str, Any]:
+    st = dict(_MAESTRO_LIVE_STATE)
+    if st.get("running") and st.get("started_at"):
+        st["elapsed_sec"] = round(time.time() - float(st["started_at"]), 1)
+    return st
+
+
+def _set_maestro_state(**kwargs: Any) -> None:
+    _MAESTRO_LIVE_STATE.update(kwargs)
+
+
+def _set_node_live(node_id: str, status: str, step: str = "") -> None:
+    ns = _MAESTRO_LIVE_STATE.setdefault("node_states", {})
+    ns[node_id] = {"status": status, "step": step}
+
+
 def run_maestro_mode(goal: str) -> Dict[str, Any]:
     """
     Modo Maestro (estilo Maestri oficial / omaestri):
-    O bloco Maestro coordena os agentes trabalhadores em paralelo, registra tudo nos terminais
-    ao vivo, consolida o resultado final e envia notificação para o celular.
+    - Fase 1: Planejamento estratégico via IA (decomposição DAG + spawn dinâmico de especialistas)
+    - Fase 2: Execução em ondas (paralela + dependências upstream) com ReAct de 5 ciclos e IPC
+    - Fase 3: Auditoria de qualidade do Maestro (recuperação automática de falhas)
+    - Fase 4: Síntese executiva sênior + telemetria ao vivo no canvas + notificação mobile
     """
     t0 = time.time()
+    _set_maestro_state(
+        running=True,
+        phase="planning",
+        goal=goal,
+        strategy="Analisando objetivo e montando plano estratégico...",
+        started_at=t0,
+        elapsed_sec=0.0,
+        node_states={},
+        active_edges=[],
+    )
+
     state = get_canvas_state()
     nodes = state.get("nodes", [])
     edges = state.get("edges", [])
@@ -299,23 +340,28 @@ def run_maestro_mode(goal: str) -> Dict[str, Any]:
         maestro_node = {
             "id": "node-maestro",
             "name": "Maestro Orquestrador",
-            "role": "Coordena o time de agentes no canvas, divide subtarefas e consolida entregas.",
-            "model": "free:openai",
+            "role": "Arquiteto-chefe do canvas: planeja em DAG, spawna especialistas, audita entregas e sintetiza.",
+            "model": "free:deepseek",
             "x": 80,
             "y": 80,
+            "status": "running",
             "last_output": "",
         }
         nodes.insert(0, maestro_node)
+    else:
+        maestro_node["status"] = "running"
+
+    _set_node_live(maestro_node["id"], "running", "Planejando missão...")
 
     workers = [n for n in nodes if n["id"] != maestro_node["id"]]
     if not workers:
         default_workers = [
-            ("Engenheiro Sistema & CLIs", "Executa comandos reais no PC, Git, Python e analisa arquivos locais.", "free:qwen-coder"),
-            ("Pesquisador Web & GitHub", "Pesquisa na web em tempo real e consulta repositórios no GitHub.", "free:mistral"),
+            ("Engenheiro Sistema & CLIs", "Executa comandos reais no PC, Git, Python, código e analisa arquivos locais.", "free:qwen-coder"),
+            ("Pesquisador Web & GitHub", "Pesquisa na web em tempo real, lê documentação e consulta repositórios no GitHub.", "free:mistral"),
         ]
         for i, (w_name, w_role, w_model) in enumerate(default_workers):
             w_id = f"node-worker-{i+1}"
-            w_node = {"id": w_id, "name": w_name, "role": w_role, "model": w_model, "x": 500, "y": 60 + i * 320, "last_output": ""}
+            w_node = {"id": w_id, "name": w_name, "role": w_role, "model": w_model, "x": 560, "y": 60 + i * 320, "status": "idle", "last_output": ""}
             nodes.append(w_node)
             edges.append({"id": f"edge-m-{i+1}", "from": maestro_node["id"], "to": w_id})
             workers.append(w_node)
@@ -326,28 +372,35 @@ def run_maestro_mode(goal: str) -> Dict[str, Any]:
         node_id=maestro_node["id"],
         header_cmd=f"aura-maestro❯ {goal}",
         output_body=(
-            f"⚙ [MODO MAESTRO ATIVADO] Orquestrando {len(workers)} agente(s) em paralelo...\n"
-            + "\n".join([f"├─ 🤖 Delegando para [{w['name']}] ({w.get('model', 'free:openai')})" for w in workers])
+            f"⚙ [MODO MAESTRO ATIVADO] Analisando objetivo com {len(workers)} agente(s) no canvas..."
         ),
     )
 
     if is_project_build_intent(goal):
+        _set_maestro_state(phase="executing", strategy=f"Construção Full-Stack automática: {goal}")
         slug = _slugify(goal)
         project_dir = PROJECTS_ROOT / slug
         w_db = workers[0]
         w_be = workers[1] if len(workers) > 1 else workers[0]
         w_fe = workers[2] if len(workers) > 2 else workers[-1]
 
+        _set_node_live(w_db["id"], "running", "Criando banco SQLite...")
         db_info = scaffold_database_layer(project_dir, goal)
         db_msg = f"✔ Banco SQLite criado em {db_info['file']} | Tabelas: {', '.join(db_info['tables'])} ({db_info['seed_count']} itens iniciais)"
         w_db["last_output"] = db_msg
+        w_db["status"] = "done"
+        _set_node_live(w_db["id"], "done", "Banco SQLite pronto")
         append_terminal_log(w_db["id"], f"aura-agent❯ Criar Banco de Dados ({slug})", db_msg)
 
+        _set_node_live(w_be["id"], "running", "Criando API FastAPI...")
         be_info = scaffold_backend_layer(project_dir, goal)
         be_msg = f"✔ Backend FastAPI criado em {be_info['file']} | Rotas: {', '.join(be_info['endpoints'])}"
         w_be["last_output"] = be_msg
+        w_be["status"] = "done"
+        _set_node_live(w_be["id"], "done", "Backend FastAPI pronto")
         append_terminal_log(w_be["id"], f"aura-agent❯ Criar Backend FastAPI ({slug})", be_msg)
 
+        _set_node_live(w_fe["id"], "running", "Criando Frontend & subindo servidor...")
         fe_info = scaffold_frontend_layer(project_dir, goal)
         launch_info = launch_generated_project(project_dir)
         fe_msg = (
@@ -355,6 +408,8 @@ def run_maestro_mode(goal: str) -> Dict[str, Any]:
             f"✔ Servidor local {'ONLINE' if launch_info['ok'] else 'iniciado'} em: {launch_info['url']} (PID {launch_info['pid']})"
         )
         w_fe["last_output"] = fe_msg
+        w_fe["status"] = "done"
+        _set_node_live(w_fe["id"], "done", "Servidor online")
         append_terminal_log(w_fe["id"], f"aura-agent❯ Criar Frontend & Iniciar Servidor ({slug})", fe_msg)
 
         elapsed = round(time.time() - t0, 2)
@@ -370,9 +425,12 @@ def run_maestro_mode(goal: str) -> Dict[str, Any]:
             f"• [{w_fe['name']}]: {fe_msg}"
         )
         maestro_node["last_output"] = consolidated_text
+        maestro_node["status"] = "done"
         save_canvas_state(nodes, edges)
         append_terminal_log(maestro_node["id"], "aura-maestro❯ [CONSOLIDAÇÃO FINAL]", consolidated_text)
         log_activity("MAESTRO", f"Projeto '{slug}' construído e rodando em {launch_info['url']}")
+        _set_maestro_state(running=False, phase="done", elapsed_sec=elapsed, active_edges=[])
+        _set_node_live(maestro_node["id"], "done", f"Concluído em {elapsed}s")
         try:
             push_mobile_notification(
                 title="Projeto Pronto & Rodando!",
@@ -396,18 +454,25 @@ def run_maestro_mode(goal: str) -> Dict[str, Any]:
             "consolidated": consolidated_text,
         }
 
-    # --- FASE 1: Planejamento Inteligente do Maestro (Decomposição de Tarefas via IA) ---
+    # --- FASE 1: Planejamento Estratégico DAG + Spawn Dinâmico ---
     worker_catalog = "\n".join(
-        [f"- id: {w['id']} | nome: {w.get('name')} | papel: {w.get('role')}" for w in workers]
+        [f"- id: {w['id']} | nome: {w.get('name')} | papel: {w.get('role')} | modelo: {w.get('model')}" for w in workers]
     )
     planner_sys = (
-        "Você é o Maestro Orquestrador do AURA OS. Sua função é decompor um objetivo complexo em subtarefas "
-        "específicas, práticas e NÃO-REDUNDANTES para cada agente especialista do canvas.\n"
-        "Responda EXCLUSIVAMENTE com um JSON válido no formato:\n"
+        "Você é o Maestro Orquestrador Sênior do AURA OS (estilo RunMaestro/omaestri).\n"
+        "Decomponha o objetivo em um plano de execução em ondas (DAG) para os agentes do canvas.\n"
+        "Regras:\n"
+        "1. Atribua missões específicas, técnicas e NÃO-REDUNDANTES para os agentes existentes.\n"
+        "2. Se faltar um especialista essencial para o objetivo (máximo 1 novo agente), você pode incluí-lo em `spawn_agents`.\n"
+        "3. Use `depends_on` (lista de node_id) somente quando um agente precisar do resultado de outro antes de começar.\n"
+        "Responda EXCLUSIVAMENTE com um JSON válido:\n"
         "{\n"
-        '  "strategy": "Resumo curto da estratégia do Maestro",\n'
+        '  "strategy": "Estratégia clara e técnica em 1 frase",\n'
         '  "assignments": [\n'
-        '    {"node_id": "id_do_bloco", "task": "Missão específica e acionável para este agente", "cmd": "comando shell opcional ou vazio"}\n'
+        '    {"node_id": "id_do_bloco", "task": "Missão específica e acionável", "cmd": "comando shell opcional ou vazio", "depends_on": []}\n'
+        "  ],\n"
+        '  "spawn_agents": [\n'
+        '    {"name": "Nome Especialista", "role": "Papel técnico", "model": "free:qwen-coder", "task": "Missão do novo agente", "cmd": ""}\n'
         "  ]\n"
         "}"
     )
@@ -415,7 +480,7 @@ def run_maestro_mode(goal: str) -> Dict[str, Any]:
         f"OBJETIVO DO USUÁRIO: {goal}\n"
         f"SISTEMA OPERACIONAL: {'Windows' if os.name == 'nt' else 'Linux'}\n"
         f"AGENTES DISPONÍVEIS NO CANVAS:\n{worker_catalog}\n\n"
-        "Distribua o trabalho de forma inteligente entre os agentes disponíveis."
+        "Crie o plano estratégico JSON."
     )
 
     plan_data: Dict[str, Any] = {}
@@ -423,7 +488,8 @@ def run_maestro_mode(goal: str) -> Dict[str, Any]:
         plan_res = call_with_free_ai_failover(
             user_prompt=planner_user,
             system_prompt=planner_sys,
-            preferred_model_id=maestro_node.get("model", "free:openai"),
+            preferred_model_id=maestro_node.get("model", "free:deepseek"),
+            task_type="planning",
         )
         if plan_res.get("success") and plan_res.get("reply"):
             raw = plan_res["reply"].strip()
@@ -433,18 +499,48 @@ def run_maestro_mode(goal: str) -> Dict[str, Any]:
     except Exception:
         plan_data = {}
 
-    strategy_text = plan_data.get("strategy") or f"Execução coordenada em paralelo para: {goal}"
-    assignment_map: Dict[str, Dict[str, str]] = {}
+    strategy_text = plan_data.get("strategy") or f"Execução coordenada em ondas para: {goal}"
+    _set_maestro_state(phase="spawning", strategy=strategy_text)
+
+    assignment_map: Dict[str, Dict[str, Any]] = {}
     for item in plan_data.get("assignments", []) if isinstance(plan_data.get("assignments"), list) else []:
         if isinstance(item, dict) and item.get("node_id"):
             assignment_map[str(item["node_id"])] = {
                 "task": str(item.get("task") or "").strip(),
                 "cmd": str(item.get("cmd") or "").strip(),
+                "depends_on": [str(d) for d in (item.get("depends_on") or []) if d],
             }
+
+    # Dynamic specialist spawning (up to 1 new specialist per run to keep canvas clean)
+    spawn_list = plan_data.get("spawn_agents", []) if isinstance(plan_data.get("spawn_agents"), list) else []
+    for sp in spawn_list[:1]:
+        if isinstance(sp, dict) and sp.get("name") and sp.get("task"):
+            new_id = f"node-sp-{uuid.uuid4().hex[:6]}"
+            idx = len(nodes)
+            sp_node = {
+                "id": new_id,
+                "name": str(sp["name"])[:40],
+                "role": str(sp.get("role") or "Especialista dinâmico criado pelo Maestro"),
+                "model": str(sp.get("model") or "free:qwen-coder"),
+                "x": 560 + (idx % 2) * 490,
+                "y": 60 + (idx // 2) * 320,
+                "status": "idle",
+                "last_output": "",
+            }
+            nodes.append(sp_node)
+            edges.append({"id": f"edge-sp-{uuid.uuid4().hex[:5]}", "from": maestro_node["id"], "to": new_id})
+            workers.append(sp_node)
+            assignment_map[new_id] = {
+                "task": str(sp["task"]).strip(),
+                "cmd": str(sp.get("cmd") or "").strip(),
+                "depends_on": [],
+            }
+
+    save_canvas_state(nodes, edges)
 
     append_terminal_log(
         node_id=maestro_node["id"],
-        header_cmd="aura-maestro❯ [PLANO ESTRATÉGICO]",
+        header_cmd="aura-maestro❯ [PLANO ESTRATÉGICO DAG]",
         output_body=(
             f"🧠 Estratégia: {strategy_text}\n"
             + "\n".join(
@@ -456,11 +552,19 @@ def run_maestro_mode(goal: str) -> Dict[str, Any]:
         ),
     )
 
-    # --- FASE 2: Execução Paralela com Contexto Conectado (Edges) ---
+    # --- FASE 2: Execução em Ondas (Paralela + Dependências DAG) ---
+    _set_maestro_state(
+        phase="executing",
+        active_edges=[{"from": maestro_node["id"], "to": w["id"]} for w in workers],
+    )
     node_by_id = {n["id"]: n for n in nodes}
-    worker_results: List[Dict[str, Any]] = []
+    worker_results_map: Dict[str, Dict[str, Any]] = {}
+    completed_ids: set[str] = set()
+    pending_workers = list(workers)
 
     def _run_worker(w: Dict[str, Any]) -> Dict[str, Any]:
+        w["status"] = "running"
+        _set_node_live(w["id"], "running", "Iniciando agente...")
         assigned = assignment_map.get(w["id"], {})
         specific_task = assigned.get("task") or (
             f"Contribua com sua especialidade ({w.get('role')}) para resolver o objetivo."
@@ -471,11 +575,14 @@ def run_maestro_mode(goal: str) -> Dict[str, Any]:
             f"SUA MISSÃO ESPECÍFICA ({w.get('name')}):\n{specific_task}"
         )
         upstream = []
+        dep_ids = set(assigned.get("depends_on") or [])
         for ed in edges:
             if ed.get("to") == w["id"]:
-                src = node_by_id.get(ed.get("from"))
-                if src and src.get("id") != maestro_node["id"] and src.get("last_output"):
-                    upstream.append({"name": src.get("name", src["id"]), "output": src["last_output"]})
+                dep_ids.add(ed.get("from"))
+        for src_id in dep_ids:
+            src = node_by_id.get(src_id)
+            if src and src.get("id") != maestro_node["id"] and src.get("last_output"):
+                upstream.append({"name": src.get("name", src["id"]), "output": src["last_output"]})
 
         res = run_maestri_canvas_agent(
             node_id=w["id"],
@@ -485,33 +592,97 @@ def run_maestro_mode(goal: str) -> Dict[str, Any]:
             model_id=w.get("model", "free:openai"),
             terminal_cmd=assigned.get("cmd", ""),
             upstream_outputs=upstream,
+            on_step=lambda msg, wid=w["id"]: _set_node_live(wid, "running", msg[:90]),
         )
         w["last_output"] = res.get("output", "")
+        ok_flag = bool(res.get("success", True) and w["last_output"].strip())
+        w["status"] = "done" if ok_flag else "error"
+        _set_node_live(w["id"], w["status"], f"Concluído ({res.get('elapsed_s', 0)}s)")
         provider_used = res.get("provider_used") or res.get("provider") or "AURA"
         return {
             "node_id": w["id"],
             "name": w.get("name"),
             "task": specific_task,
-            "output": res.get("output", ""),
+            "output": w["last_output"],
             "provider": provider_used,
+            "ok": ok_flag,
         }
 
-    with ThreadPoolExecutor(max_workers=min(4, max(1, len(workers)))) as pool:
-        futures = [pool.submit(_run_worker, w) for w in workers]
-        for fut in as_completed(futures):
-            try:
-                worker_results.append(fut.result())
-            except Exception as exc:
-                worker_results.append({"node_id": "?", "name": "Worker", "task": "", "output": f"Erro: {exc}", "provider": "error"})
+    # Execute in topological waves (up to 3 waves to avoid cycles)
+    for _wave in range(3):
+        if not pending_workers:
+            break
+        ready = []
+        deferred = []
+        for w in pending_workers:
+            deps = [d for d in assignment_map.get(w["id"], {}).get("depends_on", []) if d in {wk["id"] for wk in workers}]
+            if all(d in completed_ids for d in deps):
+                ready.append(w)
+            else:
+                deferred.append(w)
+        if not ready:
+            ready = pending_workers
+            deferred = []
 
-    # --- FASE 3: Síntese Executiva Inteligente do Maestro ---
+        with ThreadPoolExecutor(max_workers=min(4, max(1, len(ready)))) as pool:
+            futures = {pool.submit(_run_worker, w): w for w in ready}
+            for fut in as_completed(futures):
+                wk = futures[fut]
+                try:
+                    wr = fut.result()
+                except Exception as exc:
+                    wk["status"] = "error"
+                    _set_node_live(wk["id"], "error", str(exc)[:80])
+                    wr = {"node_id": wk["id"], "name": wk.get("name", "Worker"), "task": "", "output": f"Erro: {exc}", "provider": "error", "ok": False}
+                worker_results_map[wk["id"]] = wr
+                completed_ids.add(wk["id"])
+        pending_workers = deferred
+
+    worker_results = [worker_results_map[w["id"]] for w in workers if w["id"] in worker_results_map]
+
+    # --- FASE 3: Auditoria de Qualidade do Maestro (Self-Correction Gate) ---
+    _set_maestro_state(phase="auditing", active_edges=[])
+    _set_node_live(maestro_node["id"], "running", "Auditando entregas dos agentes...")
+    failed_workers = [wr for wr in worker_results if not wr.get("ok") or len(wr.get("output", "").strip()) < 25]
+    if failed_workers:
+        append_terminal_log(
+            node_id=maestro_node["id"],
+            header_cmd="aura-maestro❯ [AUDITORIA DE QUALIDADE]",
+            output_body=f"🔍 Detectadas {len(failed_workers)} entrega(s) incompleta(s). Executando recuperação automática...",
+        )
+        for fw in failed_workers[:2]:
+            w_obj = node_by_id.get(fw["node_id"])
+            if w_obj:
+                retry_res = run_maestri_canvas_agent(
+                    node_id=w_obj["id"],
+                    agent_name=w_obj.get("name", w_obj["id"]),
+                    agent_role=w_obj.get("role", ""),
+                    prompt=f"REVISÃO SOLICITADA PELO MAESTRO para o objetivo '{goal}':\n{fw.get('task')}\nEntregue uma análise concreta e completa.",
+                    model_id="free:deepseek",
+                    upstream_outputs=[],
+                )
+                if retry_res.get("output"):
+                    fw["output"] = retry_res["output"]
+                    fw["provider"] = retry_res.get("provider_used", "AURA Recovery")
+                    fw["ok"] = True
+                    w_obj["last_output"] = fw["output"]
+                    w_obj["status"] = "done"
+                    _set_node_live(w_obj["id"], "done", "Recuperado na auditoria")
+
+    # --- FASE 4: Síntese Executiva Sênior do Maestro ---
+    _set_maestro_state(phase="synthesizing")
+    _set_node_live(maestro_node["id"], "running", "Gerando síntese executiva...")
     raw_deliveries = "\n\n".join(
-        [f"### [{wr['name']}] ({wr['provider']})\nMissão: {wr.get('task', '')}\nEntrega:\n{wr['output'][:1600]}" for wr in worker_results]
+        [f"### [{wr['name']}] ({wr['provider']})\nMissão: {wr.get('task', '')}\nEntrega:\n{wr['output'][:2200]}" for wr in worker_results]
     )
     synth_sys = (
-        "Você é o Maestro Orquestrador do AURA OS. Consolide as entregas dos agentes especialistas abaixo em uma "
-        "resposta final coesa, inteligente, prática e direta em Português do Brasil. "
-        "Elimine redundâncias, destaque os achados concretos (arquivos, comandos, métricas, links) e dê próximos passos claros."
+        "Você é o Maestro Orquestrador Sênior do AURA OS. Consolide as entregas dos agentes especialistas abaixo em um "
+        "Relatório Executivo de nível profissional em Português do Brasil.\n"
+        "Estruture obrigatoriamente em:\n"
+        "1. **Resumo Executivo** (resposta direta ao objetivo)\n"
+        "2. **Achados & Evidências Concretas** (arquivos, comandos, métricas, URLs reais coletados)\n"
+        "3. **Próximos Passos Recomendados** (ações práticas e imediatas)\n"
+        "Elimine redundâncias e nunca invente dados que não estejam nas entregas."
     )
     synth_user = f"OBJETIVO ORIGINAL: {goal}\nESTRATÉGIA: {strategy_text}\n\nENTREGAS DOS AGENTES:\n{raw_deliveries}"
 
@@ -520,7 +691,8 @@ def run_maestro_mode(goal: str) -> Dict[str, Any]:
         synth_res = call_with_free_ai_failover(
             user_prompt=synth_user,
             system_prompt=synth_sys,
-            preferred_model_id=maestro_node.get("model", "free:openai"),
+            preferred_model_id=maestro_node.get("model", "free:deepseek"),
+            task_type="synthesis",
         )
         if synth_res.get("success") and synth_res.get("reply"):
             synthesized_reply = synth_res["reply"].strip()
@@ -545,7 +717,11 @@ def run_maestro_mode(goal: str) -> Dict[str, Any]:
         consolidated_text = "\n".join(consolidated_lines)
 
     maestro_node["last_output"] = consolidated_text
+    maestro_node["status"] = "done"
     save_canvas_state(nodes, edges)
+
+    _set_maestro_state(running=False, phase="done", elapsed_sec=elapsed, active_edges=[])
+    _set_node_live(maestro_node["id"], "done", f"Concluído em {elapsed}s")
 
     append_terminal_log(
         node_id=maestro_node["id"],

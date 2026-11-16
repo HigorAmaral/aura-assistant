@@ -1,3 +1,4 @@
+import re
 import time
 from typing import Dict, Any, List, Optional
 import httpx
@@ -124,7 +125,41 @@ def get_free_pool_status() -> List[Dict[str, Any]]:
     return out
 
 
-def _call_pollinations_free(model_slug: str, system_prompt: str, user_prompt: str) -> str:
+def _clean_model_reply(text: str) -> str:
+    """Strip internal <think>...</think> reasoning blocks if a reasoning model emits them."""
+    if not text:
+        return ""
+    cleaned = re.sub(r"<think>[\s\S]*?</think>", "", text, flags=re.IGNORECASE).strip()
+    return cleaned or text.strip()
+
+
+def _resolve_task_config(task_type: str, preferred_model_id: Optional[str]) -> tuple[float, List[str]]:
+    """Return optimal (temperature, priority_model_ids) for a given cognitive task type."""
+    t = (task_type or "general").lower()
+    if t in ("planning", "json", "audit"):
+        temp = 0.2
+        order = ["free:deepseek", "groq:llama-3.3-70b", "gemini:gemini-3.8-flash", "free:openai"]
+    elif t in ("coding", "code", "debug"):
+        temp = 0.25
+        order = ["free:qwen-coder", "free:deepseek", "groq:llama-3.3-70b", "free:openai"]
+    elif t in ("synthesis", "executive"):
+        temp = 0.35
+        order = ["free:deepseek", "free:openai", "free:mistral", "groq:llama-3.3-70b"]
+    elif t in ("research", "web"):
+        temp = 0.35
+        order = ["free:mistral", "free:openai", "free:deepseek"]
+    else:
+        temp = 0.45
+        order = []
+
+    if preferred_model_id and preferred_model_id not in order:
+        order = [preferred_model_id] + order
+    elif preferred_model_id and t == "general":
+        order = [preferred_model_id]
+    return temp, order
+
+
+def _call_pollinations_free(model_slug: str, system_prompt: str, user_prompt: str, temperature: float = 0.45) -> str:
     """Call Pollinations Free OpenAI-compatible endpoint (zero API key required)."""
     url = "https://text.pollinations.ai/openai"
     payload = {
@@ -133,9 +168,9 @@ def _call_pollinations_free(model_slug: str, system_prompt: str, user_prompt: st
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-        "temperature": 0.6,
+        "temperature": temperature,
     }
-    with httpx.Client(timeout=18.0, follow_redirects=True) as client:
+    with httpx.Client(timeout=22.0, follow_redirects=True) as client:
         resp = client.post(url, json=payload)
         if resp.status_code == 429 or resp.status_code >= 500:
             raise RuntimeError(f"HTTP {resp.status_code} (Limite de tokens/requisições atingido)")
@@ -143,11 +178,11 @@ def _call_pollinations_free(model_slug: str, system_prompt: str, user_prompt: st
         data = resp.json()
         choices = data.get("choices", [])
         if choices and choices[0].get("message", {}).get("content"):
-            return choices[0]["message"]["content"].strip()
+            return _clean_model_reply(choices[0]["message"]["content"])
         raise RuntimeError("Resposta vazia do provedor gratuito")
 
 
-def _call_groq_free(api_key: str, model_slug: str, system_prompt: str, user_prompt: str) -> str:
+def _call_groq_free(api_key: str, model_slug: str, system_prompt: str, user_prompt: str, temperature: float = 0.4) -> str:
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {api_key}"}
     payload = {
@@ -156,16 +191,17 @@ def _call_groq_free(api_key: str, model_slug: str, system_prompt: str, user_prom
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
+        "temperature": temperature,
     }
-    with httpx.Client(timeout=16.0) as client:
+    with httpx.Client(timeout=18.0) as client:
         resp = client.post(url, headers=headers, json=payload)
         if resp.status_code == 429:
             raise RuntimeError("Groq 429 Quota Exceeded")
         resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"].strip()
+        return _clean_model_reply(resp.json()["choices"][0]["message"]["content"])
 
 
-def _call_openrouter_free(api_key: str, model_slug: str, system_prompt: str, user_prompt: str) -> str:
+def _call_openrouter_free(api_key: str, model_slug: str, system_prompt: str, user_prompt: str, temperature: float = 0.4) -> str:
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {"Authorization": f"Bearer {api_key}"}
     payload = {
@@ -174,22 +210,24 @@ def _call_openrouter_free(api_key: str, model_slug: str, system_prompt: str, use
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
+        "temperature": temperature,
     }
-    with httpx.Client(timeout=18.0) as client:
+    with httpx.Client(timeout=20.0) as client:
         resp = client.post(url, headers=headers, json=payload)
         if resp.status_code == 429:
             raise RuntimeError("OpenRouter 429 Quota Exceeded")
         resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"].strip()
+        return _clean_model_reply(resp.json()["choices"][0]["message"]["content"])
 
 
-def _call_ollama_local(ollama_url: str, model_slug: str, system_prompt: str, user_prompt: str) -> str:
-    with httpx.Client(timeout=12.0) as client:
+def _call_ollama_local(ollama_url: str, model_slug: str, system_prompt: str, user_prompt: str, temperature: float = 0.4) -> str:
+    with httpx.Client(timeout=16.0) as client:
         resp = client.post(
             f"{ollama_url.rstrip('/')}/api/chat",
             json={
                 "model": model_slug,
                 "stream": False,
+                "options": {"temperature": temperature},
                 "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
@@ -197,29 +235,30 @@ def _call_ollama_local(ollama_url: str, model_slug: str, system_prompt: str, use
             },
         )
         resp.raise_for_status()
-        return resp.json().get("message", {}).get("content", "").strip()
+        return _clean_model_reply(resp.json().get("message", {}).get("content", ""))
 
 
 def call_with_free_ai_failover(
     user_prompt: str,
     system_prompt: str,
     preferred_model_id: Optional[str] = None,
+    task_type: str = "general",
+    temperature: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
-    Execute prompt using the Free AI Pool. If the first model runs out of tokens,
-    hits a rate-limit (429), or times out, automatically rotate to the next available
-    free model in the queue!
+    Execute prompt using the Free AI Pool with task-aware routing & automatic failover.
     """
     settings = get_settings()
     now = time.time()
+    auto_temp, priority_ids = _resolve_task_config(task_type, preferred_model_id)
+    eff_temp = auto_temp if temperature is None else temperature
 
-    # Build candidate queue starting with preferred_model_id (if specified) followed by the rest of the pool
+    # Build candidate queue: priority_ids first, then remaining pool models
+    pool_by_id = {p["id"]: p for p in FREE_AI_POOL}
     ordered_pool: List[Dict[str, Any]] = []
-    if preferred_model_id:
-        for p in FREE_AI_POOL:
-            if p["id"] == preferred_model_id:
-                ordered_pool.append(p)
-                break
+    for pid in priority_ids:
+        if pid in pool_by_id and pool_by_id[pid] not in ordered_pool:
+            ordered_pool.append(pool_by_id[pid])
     for p in FREE_AI_POOL:
         if p not in ordered_pool:
             ordered_pool.append(p)
@@ -245,7 +284,7 @@ def call_with_free_ai_failover(
 
         try:
             if pid.startswith("free:"):
-                reply = _call_pollinations_free(candidate["model_slug"], system_prompt, user_prompt)
+                reply = _call_pollinations_free(candidate["model_slug"], system_prompt, user_prompt, temperature=eff_temp)
             elif pid.startswith("gemini:"):
                 from google import genai
                 client = genai.Client(api_key=key_val)
@@ -254,17 +293,18 @@ def call_with_free_ai_failover(
                     input=user_prompt,
                     system_instruction=system_prompt,
                 )
-                reply = inter.output_text or ""
+                reply = _clean_model_reply(inter.output_text or "")
             elif pid.startswith("groq:"):
-                reply = _call_groq_free(key_val, candidate["model_slug"], system_prompt, user_prompt)
+                reply = _call_groq_free(key_val, candidate["model_slug"], system_prompt, user_prompt, temperature=eff_temp)
             elif pid.startswith("openrouter:"):
-                reply = _call_openrouter_free(key_val, candidate["model_slug"], system_prompt, user_prompt)
+                reply = _call_openrouter_free(key_val, candidate["model_slug"], system_prompt, user_prompt, temperature=eff_temp)
             elif pid == "ollama:local":
                 reply = _call_ollama_local(
                     settings.get("ollama_url", "http://localhost:11434"),
                     settings.get("ollama_model", "llama3.2"),
                     system_prompt,
                     user_prompt,
+                    temperature=eff_temp,
                 )
             else:
                 continue

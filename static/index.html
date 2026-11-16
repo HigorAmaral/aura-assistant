@@ -636,14 +636,21 @@
           <span style="font-size:11px; font-weight:700; color:var(--emerald); display:flex; align-items:center; gap:5px;">
             <i data-lucide="cpu" class="lucide"></i> MODO MAESTRO:
           </span>
-          <input type="text" id="maestroGoalInput" placeholder="Digite um objetivo para o Maestro delegar aos agentes em paralelo (ex: listar repos do GitHub e auditar sistema)..." style="flex:1; min-width:240px; padding:5px 10px; font-size:11.5px;" onkeydown="if(event.key==='Enter') runMaestroModeNow();" />
-          <button class="btn btn-glow" style="padding:5px 11px; font-size:11.5px;" onclick="runMaestroModeNow()">
+          <input type="text" id="maestroGoalInput" placeholder="Digite um objetivo para o Maestro delegar aos agentes em DAG/paralelo (ex: auditar projeto e propor melhorias)..." style="flex:1; min-width:240px; padding:5px 10px; font-size:11.5px;" onkeydown="if(event.key==='Enter') runMaestroModeNow();" />
+          <button class="btn btn-glow" id="maestroRunBtn" style="padding:5px 11px; font-size:11.5px;" onclick="runMaestroModeNow()">
             <i data-lucide="zap" class="lucide"></i> Executar Maestro
           </button>
           <span id="maestriClisBar" style="font-size:10.5px; color:var(--text-muted); display:flex; align-items:center; gap:5px;">CLIs: carregando...</span>
           <button class="btn" style="padding:5px 10px; font-size:11px;" onclick="launchRunMaestroNow()" title="Abrir ou baixar RunMaestro/Maestro">
             <i data-lucide="external-link" class="lucide"></i> RunMaestro
           </button>
+        </div>
+        <div id="maestroMissionBar" style="display:none; align-items:center; justify-content:space-between; gap:10px; padding:5px 14px; background:linear-gradient(90deg, rgba(16,185,129,0.12), rgba(56,189,248,0.08)); border-bottom:1px solid rgba(52,211,153,0.3); font-size:11px;">
+          <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+            <span id="maestroPhasePill" style="padding:2px 8px; border-radius:999px; font-weight:700; font-size:10px; background:rgba(52,211,153,0.2); color:#34d399; border:1px solid rgba(52,211,153,0.45); text-transform:uppercase;">PLANEJANDO</span>
+            <span id="maestroStrategyText" style="color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Orquestrando agentes...</span>
+          </div>
+          <span id="maestroElapsedText" style="font-family:'JetBrains Mono',monospace; color:var(--cyan); font-size:10.5px; flex-shrink:0;">0.0s</span>
         </div>
 
         <div class="canvas-viewport" id="canvasViewport">
@@ -1531,12 +1538,22 @@
         const termText = formatTerminalHistory(node.terminal);
         const cwdText = (node.terminal && node.terminal.cwd) ? node.terminal.cwd : '~';
         const safePromptAttr = (node.prompt || '').replace(/"/g, '&quot;');
+        const st = (node.status || 'idle').toLowerCase();
+        const badgeStyle = st === 'running'
+          ? 'background:rgba(56,189,248,0.2);color:#38bdf8;border:1px solid rgba(56,189,248,0.5);'
+          : st === 'done'
+            ? 'background:rgba(52,211,153,0.18);color:#34d399;border:1px solid rgba(52,211,153,0.45);'
+            : st === 'error'
+              ? 'background:rgba(248,113,113,0.18);color:#f87171;border:1px solid rgba(248,113,113,0.45);'
+              : 'background:rgba(148,163,184,0.12);color:#94a3b8;border:1px solid rgba(148,163,184,0.25);';
+        const badgeLabel = st === 'running' ? '● EXECUTANDO' : st === 'done' ? '✓ CONCLUÍDO' : st === 'error' ? '⚠ ERRO' : '○ IDLE';
         return `
-        <div class="agent-node ${node.status === 'running' ? 'running' : ''}" id="node-${node.id}" style="left:${node.x}px; top:${node.y}px; border-color:${node.color || '#38bdf8'};">
+        <div class="agent-node ${st === 'running' ? 'running' : ''}" id="node-${node.id}" style="left:${node.x}px; top:${node.y}px; border-color:${node.color || '#38bdf8'};">
           <div class="agent-node-header" onmousedown="startDragNode(event, '${node.id}')">
-            <div style="display:flex; align-items:center; gap:7px;">
+            <div style="display:flex; align-items:center; gap:7px; overflow:hidden;">
               <span class="port-dot" style="background:${node.color || '#38bdf8'};"></span>
-              <strong style="font-size:12px; color:#fff;">${node.name}</strong>
+              <strong style="font-size:12px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${node.name}</strong>
+              <span id="status-badge-${node.id}" style="font-size:9px; font-weight:700; padding:1px 6px; border-radius:999px; flex-shrink:0; ${badgeStyle}">${badgeLabel}</span>
             </div>
             <div style="display:flex; gap:5px;">
               <button class="btn btn-primary" style="padding:3px 9px; font-size:10.5px;" onclick="runSingleCanvasNode('${node.id}')" title="Executar Prompt no Terminal do Agente">▶ Executar no Terminal</button>
@@ -1737,10 +1754,14 @@
         const y2 = toNode.y + 135;
         const cx1 = x1 + Math.abs(x2 - x1) * 0.45;
         const cx2 = x2 - Math.abs(x2 - x1) * 0.45;
+        const isActive = (typeof activeMaestroEdges !== 'undefined') && activeMaestroEdges.some(ae => ae.from === edge.from && ae.to === edge.to);
+        const strokeColor = isActive ? 'rgba(52, 211, 153, 0.95)' : 'rgba(56, 189, 248, 0.6)';
+        const strokeW = isActive ? '3.5' : '2.5';
+        const dotColor = isActive ? '#34d399' : '#38bdf8';
         pathsHtml += `
           <path d="M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}"
-                fill="none" stroke="rgba(56, 189, 248, 0.6)" stroke-width="2.5" stroke-dasharray="6,4" />
-          <circle cx="${x2}" cy="${y2}" r="5" fill="#38bdf8" />
+                fill="none" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-dasharray="6,4" />
+          <circle cx="${x2}" cy="${y2}" r="5" fill="${dotColor}" />
         `;
       }
       svg.innerHTML = pathsHtml;
@@ -2665,25 +2686,90 @@
       await loadMaestriClis();
     }
 
+    let activeMaestroEdges = [];
+    let maestroPollTimer = null;
+
+    function applyMaestroLiveStatus(st) {
+      const bar = document.getElementById('maestroMissionBar');
+      const pill = document.getElementById('maestroPhasePill');
+      const strat = document.getElementById('maestroStrategyText');
+      const elap = document.getElementById('maestroElapsedText');
+      if (!bar) return;
+
+      const phaseLabels = {
+        planning: '🧠 PLANEJANDO DAG',
+        spawning: '⚡ SPAWNING AGENTES',
+        executing: '⚙ EXECUTANDO SWARM',
+        auditing: '🔍 AUDITANDO QUALIDADE',
+        synthesizing: '✨ SINTETIZANDO',
+        done: '✔ CONCLUÍDO',
+        idle: 'IDLE'
+      };
+      bar.style.display = 'flex';
+      if (pill) pill.textContent = phaseLabels[st.phase] || (st.phase || '').toUpperCase();
+      if (strat) strat.textContent = st.strategy || st.goal || 'Orquestrando...';
+      if (elap) elap.textContent = `${Number(st.elapsed_sec || 0).toFixed(1)}s`;
+
+      activeMaestroEdges = st.active_edges || [];
+      if (st.node_states) {
+        let changed = false;
+        for (const [nid, info] of Object.entries(st.node_states)) {
+          const n = canvasNodes.find(x => x.id === nid);
+          if (n && n.status !== info.status) {
+            n.status = info.status;
+            changed = true;
+          }
+          const badge = document.getElementById(`status-badge-${nid}`);
+          if (badge) {
+            const s = info.status;
+            badge.textContent = s === 'running' ? '● EXECUTANDO' : s === 'done' ? '✓ CONCLUÍDO' : s === 'error' ? '⚠ ERRO' : '○ IDLE';
+            badge.style.color = s === 'running' ? '#38bdf8' : s === 'done' ? '#34d399' : s === 'error' ? '#f87171' : '#94a3b8';
+          }
+          const card = document.getElementById(`node-${nid}`);
+          if (card) card.classList.toggle('running', info.status === 'running');
+        }
+        if (changed) renderCanvasEdges();
+      }
+    }
+
     async function runMaestroModeNow() {
       const inp = document.getElementById('maestroGoalInput');
+      const btn = document.getElementById('maestroRunBtn');
       const goal = (inp ? inp.value : '').trim();
       if (!goal) {
         showToast('Digite um objetivo para o Modo Maestro executar.');
         return;
       }
-      showToast(`<strong>Modo Maestro iniciado:</strong> delegando "${goal}" aos agentes...`);
-      const res = await fetch('/api/canvas/maestro-run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ goal })
-      });
-      const d = await res.json();
-      if (d.ok) {
-        showToast(`<strong>Modo Maestro concluído em ${d.elapsed_sec}s!</strong> Confira os terminais dos blocos.`);
-        await loadCanvasState();
-      } else {
-        showToast(`Erro no Modo Maestro: ${d.error || 'falha'}`);
+      if (btn) btn.disabled = true;
+      showToast(`<strong>Modo Maestro iniciado:</strong> planejando DAG para "${goal}"...`);
+
+      if (maestroPollTimer) clearInterval(maestroPollTimer);
+      maestroPollTimer = setInterval(async () => {
+        try {
+          const r = await fetch('/api/canvas/maestro-status');
+          if (r.ok) applyMaestroLiveStatus(await r.json());
+        } catch (_) {}
+      }, 700);
+
+      try {
+        const res = await fetch('/api/canvas/maestro-run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ goal })
+        });
+        const d = await res.json();
+        if (d.ok) {
+          showToast(`<strong>Modo Maestro concluído em ${d.elapsed_sec}s!</strong> Confira a Síntese Executiva no Maestro.`);
+          await loadCanvasState();
+          const stRes = await fetch('/api/canvas/maestro-status');
+          if (stRes.ok) applyMaestroLiveStatus(await stRes.json());
+        } else {
+          showToast(`Erro no Modo Maestro: ${d.error || 'falha'}`);
+        }
+      } finally {
+        if (maestroPollTimer) { clearInterval(maestroPollTimer); maestroPollTimer = null; }
+        activeMaestroEdges = [];
+        if (btn) btn.disabled = false;
       }
     }
 

@@ -1,6 +1,7 @@
 import os
 import re
-from typing import Dict, Any, List, Optional
+from pathlib import Path
+from typing import Dict, Any, List, Optional, Callable
 
 from storage import (
     list_tasks,
@@ -44,17 +45,32 @@ from terminal_manager import (
 import time
 
 BASE_SYSTEM_INSTRUCTION = (
-    "Você é a AURA OS 5.0 (Edição Maestri Workspace), uma assistente pessoal de computador e plataforma "
-    "de orquestração multi-agentes com terminais ao vivo em um quadro infinito 2D. "
-    "Você TEM acesso externo real ao sistema do usuário: terminal PowerShell/Bash, arquivos locais, "
-    "programas instalados, métricas de CPU/RAM/Rede, pesquisa web em tempo real, leitura de URLs e "
-    "integração autenticada com o GitHub via GitHub CLI (gh) e Git, além de suporte às CLIs "
-    "Vercel (vercel / npx vercel), Supabase (supabase / npx supabase) e Antigravity. "
-    "Quando dados reais do PC, GitHub ou Web forem fornecidos no contexto da mensagem, use-os diretamente "
-    "e nunca diga que não tem acesso externo. "
-    "Compatível com Windows e Linux Ubuntu. "
-    "Responda sempre em Português do Brasil de maneira estruturada, clara e sem emojis."
+    "Você é a AURA OS 5.0 (Edição Maestri Workspace), uma Arquiteta de Sistemas Sênior e Plataforma "
+    "de Orquestração Multi-Agentes com terminais ao vivo em um quadro infinito 2D.\n"
+    "PRINCÍPIOS DE ENGENHARIA PROFISSIONAL:\n"
+    "1. Evidência acima de suposição: você TEM acesso externo real ao sistema (PowerShell/Bash, arquivos, "
+    "processos, CPU/RAM/Disco, pesquisa web em tempo real, leitura de URLs e GitHub via `gh` CLI e Git, "
+    "além de Vercel, Supabase e Antigravity). Use os dados reais do contexto ou suas ferramentas; NUNCA invente saídas, caminhos ou métricas.\n"
+    "2. Precisão técnica e profundidade: entregue respostas de nível sênior, estruturadas, com comandos exatos, "
+    "código limpo pronto para produção, análise de causa raiz e próximos passos acionáveis.\n"
+    "3. Objetividade: vá direto ao ponto, sem floreios, em Português do Brasil claro."
 )
+
+_CHAT_HISTORY: List[Dict[str, str]] = []
+
+
+def _infer_task_type(text: str, role: str = "") -> str:
+    combined = f"{role} {text}".lower()
+    if any(k in combined for k in ("código", "codigo", "python", "javascript", "typescript", "sql", "bug", "erro", "script", "api", "fastapi", "react", "html", "css", "git", "debug", "refator", "coder")):
+        return "coding"
+    if any(k in combined for k in ("planej", "arquitet", "estratég", "estrateg", "auditor", "revis", "seguran")):
+        return "planning"
+    if any(k in combined for k in ("pesquis", "web", "notícia", "noticia", "tendência", "tendencia", "buscar", "mercado")):
+        return "research"
+    if any(k in combined for k in ("resum", "síntese", "sintese", "consolid", "relatório", "relatorio")):
+        return "synthesis"
+    return "general"
+
 
 
 def build_system_instruction(extra_role: str = "") -> str:
@@ -517,14 +533,29 @@ def process_chat_message(message: str, preferred_model: Optional[str] = None) ->
 
     web_context = ("\n\n" + "\n\n".join(extra_contexts)) if extra_contexts else ""
 
+    history_block = ""
+    if _CHAT_HISTORY:
+        recent_turns = _CHAT_HISTORY[-6:]
+        history_block = (
+            "[HISTÓRICO RECENTE DA CONVERSA]:\n"
+            + "\n".join(f"{t['role'].upper()}: {t['content'][:400]}" for t in recent_turns)
+            + "\n\n"
+        )
+
     sys_prompt = build_system_instruction()
     ai_out = call_with_free_ai_failover(
-        user_prompt=message + web_context,
+        user_prompt=history_block + f"MENSAGEM ATUAL DO USUÁRIO:\n{message}" + web_context,
         system_prompt=sys_prompt,
         preferred_model_id=preferred_model,
+        task_type=_infer_task_type(message),
     )
 
     if ai_out["success"]:
+        _CHAT_HISTORY.append({"role": "user", "content": message})
+        _CHAT_HISTORY.append({"role": "assistant", "content": ai_out["reply"]})
+        if len(_CHAT_HISTORY) > 16:
+            del _CHAT_HISTORY[:-16]
+
         failover_note = ""
         if ai_out.get("failover_chain"):
             failover_note = f"\n\n*Rotação Automática de IA: {', '.join(ai_out['failover_chain'])} → Atendido por **{ai_out['provider_name']}***"
@@ -606,6 +637,8 @@ def run_maestri_canvas_agent(
     prompt: str,
     terminal_cmd: str = "",
     upstream_outputs: List[Dict[str, str]] = [],
+    on_step: Optional[Callable[[str], None]] = None,
+    ipc_ask_depth: int = 0,
 ) -> Dict[str, Any]:
     """
     Execute a Maestri 2D Workspace Tile where the prompt, agent working steps, shell commands,
@@ -616,8 +649,16 @@ def run_maestri_canvas_agent(
     enriched_context_parts: List[str] = []
     working_steps: List[str] = []
 
+    def _emit_step(msg: str) -> None:
+        working_steps.append(msg)
+        if on_step:
+            try:
+                on_step(msg)
+            except Exception:
+                pass
+
     term_session = get_or_init_terminal_session(node_id)
-    working_steps.append(f"⚙ [INICIANDO AGENTE] {agent_name} ({model_id})")
+    _emit_step(f"⚙ [INICIANDO AGENTE] {agent_name} ({model_id})")
     working_steps.append(f"├─ Papel: {agent_role}")
     working_steps.append(f"├─ Diretório do Terminal: {term_session['cwd']}")
 
@@ -727,35 +768,51 @@ def run_maestri_canvas_agent(
     if enriched_context_parts:
         full_user_prompt += "\n\n" + "\n\n".join(enriched_context_parts)
 
+    task_kind = _infer_task_type(prompt, agent_role)
     agent_tool_guide = (
-        f"\n[CAPACIDADES DE AGENTE AUTÔNOMO]\n"
-        f"- Você está operando no terminal do bloco '{agent_name}' em `{term_session['cwd']}` (SO: {'Windows' if IS_WINDOWS else 'Linux'}).\n"
-        f"- Se precisar executar um comando real no terminal para inspecionar algo antes de responder, responda APENAS com: [EXEC: comando_aqui]\n"
-        f"- Se precisar ler o conteúdo de um arquivo local antes de responder, responda APENAS com: [READ_FILE: caminho_do_arquivo]\n"
-        f"- Caso já tenha contexto suficiente (ou após receber a saída da ferramenta), forneça sua resposta final clara, técnica e objetiva em Português do Brasil."
+        f"\n[CAPACIDADES DE AGENTE AUTÔNOMO MAESTRI]\n"
+        f"- Você opera no terminal do bloco '{agent_name}' em `{term_session['cwd']}` (SO: {'Windows' if IS_WINDOWS else 'Linux'}).\n"
+        f"- Você tem até 5 ciclos autônomos de ferramentas antes de entregar sua resposta final. Para usar uma ferramenta, responda APENAS com uma das tags abaixo:\n"
+        f"  • `[EXEC: comando_shell]` — Executa comando real no terminal do bloco.\n"
+        f"  • `[READ_FILE: caminho]` — Lê o conteúdo de um arquivo local.\n"
+        f"  • `[WRITE_FILE: caminho | conteúdo]` — Cria ou atualiza um arquivo de código/texto.\n"
+        f"  • `[SEARCH_FILES: padrão]` — Busca arquivos no sistema por nome/extensão.\n"
+        f"  • `[WEB_SEARCH: consulta]` — Pesquisa em tempo real na internet.\n"
+        f"  • `[READ_URL: https://...]` — Lê e extrai conteúdo de uma página web.\n"
+        f"  • `[ASK_AGENT: nome_do_agente | pergunta]` — Consulta outro agente do quadro Maestri 2D (IPC).\n"
+        f"- Quando tiver todas as evidências reais necessárias, entregue uma resposta final de nível sênior, estruturada, com achados concretos (arquivos, linhas, comandos, métricas) e próximos passos em Português do Brasil."
     )
     sys_instruction = build_system_instruction(extra_role=f"{agent_name} — {agent_role}{agent_tool_guide}")
 
-    working_steps.append("├─ 🧠 [IA PROCESSANDO] Analisando tarefa e ferramentas...")
+    _emit_step("├─ 🧠 [IA PROCESSANDO] Analisando tarefa e planejando ferramentas...")
     ai_res = call_with_free_ai_failover(
         user_prompt=full_user_prompt,
         system_prompt=sys_instruction,
         preferred_model_id=model_id,
+        task_type=task_kind,
     )
 
-    # Autonomous ReAct tool loop (up to 2 iterations)
-    for _step in range(2):
+    # Autonomous ReAct tool loop (up to 5 iterations)
+    for _step in range(5):
         if not (ai_res.get("success") and ai_res.get("reply")):
             break
         reply_text = ai_res["reply"].strip()
         exec_match = re.search(r"\[EXEC:\s*([^\]]+)\]", reply_text, re.IGNORECASE)
         read_match = re.search(r"\[READ_FILE:\s*([^\]]+)\]", reply_text, re.IGNORECASE)
+        write_match = re.search(r"\[WRITE_FILE:\s*([^|\]]+)\|\s*([\s\S]+)\]", reply_text, re.IGNORECASE)
+        search_match = re.search(r"\[SEARCH_FILES:\s*([^\]]+)\]", reply_text, re.IGNORECASE)
+        web_match = re.search(r"\[WEB_SEARCH:\s*([^\]]+)\]", reply_text, re.IGNORECASE)
+        url_match = re.search(r"\[READ_URL:\s*([^\]]+)\]", reply_text, re.IGNORECASE)
+        ask_match = re.search(r"\[ASK_AGENT:\s*([^|\]]+)\|\s*([^\]]+)\]", reply_text, re.IGNORECASE)
+
+        tool_observation = ""
+        tool_label = ""
 
         if exec_match:
             req_cmd = exec_match.group(1).strip()
             if _is_safe_agent_cmd(req_cmd):
-                tools_used.append(f"Shell Autônomo: {req_cmd}")
-                working_steps.append(f"├─ 💻 [AGENTE EXECUTOU] $ {req_cmd}")
+                tool_label = f"Shell: {req_cmd}"
+                _emit_step(f"├─ 💻 [AGENTE EXECUTOU] $ {req_cmd}")
                 exec_res = execute_terminal_command(
                     node_id=node_id,
                     command=req_cmd,
@@ -763,34 +820,100 @@ def run_maestri_canvas_agent(
                     node_name=agent_name,
                 )
                 last_entry = exec_res.get("last_entry") or {}
-                cmd_out = (last_entry.get("output") or "(sem saída)")[:2200]
-                full_user_prompt += f"\n\nRESULTADO DE `[EXEC: {req_cmd}]`:\n{cmd_out}\n\nAgora conclua sua resposta final com base nesses dados reais:"
-                ai_res = call_with_free_ai_failover(
-                    user_prompt=full_user_prompt,
-                    system_prompt=sys_instruction,
-                    preferred_model_id=model_id,
-                )
-                continue
+                tool_observation = f"RESULTADO DE `[EXEC: {req_cmd}]`:\n{(last_entry.get('output') or '(sem saída)')[:2600]}"
         elif read_match:
             req_path = read_match.group(1).strip().strip('"').strip("'")
             p_obj = Path(req_path)
             if not p_obj.is_absolute():
                 p_obj = Path(term_session["cwd"]) / p_obj
             if p_obj.exists() and p_obj.is_file():
-                tools_used.append(f"Leitura de Arquivo: {p_obj.name}")
-                working_steps.append(f"├─ 📄 [AGENTE LEU ARQUIVO] {p_obj}")
+                tool_label = f"Leitura: {p_obj.name}"
+                _emit_step(f"├─ 📄 [AGENTE LEU ARQUIVO] {p_obj}")
                 try:
-                    file_txt = p_obj.read_text(encoding="utf-8", errors="replace")[:3000]
+                    file_txt = p_obj.read_text(encoding="utf-8", errors="replace")[:4500]
                 except Exception as f_err:
                     file_txt = f"Erro ao ler arquivo: {f_err}"
-                full_user_prompt += f"\n\nCONTEÚDO DE `{p_obj}`:\n{file_txt}\n\nAgora conclua sua resposta final com base nesse arquivo:"
-                ai_res = call_with_free_ai_failover(
-                    user_prompt=full_user_prompt,
-                    system_prompt=sys_instruction,
-                    preferred_model_id=model_id,
+                tool_observation = f"CONTEÚDO DE `{p_obj}`:\n{file_txt}"
+            else:
+                tool_observation = f"ARQUIVO NÃO ENCONTRADO: `{p_obj}`"
+        elif write_match:
+            req_path = write_match.group(1).strip().strip('"').strip("'")
+            req_content = write_match.group(2).strip()
+            p_obj = Path(req_path)
+            if not p_obj.is_absolute():
+                p_obj = Path(term_session["cwd"]) / p_obj
+            tool_label = f"Escrita: {p_obj.name}"
+            _emit_step(f"├─ ✍️ [AGENTE ESCREVEU ARQUIVO] {p_obj}")
+            try:
+                p_obj.parent.mkdir(parents=True, exist_ok=True)
+                p_obj.write_text(req_content, encoding="utf-8")
+                tool_observation = f"ARQUIVO GRAVADO COM SUCESSO: `{p_obj}` ({len(req_content)} bytes)"
+            except Exception as w_err:
+                tool_observation = f"ERRO AO GRAVAR `{p_obj}`: {w_err}"
+        elif search_match:
+            pat = search_match.group(1).strip()
+            tool_label = f"Busca Arquivos: {pat}"
+            _emit_step(f"├─ 🔍 [BUSCANDO ARQUIVOS] {pat}")
+            try:
+                sf_res = search_local_files(pat, base_dir=term_session["cwd"])
+                tool_observation = f"RESULTADO DE `[SEARCH_FILES: {pat}]`:\n{sf_res.get('summary') or sf_res}"
+            except Exception as sf_err:
+                tool_observation = f"Erro ao buscar arquivos: {sf_err}"
+        elif web_match:
+            wq = web_match.group(1).strip()
+            tool_label = f"Web Search: {wq[:30]}"
+            _emit_step(f"├─ 🌐 [PESQUISA WEB] {wq[:50]}")
+            w_res = search_web(wq, max_results=4)
+            if w_res.get("results"):
+                snips = "\n".join([f"- {r['title']}: {r['snippet']} ({r['url']})" for r in w_res["results"]])
+                tool_observation = f"RESULTADOS WEB PARA `{wq}`:\n{snips}"
+            else:
+                tool_observation = f"Nenhum resultado web encontrado para `{wq}`."
+        elif url_match:
+            u = url_match.group(1).strip()
+            tool_label = f"URL: {u[:30]}"
+            _emit_step(f"├─ 🔗 [LENDO URL] {u[:60]}")
+            u_res = read_and_summarize_url(u)
+            tool_observation = f"CONTEÚDO DE `{u}`:\n{(u_res.get('content') or 'Não foi possível extrair texto.')[:3000]}"
+        elif ask_match and ipc_ask_depth < 1:
+            target_ag = ask_match.group(1).strip()
+            sub_q = ask_match.group(2).strip()
+            tool_label = f"IPC Ask: {target_ag}"
+            _emit_step(f"├─ 🤝 [IPC MAESTRI] Consultando agente '{target_ag}'...")
+            try:
+                from storage import get_canvas_state
+                c_state = get_canvas_state()
+                target_node = next(
+                    (n for n in c_state.get("nodes", []) if target_ag.lower() in (n.get("name") or "").lower() or target_ag.lower() == (n.get("id") or "").lower()),
+                    None,
                 )
-                continue
-        break
+                if target_node and target_node["id"] != node_id:
+                    sub_res = run_maestri_canvas_agent(
+                        node_id=target_node["id"],
+                        agent_name=target_node.get("name", target_node["id"]),
+                        agent_role=target_node.get("role", ""),
+                        model_id=target_node.get("model", "free:openai"),
+                        prompt=sub_q,
+                        ipc_ask_depth=ipc_ask_depth + 1,
+                    )
+                    tool_observation = f"RESPOSTA DO AGENTE [{target_node.get('name')}]:\n{sub_res.get('output', '')[:2500]}"
+                else:
+                    tool_observation = f"Agente '{target_ag}' não encontrado no canvas para IPC."
+            except Exception as ipc_err:
+                tool_observation = f"Erro no IPC com '{target_ag}': {ipc_err}"
+
+        if not tool_observation:
+            break
+
+        if tool_label:
+            tools_used.append(tool_label)
+        full_user_prompt += f"\n\n{tool_observation}\n\nAnalise os dados acima. Se precisar de mais informações, chame outra ferramenta; caso contrário, entregue sua resposta final completa:"
+        ai_res = call_with_free_ai_failover(
+            user_prompt=full_user_prompt,
+            system_prompt=sys_instruction,
+            preferred_model_id=model_id,
+            task_type=task_kind,
+        )
 
     elapsed = round(time.time() - t0, 2)
     if ai_res.get("success") and ai_res.get("reply"):
