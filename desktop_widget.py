@@ -116,7 +116,7 @@ def open_standalone_app_window(path_suffix: str = ""):
     webbrowser.open(target_url)
 
 
-def create_tray_icon_image() -> Image.Image:
+def create_tray_icon_image():
     img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     draw.rounded_rectangle((4, 4, 60, 60), radius=18, fill=(6, 10, 21, 255), outline=(56, 189, 248, 255), width=3)
