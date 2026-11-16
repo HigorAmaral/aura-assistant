@@ -774,8 +774,11 @@ def run_maestri_canvas_agent(
         f"- Você opera no terminal do bloco '{agent_name}' em `{term_session['cwd']}` (SO: {'Windows' if IS_WINDOWS else 'Linux'}).\n"
         f"- Você tem até 5 ciclos autônomos de ferramentas antes de entregar sua resposta final. Para usar uma ferramenta, responda APENAS com uma das tags abaixo:\n"
         f"  • `[EXEC: comando_shell]` — Executa comando real no terminal do bloco.\n"
+        f"  • `[LIST_DIR: caminho]` — Lista arquivos e subpastas de um diretório.\n"
         f"  • `[READ_FILE: caminho]` — Lê o conteúdo de um arquivo local.\n"
-        f"  • `[WRITE_FILE: caminho | conteúdo]` — Cria ou atualiza um arquivo de código/texto.\n"
+        f"  • `[WRITE_FILE: caminho | conteúdo]` — Cria ou sobrescreve um arquivo de código/texto.\n"
+        f"  • `[PATCH_FILE: caminho | trecho_antigo >>> trecho_novo]` — Substitui cirurgicamente um trecho em arquivo existente.\n"
+        f"  • `[RUN_TESTS: comando]` — Executa testes/linters (ex: pytest, ruff check, python3 -m py_compile).\n"
         f"  • `[SEARCH_FILES: padrão]` — Busca arquivos no sistema por nome/extensão.\n"
         f"  • `[WEB_SEARCH: consulta]` — Pesquisa em tempo real na internet.\n"
         f"  • `[READ_URL: https://...]` — Lê e extrai conteúdo de uma página web.\n"
@@ -798,8 +801,11 @@ def run_maestri_canvas_agent(
             break
         reply_text = ai_res["reply"].strip()
         exec_match = re.search(r"\[EXEC:\s*([^\]]+)\]", reply_text, re.IGNORECASE)
+        list_match = re.search(r"\[LIST_DIR:\s*([^\]]+)\]", reply_text, re.IGNORECASE)
         read_match = re.search(r"\[READ_FILE:\s*([^\]]+)\]", reply_text, re.IGNORECASE)
+        patch_match = re.search(r"\[PATCH_FILE:\s*([^|\]]+)\|\s*([\s\S]+?)\s*>>>\s*([\s\S]+)\]", reply_text, re.IGNORECASE)
         write_match = re.search(r"\[WRITE_FILE:\s*([^|\]]+)\|\s*([\s\S]+)\]", reply_text, re.IGNORECASE)
+        tests_match = re.search(r"\[RUN_TESTS:\s*([^\]]+)\]", reply_text, re.IGNORECASE)
         search_match = re.search(r"\[SEARCH_FILES:\s*([^\]]+)\]", reply_text, re.IGNORECASE)
         web_match = re.search(r"\[WEB_SEARCH:\s*([^\]]+)\]", reply_text, re.IGNORECASE)
         url_match = re.search(r"\[READ_URL:\s*([^\]]+)\]", reply_text, re.IGNORECASE)
@@ -821,6 +827,53 @@ def run_maestri_canvas_agent(
                 )
                 last_entry = exec_res.get("last_entry") or {}
                 tool_observation = f"RESULTADO DE `[EXEC: {req_cmd}]`:\n{(last_entry.get('output') or '(sem saída)')[:2600]}"
+        elif list_match:
+            req_dir = list_match.group(1).strip().strip('"').strip("'") or "."
+            d_obj = Path(req_dir)
+            if not d_obj.is_absolute():
+                d_obj = Path(term_session["cwd"]) / d_obj
+            tool_label = f"Listar: {d_obj.name or req_dir}"
+            _emit_step(f"├─ 📂 [LISTANDO DIRETÓRIO] {d_obj}")
+            if d_obj.exists() and d_obj.is_dir():
+                entries = sorted(d_obj.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower()))[:80]
+                listing = "\n".join([f"{'[DIR] ' if e.is_dir() else '[FILE]'} {e.name}" for e in entries])
+                tool_observation = f"CONTEÚDO DE `{d_obj}`:\n{listing or '(vazio)'}"
+            else:
+                tool_observation = f"DIRETÓRIO NÃO ENCONTRADO: `{d_obj}`"
+        elif patch_match:
+            req_path = patch_match.group(1).strip().strip('"').strip("'")
+            old_snip = patch_match.group(2)
+            new_snip = patch_match.group(3)
+            p_obj = Path(req_path)
+            if not p_obj.is_absolute():
+                p_obj = Path(term_session["cwd"]) / p_obj
+            tool_label = f"Patch: {p_obj.name}"
+            _emit_step(f"├─ 🔧 [PATCH EM ARQUIVO] {p_obj}")
+            if p_obj.exists() and p_obj.is_file():
+                try:
+                    cur = p_obj.read_text(encoding="utf-8", errors="replace")
+                    if old_snip in cur:
+                        p_obj.write_text(cur.replace(old_snip, new_snip, 1), encoding="utf-8")
+                        tool_observation = f"PATCH APLICADO COM SUCESSO EM `{p_obj}`."
+                    else:
+                        tool_observation = f"TRECHO ANTIGO NÃO ENCONTRADO EM `{p_obj}`. Leia o arquivo com [READ_FILE] antes de aplicar patch."
+                except Exception as p_err:
+                    tool_observation = f"ERRO AO APLICAR PATCH EM `{p_obj}`: {p_err}"
+            else:
+                tool_observation = f"ARQUIVO NÃO ENCONTRADO PARA PATCH: `{p_obj}`"
+        elif tests_match:
+            test_cmd = tests_match.group(1).strip()
+            if _is_safe_agent_cmd(test_cmd):
+                tool_label = f"Testes: {test_cmd[:30]}"
+                _emit_step(f"├─ 🧪 [RODANDO TESTES] $ {test_cmd}")
+                exec_res = execute_terminal_command(
+                    node_id=node_id,
+                    command=test_cmd,
+                    notify_mobile=False,
+                    node_name=agent_name,
+                )
+                last_entry = exec_res.get("last_entry") or {}
+                tool_observation = f"RESULTADO DOS TESTES `[RUN_TESTS: {test_cmd}]`:\n{(last_entry.get('output') or '(sem saída)')[:2600]}"
         elif read_match:
             req_path = read_match.group(1).strip().strip('"').strip("'")
             p_obj = Path(req_path)

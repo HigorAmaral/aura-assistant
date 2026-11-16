@@ -259,8 +259,23 @@
       top: 0; left: 0;
       width: 3400px; height: 2200px;
       pointer-events: none;
-      z-index: 1;
+      z-index: 3;
     }
+    .edge-group { pointer-events: auto; cursor: pointer; }
+    .edge-group:hover .edge-visible { stroke: #fb7185 !important; stroke-width: 3.5 !important; }
+    .edge-del-pill { opacity: 0.75; transition: opacity 0.15s, transform 0.15s; }
+    .edge-group:hover .edge-del-pill { opacity: 1; }
+    .node-port {
+      position: absolute; top: 130px; width: 15px; height: 15px; border-radius: 50%;
+      background: #0b1120; border: 2.5px solid #38bdf8; cursor: crosshair; z-index: 6;
+      transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
+    }
+    .node-port:hover, .node-port.connecting {
+      transform: scale(1.35); background: #34d399; border-color: #34d399;
+      box-shadow: 0 0 12px rgba(52, 211, 153, 0.85);
+    }
+    .node-port-in { left: -8px; }
+    .node-port-out { right: -8px; }
 
     /* Maestri Workspace Tile (Agent + Live Terminal) */
     .agent-node {
@@ -665,6 +680,7 @@
             </strong>
             <select id="maestriTemplateSelect" onchange="applyMaestriTemplate(this.value)" style="padding:5px 9px; font-size:11.5px; border-radius:8px;">
               <option value="default">Template: Orquestração Geral & Sistema</option>
+              <option value="coding_squad">Template: Squad Full-Stack Pro (Maestro + DB + Back + Front + QA)</option>
               <option value="software_factory">Template: Fábrica de Software Full-Stack</option>
               <option value="pc_audit">Template: Auditoria & Diagnóstico do PC</option>
             </select>
@@ -1617,16 +1633,20 @@
               : 'background:rgba(148,163,184,0.12);color:#94a3b8;border:1px solid rgba(148,163,184,0.25);';
         const badgeLabel = st === 'running' ? '● EXECUTANDO' : st === 'done' ? '✓ CONCLUÍDO' : st === 'error' ? '⚠ ERRO' : '○ IDLE';
         return `
-        <div class="agent-node ${st === 'running' ? 'running' : ''}" id="node-${node.id}" style="left:${node.x}px; top:${node.y}px; border-color:${node.color || '#38bdf8'};">
+        <div class="agent-node ${st === 'running' ? 'running' : ''}" id="node-${node.id}" style="left:${node.x}px; top:${node.y}px; border-color:${node.color || '#38bdf8'};" onclick="if(connectingFromId && connectingFromId !== '${node.id}') completeConnectTo('${node.id}')">
+          <div class="node-port node-port-in" title="Porta de Entrada: arraste até aqui ou clique para concluir conexão" onmouseup="completeConnectTo('${node.id}', event)" onclick="event.stopPropagation(); completeConnectTo('${node.id}', event)"></div>
+          <div class="node-port node-port-out ${connectingFromId === node.id ? 'connecting' : ''}" title="Porta de Saída: arraste ou clique para conectar a outro agente" onmousedown="startConnectPort(event, '${node.id}')" onclick="event.stopPropagation(); toggleConnectFrom('${node.id}')"></div>
           <div class="agent-node-header" onmousedown="startDragNode(event, '${node.id}')">
             <div style="display:flex; align-items:center; gap:7px; overflow:hidden;">
               <span class="port-dot" style="background:${node.color || '#38bdf8'};"></span>
               <strong style="font-size:12px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${node.name}</strong>
               <span id="status-badge-${node.id}" style="font-size:9px; font-weight:700; padding:1px 6px; border-radius:999px; flex-shrink:0; ${badgeStyle}">${badgeLabel}</span>
             </div>
-            <div style="display:flex; gap:5px;">
-              <button class="btn btn-primary" style="padding:3px 9px; font-size:10.5px;" onclick="runSingleCanvasNode('${node.id}')" title="Executar Prompt no Terminal do Agente">▶ Executar no Terminal</button>
-              <button class="btn btn-danger" style="padding:3px 6px; font-size:10.5px;" onclick="removeCanvasNode('${node.id}')">×</button>
+            <div style="display:flex; gap:4px;">
+              <button class="btn" style="padding:3px 6px; font-size:10.5px;" onclick="event.stopPropagation(); toggleConnectFrom('${node.id}')" title="Conectar este agente a outro">🔗</button>
+              <button class="btn" style="padding:3px 6px; font-size:10.5px;" onclick="event.stopPropagation(); editCanvasNode('${node.id}')" title="Editar Nome e Papel (ex: Front, Back, DB)">✏️</button>
+              <button class="btn btn-primary" style="padding:3px 8px; font-size:10.5px;" onclick="event.stopPropagation(); runSingleCanvasNode('${node.id}')" title="Executar Prompt no Terminal do Agente">▶</button>
+              <button class="btn btn-danger" style="padding:3px 6px; font-size:10.5px;" onclick="event.stopPropagation(); removeCanvasNode('${node.id}')">×</button>
             </div>
           </div>
 
@@ -1811,32 +1831,128 @@
       }
     }
 
+    let connectingFromId = null;
+    let isDraggingPort = false;
+    let tempLineCoords = null;
+
     function renderCanvasEdges() {
       const svg = document.getElementById('edgesSvg');
       if (!svg) return;
       let pathsHtml = '';
-      for (const edge of canvasEdges) {
+      canvasEdges.forEach((edge, idx) => {
         const fromNode = canvasNodes.find(n => n.id === edge.from);
         const toNode = canvasNodes.find(n => n.id === edge.to);
-        if (!fromNode || !toNode) continue;
+        if (!fromNode || !toNode) return;
         const x1 = fromNode.x + 425;
         const y1 = fromNode.y + 135;
         const x2 = toNode.x;
         const y2 = toNode.y + 135;
         const cx1 = x1 + Math.abs(x2 - x1) * 0.45;
         const cx2 = x2 - Math.abs(x2 - x1) * 0.45;
+        const mx = Math.round((x1 + x2) / 2);
+        const my = Math.round((y1 + y2) / 2);
         const isActive = (typeof activeMaestroEdges !== 'undefined') && activeMaestroEdges.some(ae => ae.from === edge.from && ae.to === edge.to);
-        const strokeColor = isActive ? 'rgba(52, 211, 153, 0.95)' : 'rgba(56, 189, 248, 0.6)';
+        const strokeColor = isActive ? 'rgba(52, 211, 153, 0.95)' : 'rgba(56, 189, 248, 0.65)';
         const strokeW = isActive ? '3.5' : '2.5';
         const dotColor = isActive ? '#34d399' : '#38bdf8';
         pathsHtml += `
-          <path d="M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}"
-                class="${isActive ? 'edge-active' : ''}"
-                fill="none" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-dasharray="6,4" />
-          <circle cx="${x2}" cy="${y2}" r="5" fill="${dotColor}" />
+          <g class="edge-group" onclick="event.stopPropagation(); removeCanvasEdge(${idx})" title="Clique para remover ligação (${fromNode.name} → ${toNode.name})">
+            <path d="M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}" fill="none" stroke="transparent" stroke-width="14" />
+            <path d="M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}"
+                  class="edge-visible ${isActive ? 'edge-active' : ''}"
+                  fill="none" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-dasharray="6,4" />
+            <circle cx="${x2}" cy="${y2}" r="5" fill="${dotColor}" />
+            <g class="edge-del-pill" transform="translate(${mx}, ${my})">
+              <circle r="10" fill="#0b1120" stroke="rgba(248,113,113,0.7)" stroke-width="1.5" />
+              <text x="0" y="3.5" text-anchor="middle" fill="#fb7185" font-size="12" font-weight="bold">×</text>
+            </g>
+          </g>
         `;
+      });
+      if (isDraggingPort && tempLineCoords) {
+        const { x1, y1, x2, y2 } = tempLineCoords;
+        const cx1 = x1 + Math.abs(x2 - x1) * 0.4;
+        const cx2 = x2 - Math.abs(x2 - x1) * 0.4;
+        pathsHtml += `<path d="M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}" fill="none" stroke="#34d399" stroke-width="3" stroke-dasharray="5,4" />`;
       }
       svg.innerHTML = pathsHtml;
+    }
+
+    function startConnectPort(e, nodeId) {
+      e.stopPropagation();
+      e.preventDefault();
+      connectingFromId = nodeId;
+      isDraggingPort = true;
+      const n = canvasNodes.find(x => x.id === nodeId);
+      if (n) tempLineCoords = { x1: n.x + 425, y1: n.y + 135, x2: n.x + 425, y2: n.y + 135 };
+      renderCanvasNodes();
+      renderCanvasEdges();
+    }
+
+    function toggleConnectFrom(nodeId) {
+      if (connectingFromId === nodeId) {
+        connectingFromId = null;
+        isDraggingPort = false;
+        tempLineCoords = null;
+        showToast('Modo conexão cancelado.');
+      } else {
+        connectingFromId = nodeId;
+        const src = canvasNodes.find(x => x.id === nodeId);
+        showToast(`<strong>Conectando a partir de [${src ? src.name : nodeId}]:</strong> clique no bloco ou porta de entrada de destino.`);
+      }
+      renderCanvasNodes();
+      renderCanvasEdges();
+    }
+
+    function completeConnectTo(targetId, e) {
+      if (e) e.stopPropagation();
+      if (!connectingFromId || connectingFromId === targetId) {
+        connectingFromId = null;
+        isDraggingPort = false;
+        tempLineCoords = null;
+        renderCanvasNodes();
+        renderCanvasEdges();
+        return;
+      }
+      const exists = canvasEdges.some(ed => ed.from === connectingFromId && ed.to === targetId);
+      if (!exists) {
+        const src = canvasNodes.find(x => x.id === connectingFromId);
+        const dst = canvasNodes.find(x => x.id === targetId);
+        canvasEdges.push({ id: 'edge-' + Date.now(), from: connectingFromId, to: targetId });
+        persistCanvas();
+        showToast(`<strong>Ligação criada:</strong> ${src ? src.name : connectingFromId} → ${dst ? dst.name : targetId}`);
+      } else {
+        showToast('Esses dois agentes já estão conectados.');
+      }
+      connectingFromId = null;
+      isDraggingPort = false;
+      tempLineCoords = null;
+      renderCanvasNodes();
+      renderCanvasEdges();
+    }
+
+    function removeCanvasEdge(idx) {
+      const ed = canvasEdges[idx];
+      if (!ed) return;
+      canvasEdges.splice(idx, 1);
+      persistCanvas();
+      renderCanvasEdges();
+      showToast('Ligação removida do canvas.');
+    }
+
+    function editCanvasNode(nodeId) {
+      const node = canvasNodes.find(n => n.id === nodeId);
+      if (!node) return;
+      const newName = prompt('Nome do Agente (ex: Engenheiro Frontend, Banco de Dados, Maestro):', node.name || '');
+      if (newName === null) return;
+      const newRole = prompt('Papel / Especialidade do Agente:', node.role || '');
+      if (newRole === null) return;
+      if (newName.trim()) node.name = newName.trim();
+      if (newRole.trim()) node.role = newRole.trim();
+      persistCanvas();
+      renderCanvasNodes();
+      renderCanvasEdges();
+      showToast(`Bloco <strong>${node.name}</strong> atualizado!`);
     }
 
     function startDragNode(e, nodeId) {
@@ -1966,6 +2082,15 @@
       window.addEventListener('mousemove', (e) => {
         if (isMinimapDragging) {
           panFromMinimapEvent(e);
+        } else if (isDraggingPort && connectingFromId) {
+          const rect = vp.getBoundingClientRect();
+          const worldX = Math.round((e.clientX - rect.left - panX) / zoomScale);
+          const worldY = Math.round((e.clientY - rect.top - panY) / zoomScale);
+          const src = canvasNodes.find(n => n.id === connectingFromId);
+          if (src) {
+            tempLineCoords = { x1: src.x + 425, y1: src.y + 135, x2: worldX, y2: worldY };
+            renderCanvasEdges();
+          }
         } else if (draggingNodeId) {
           const node = canvasNodes.find(n => n.id === draggingNodeId);
           if (node) {
@@ -1983,6 +2108,11 @@
         }
       });
       window.addEventListener('mouseup', () => {
+        if (isDraggingPort) {
+          isDraggingPort = false;
+          tempLineCoords = null;
+          renderCanvasEdges();
+        }
         if (draggingNodeId) {
           draggingNodeId = null;
           persistCanvas();

@@ -608,14 +608,17 @@ def run_maestro_mode(goal: str) -> Dict[str, Any]:
             "ok": ok_flag,
         }
 
-    # Execute in topological waves (up to 3 waves to avoid cycles)
-    for _wave in range(3):
+    # Execute in topological waves respecting BOTH AI depends_on AND user-drawn canvas edges
+    worker_id_set = {wk["id"] for wk in workers}
+    for _wave in range(len(workers) + 1):
         if not pending_workers:
             break
         ready = []
         deferred = []
         for w in pending_workers:
-            deps = [d for d in assignment_map.get(w["id"], {}).get("depends_on", []) if d in {wk["id"] for wk in workers}]
+            ai_deps = set(assignment_map.get(w["id"], {}).get("depends_on", []))
+            edge_deps = {ed.get("from") for ed in edges if ed.get("to") == w["id"] and ed.get("from") in worker_id_set}
+            deps = [d for d in (ai_deps | edge_deps) if d in worker_id_set and d != w["id"]]
             if all(d in completed_ids for d in deps):
                 ready.append(w)
             else:
