@@ -553,6 +553,25 @@ def process_chat_message(message: str, preferred_model: Optional[str] = None) ->
     }
 
 
+def _is_safe_agent_cmd(cmd: str) -> bool:
+    """Block obviously destructive shell commands during autonomous agent tool loops."""
+    low = (cmd or "").lower().strip()
+    if not low:
+        return False
+    blocked = (
+        "rm -rf /",
+        "rm -rf /*",
+        "mkfs",
+        "format c:",
+        "del /s /q c:\\",
+        "rd /s /q c:\\",
+        "shutdown",
+        "reboot",
+        ":(){:|:&};:",
+    )
+    return not any(b in low for b in blocked)
+
+
 def _infer_shell_cmd_for_prompt(prompt: str) -> str:
     """If the user's prompt asks to inspect files, git, python, or network, infer a safe read-only shell command."""
     p = prompt.lower()
@@ -560,12 +579,20 @@ def _infer_shell_cmd_for_prompt(prompt: str) -> str:
     m = re.search(r"\[cmd:\s*([^\]]+)\]", prompt, re.IGNORECASE)
     if m:
         return m.group(1).strip()
-    if any(w in p for w in ("arquivos desta pasta", "listar arquivos", "o que tem na pasta", "diretório atual")):
+    if any(w in p for w in ("arquivos desta pasta", "listar arquivos", "o que tem na pasta", "diretório atual", "estrutura do projeto")):
         return "Get-ChildItem | Select-Object Mode, LastWriteTime, Length, Name" if IS_WINDOWS else "ls -la"
     if "git status" in p or "repositório git" in p:
         return "git status"
+    if any(w in p for w in ("git log", "últimos commits", "ultimos commits", "histórico git")):
+        return "git log -n 8 --oneline"
+    if "git diff" in p or "alterações no git" in p:
+        return "git diff --stat"
     if "versão do python" in p or "python instalado" in p:
         return "python --version"
+    if "versão do node" in p or "node instalado" in p:
+        return "node --version"
+    if "docker" in p and any(w in p for w in ("containers", "rodando", "status", "ps")):
+        return "docker ps"
     if any(w in p for w in ("portas abertas", "conexões de rede", "netstat")):
         return "netstat -ano | Select-Object -First 15" if IS_WINDOWS else "ss -tuln"
     return ""
@@ -700,14 +727,70 @@ def run_maestri_canvas_agent(
     if enriched_context_parts:
         full_user_prompt += "\n\n" + "\n\n".join(enriched_context_parts)
 
-    sys_instruction = build_system_instruction(extra_role=f"{agent_name} — {agent_role}")
+    agent_tool_guide = (
+        f"\n[CAPACIDADES DE AGENTE AUTÔNOMO]\n"
+        f"- Você está operando no terminal do bloco '{agent_name}' em `{term_session['cwd']}` (SO: {'Windows' if IS_WINDOWS else 'Linux'}).\n"
+        f"- Se precisar executar um comando real no terminal para inspecionar algo antes de responder, responda APENAS com: [EXEC: comando_aqui]\n"
+        f"- Se precisar ler o conteúdo de um arquivo local antes de responder, responda APENAS com: [READ_FILE: caminho_do_arquivo]\n"
+        f"- Caso já tenha contexto suficiente (ou após receber a saída da ferramenta), forneça sua resposta final clara, técnica e objetiva em Português do Brasil."
+    )
+    sys_instruction = build_system_instruction(extra_role=f"{agent_name} — {agent_role}{agent_tool_guide}")
 
-    working_steps.append("├─ 🧠 [IA PROCESSANDO] Gerando resposta com rotação inteligente de tokens...")
+    working_steps.append("├─ 🧠 [IA PROCESSANDO] Analisando tarefa e ferramentas...")
     ai_res = call_with_free_ai_failover(
         user_prompt=full_user_prompt,
         system_prompt=sys_instruction,
         preferred_model_id=model_id,
     )
+
+    # Autonomous ReAct tool loop (up to 2 iterations)
+    for _step in range(2):
+        if not (ai_res.get("success") and ai_res.get("reply")):
+            break
+        reply_text = ai_res["reply"].strip()
+        exec_match = re.search(r"\[EXEC:\s*([^\]]+)\]", reply_text, re.IGNORECASE)
+        read_match = re.search(r"\[READ_FILE:\s*([^\]]+)\]", reply_text, re.IGNORECASE)
+
+        if exec_match:
+            req_cmd = exec_match.group(1).strip()
+            if _is_safe_agent_cmd(req_cmd):
+                tools_used.append(f"Shell Autônomo: {req_cmd}")
+                working_steps.append(f"├─ 💻 [AGENTE EXECUTOU] $ {req_cmd}")
+                exec_res = execute_terminal_command(
+                    node_id=node_id,
+                    command=req_cmd,
+                    notify_mobile=False,
+                    node_name=agent_name,
+                )
+                last_entry = exec_res.get("last_entry") or {}
+                cmd_out = (last_entry.get("output") or "(sem saída)")[:2200]
+                full_user_prompt += f"\n\nRESULTADO DE `[EXEC: {req_cmd}]`:\n{cmd_out}\n\nAgora conclua sua resposta final com base nesses dados reais:"
+                ai_res = call_with_free_ai_failover(
+                    user_prompt=full_user_prompt,
+                    system_prompt=sys_instruction,
+                    preferred_model_id=model_id,
+                )
+                continue
+        elif read_match:
+            req_path = read_match.group(1).strip().strip('"').strip("'")
+            p_obj = Path(req_path)
+            if not p_obj.is_absolute():
+                p_obj = Path(term_session["cwd"]) / p_obj
+            if p_obj.exists() and p_obj.is_file():
+                tools_used.append(f"Leitura de Arquivo: {p_obj.name}")
+                working_steps.append(f"├─ 📄 [AGENTE LEU ARQUIVO] {p_obj}")
+                try:
+                    file_txt = p_obj.read_text(encoding="utf-8", errors="replace")[:3000]
+                except Exception as f_err:
+                    file_txt = f"Erro ao ler arquivo: {f_err}"
+                full_user_prompt += f"\n\nCONTEÚDO DE `{p_obj}`:\n{file_txt}\n\nAgora conclua sua resposta final com base nesse arquivo:"
+                ai_res = call_with_free_ai_failover(
+                    user_prompt=full_user_prompt,
+                    system_prompt=sys_instruction,
+                    preferred_model_id=model_id,
+                )
+                continue
+        break
 
     elapsed = round(time.time() - t0, 2)
     if ai_res.get("success") and ai_res.get("reply"):

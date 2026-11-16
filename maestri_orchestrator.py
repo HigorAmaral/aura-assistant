@@ -1,4 +1,6 @@
+import json
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -10,6 +12,7 @@ from typing import Any, Dict, List, Optional
 from storage import get_canvas_state, save_canvas_state, log_activity
 from terminal_manager import append_terminal_log, get_or_init_terminal_session
 from ai_engine import run_maestri_canvas_agent
+from free_ai_router import call_with_free_ai_failover
 from remote_bridge import push_mobile_notification
 from project_builder import (
     PROJECTS_ROOT,
@@ -393,24 +396,105 @@ def run_maestro_mode(goal: str) -> Dict[str, Any]:
             "consolidated": consolidated_text,
         }
 
+    # --- FASE 1: Planejamento Inteligente do Maestro (Decomposição de Tarefas via IA) ---
+    worker_catalog = "\n".join(
+        [f"- id: {w['id']} | nome: {w.get('name')} | papel: {w.get('role')}" for w in workers]
+    )
+    planner_sys = (
+        "Você é o Maestro Orquestrador do AURA OS. Sua função é decompor um objetivo complexo em subtarefas "
+        "específicas, práticas e NÃO-REDUNDANTES para cada agente especialista do canvas.\n"
+        "Responda EXCLUSIVAMENTE com um JSON válido no formato:\n"
+        "{\n"
+        '  "strategy": "Resumo curto da estratégia do Maestro",\n'
+        '  "assignments": [\n'
+        '    {"node_id": "id_do_bloco", "task": "Missão específica e acionável para este agente", "cmd": "comando shell opcional ou vazio"}\n'
+        "  ]\n"
+        "}"
+    )
+    planner_user = (
+        f"OBJETIVO DO USUÁRIO: {goal}\n"
+        f"SISTEMA OPERACIONAL: {'Windows' if os.name == 'nt' else 'Linux'}\n"
+        f"AGENTES DISPONÍVEIS NO CANVAS:\n{worker_catalog}\n\n"
+        "Distribua o trabalho de forma inteligente entre os agentes disponíveis."
+    )
+
+    plan_data: Dict[str, Any] = {}
+    try:
+        plan_res = call_with_free_ai_failover(
+            user_prompt=planner_user,
+            system_prompt=planner_sys,
+            preferred_model_id=maestro_node.get("model", "free:openai"),
+        )
+        if plan_res.get("success") and plan_res.get("reply"):
+            raw = plan_res["reply"].strip()
+            m = re.search(r"\{[\s\S]*\}", raw)
+            if m:
+                plan_data = json.loads(m.group(0))
+    except Exception:
+        plan_data = {}
+
+    strategy_text = plan_data.get("strategy") or f"Execução coordenada em paralelo para: {goal}"
+    assignment_map: Dict[str, Dict[str, str]] = {}
+    for item in plan_data.get("assignments", []) if isinstance(plan_data.get("assignments"), list) else []:
+        if isinstance(item, dict) and item.get("node_id"):
+            assignment_map[str(item["node_id"])] = {
+                "task": str(item.get("task") or "").strip(),
+                "cmd": str(item.get("cmd") or "").strip(),
+            }
+
+    append_terminal_log(
+        node_id=maestro_node["id"],
+        header_cmd="aura-maestro❯ [PLANO ESTRATÉGICO]",
+        output_body=(
+            f"🧠 Estratégia: {strategy_text}\n"
+            + "\n".join(
+                [
+                    f"├─ 🎯 [{w.get('name')}]: {assignment_map.get(w['id'], {}).get('task') or 'Missão alinhada ao papel: ' + str(w.get('role', ''))}"
+                    for w in workers
+                ]
+            )
+        ),
+    )
+
+    # --- FASE 2: Execução Paralela com Contexto Conectado (Edges) ---
+    node_by_id = {n["id"]: n for n in nodes}
     worker_results: List[Dict[str, Any]] = []
 
     def _run_worker(w: Dict[str, Any]) -> Dict[str, Any]:
-        sub_prompt = (
-            f"OBJETIVO GLOBAL DO MAESTRO: {goal}\n\n"
-            f"Sua missão específica como '{w.get('name')}' ({w.get('role')}): "
-            f"contribua com sua parte prática e objetiva para resolver o objetivo acima."
+        assigned = assignment_map.get(w["id"], {})
+        specific_task = assigned.get("task") or (
+            f"Contribua com sua especialidade ({w.get('role')}) para resolver o objetivo."
         )
+        sub_prompt = (
+            f"OBJETIVO GLOBAL: {goal}\n"
+            f"ESTRATÉGIA DO MAESTRO: {strategy_text}\n\n"
+            f"SUA MISSÃO ESPECÍFICA ({w.get('name')}):\n{specific_task}"
+        )
+        upstream = []
+        for ed in edges:
+            if ed.get("to") == w["id"]:
+                src = node_by_id.get(ed.get("from"))
+                if src and src.get("id") != maestro_node["id"] and src.get("last_output"):
+                    upstream.append({"name": src.get("name", src["id"]), "output": src["last_output"]})
+
         res = run_maestri_canvas_agent(
             node_id=w["id"],
             agent_name=w.get("name", w["id"]),
             agent_role=w.get("role", ""),
             prompt=sub_prompt,
             model_id=w.get("model", "free:openai"),
-            upstream_outputs=[],
+            terminal_cmd=assigned.get("cmd", ""),
+            upstream_outputs=upstream,
         )
         w["last_output"] = res.get("output", "")
-        return {"node_id": w["id"], "name": w.get("name"), "output": res.get("output", ""), "provider": res.get("provider", "")}
+        provider_used = res.get("provider_used") or res.get("provider") or "AURA"
+        return {
+            "node_id": w["id"],
+            "name": w.get("name"),
+            "task": specific_task,
+            "output": res.get("output", ""),
+            "provider": provider_used,
+        }
 
     with ThreadPoolExecutor(max_workers=min(4, max(1, len(workers)))) as pool:
         futures = [pool.submit(_run_worker, w) for w in workers]
@@ -418,17 +502,48 @@ def run_maestro_mode(goal: str) -> Dict[str, Any]:
             try:
                 worker_results.append(fut.result())
             except Exception as exc:
-                worker_results.append({"node_id": "?", "name": "Worker", "output": f"Erro: {exc}", "provider": "error"})
+                worker_results.append({"node_id": "?", "name": "Worker", "task": "", "output": f"Erro: {exc}", "provider": "error"})
+
+    # --- FASE 3: Síntese Executiva Inteligente do Maestro ---
+    raw_deliveries = "\n\n".join(
+        [f"### [{wr['name']}] ({wr['provider']})\nMissão: {wr.get('task', '')}\nEntrega:\n{wr['output'][:1600]}" for wr in worker_results]
+    )
+    synth_sys = (
+        "Você é o Maestro Orquestrador do AURA OS. Consolide as entregas dos agentes especialistas abaixo em uma "
+        "resposta final coesa, inteligente, prática e direta em Português do Brasil. "
+        "Elimine redundâncias, destaque os achados concretos (arquivos, comandos, métricas, links) e dê próximos passos claros."
+    )
+    synth_user = f"OBJETIVO ORIGINAL: {goal}\nESTRATÉGIA: {strategy_text}\n\nENTREGAS DOS AGENTES:\n{raw_deliveries}"
+
+    synthesized_reply = ""
+    try:
+        synth_res = call_with_free_ai_failover(
+            user_prompt=synth_user,
+            system_prompt=synth_sys,
+            preferred_model_id=maestro_node.get("model", "free:openai"),
+        )
+        if synth_res.get("success") and synth_res.get("reply"):
+            synthesized_reply = synth_res["reply"].strip()
+    except Exception:
+        synthesized_reply = ""
 
     elapsed = round(time.time() - t0, 2)
-    consolidated_lines = [
-        f"✔ [MAESTRO CONCLUÍDO em {elapsed}s] Consolidação de {len(worker_results)} agente(s) para: \"{goal}\"\n",
-        "═══ ENTREGAS DO TIME ═══",
-    ]
-    for wr in worker_results:
-        consolidated_lines.append(f"\n▶ [{wr['name']}] ({wr['provider']}):\n{wr['output'][:900]}")
+    if synthesized_reply:
+        consolidated_text = (
+            f"✔ [MAESTRO CONCLUÍDO em {elapsed}s] {len(worker_results)} agente(s) coordenado(s) para: \"{goal}\"\n\n"
+            f"═══ SÍNTESE EXECUTIVA DO MAESTRO ═══\n{synthesized_reply}\n\n"
+            f"═══ DETALHES POR AGENTE ═══\n"
+            + "\n".join([f"• [{wr['name']}] ({wr['provider']}): {wr['output'][:280]}..." for wr in worker_results])
+        )
+    else:
+        consolidated_lines = [
+            f"✔ [MAESTRO CONCLUÍDO em {elapsed}s] Consolidação de {len(worker_results)} agente(s) para: \"{goal}\"\n",
+            "═══ ENTREGAS DO TIME ═══",
+        ]
+        for wr in worker_results:
+            consolidated_lines.append(f"\n▶ [{wr['name']}] ({wr['provider']}):\n{wr['output'][:900]}")
+        consolidated_text = "\n".join(consolidated_lines)
 
-    consolidated_text = "\n".join(consolidated_lines)
     maestro_node["last_output"] = consolidated_text
     save_canvas_state(nodes, edges)
 
@@ -453,6 +568,7 @@ def run_maestro_mode(goal: str) -> Dict[str, Any]:
         "ok": True,
         "elapsed_sec": elapsed,
         "maestro_node_id": maestro_node["id"],
+        "strategy": strategy_text,
         "workers": worker_results,
         "consolidated": consolidated_text,
     }
