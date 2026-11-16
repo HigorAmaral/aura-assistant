@@ -1,26 +1,29 @@
-# AURA OS 5.0 — Ultimate Maestri & Automation Suite
+# AURA OS — Assistente Pessoal de Computador com IA
 
-Assistente de computador pessoal com **controle total do sistema**, **Quadro Maestri 2D** (orquestração visual de agentes com terminal embutido), **barra HUD flutuante no topo da tela**, **acesso remoto via celular (4G/5G e rede local)**, **automações em segundo plano** e **sistema de instalação com auto-update automático pela branch `main`**.
+Assistente inteligente de computador pessoal para **Windows e Linux (Ubuntu)** com **controle total do sistema**, **Central IA & PC em tempo real**, **terminal integrado**, **otimizador de desempenho**, **barra HUD flutuante no topo da tela**, **acesso remoto via celular (4G/5G e Wi-Fi)**, **automações em segundo plano** e **auto-update automático pela branch `main`**.
 
 ---
 
 ## Principais Recursos
 
-- **Barra HUD Flutuante (Top-Center WebView2)** (`desktop_widget.py`, `static/hud.html`):
-  - Fica posicionada no centro superior da tela, com atalho global `Ctrl+Shift+A` e ícone na bandeja do sistema (`pystray`).
-  - Terminal/prompt rápido integrado e acesso com 1 clique ao painel completo.
-- **Quadro Maestri 2D & Multi-Agentes** (`static/index.html`, `ai_engine.py`, `terminal_manager.py`):
-  - Canvas interativo com blocos conectáveis, minimapa, execução direta no terminal do agente (modo Híbrido: prompts em português + comandos PowerShell/Bash) e visualização em tempo real do trabalho dos agentes.
-- **Controle Total do Sistema Windows / Linux** (`system_tools.py`, `file_tools.py`):
-  - Abertura e fechamento de aplicativos (incluindo fallback automático de elevação UAC via `ShellExecuteW` para apps como o Gerenciador de Tarefas), sincronização automática de apps instalados no PC, diagnóstico de rede, monitoramento de CPU/RAM/Disco em tempo real, limpeza de arquivos temporários, controle de volume/mídia e rotinas rápidas.
+- **Central IA & PC (Painel Principal)** (`static/index.html`, `ai_engine.py`, `system_tools.py`):
+  - Chat inteligente com suporte a **comandos em linguagem natural** (abrir/fechar programas, tirar prints, limpar arquivos temporários, diagnosticar rede, gerenciar processos, volume/mídia e modos Dev/Estudo).
+  - Monitoramento ao vivo de **CPU, Memória RAM, Disco, Rede e Uptime**.
+  - **Ações Rápidas de 1 Clique** (Print da Tela, Limpar Temp, Otimizar RAM, Flush DNS, Volume, Mídia) e **Terminal Rápido do Sistema** embutido.
+- **Controle Total do Sistema (Windows & Linux)** (`system_tools.py`, `file_tools.py`):
+  - Abertura e fechamento de aplicativos (com fallback automático de elevação UAC no Windows quando necessário), sincronização de apps instalados, diagnóstico de rede, monitoramento de hardware e limpeza de arquivos temporários.
+- **Otimizador do PC & Manutenção** (`system_optimizer.py`):
+  - Limpeza de caches e temporários, otimização de RAM, flush de DNS, análise de arquivos grandes e inicialização do sistema.
+- **Barra HUD Flutuante no Topo da Tela** (`desktop_widget.py`, `static/hud.html`):
+  - Fica posicionada no centro superior da tela (quando executada em ambiente desktop), com atalho global `Ctrl+Shift+A`, ícone na bandeja do sistema (`pystray`) e acesso rápido ao chat/terminal.
 - **Múltiplos Provedores de IA & Memória Persistente** (`free_ai_router.py`, `memory_engine.py`, `storage.py`):
-  - Suporte a Pool Gratuito, Google Gemini, Groq, OpenRouter e Ollama local, com banco SQLite (`aura_data.db`) para memória, tarefas, notas, clipboard inteligente e logs.
+  - Suporte a Pool Gratuito, Google Gemini, Groq, OpenRouter e Ollama local, com banco SQLite (`aura_data.db`) para histórico de conversas, memória evolutiva, tarefas, notas, clipboard inteligente e logs.
 - **Acesso Remoto Mobile 4G/5G + Notificações Push** (`remote_bridge.py`, `static/mobile.html`):
-  - Túnel público / Cloud Relay para controlar o PC pelo celular mesmo fora da mesma rede Wi-Fi, além de notificações automáticas quando tarefas do Maestri, terminal ou atualizações terminam.
+  - Túnel público / Cloud Relay para controlar o computador pelo celular mesmo fora da mesma rede Wi-Fi, com proteção por PIN e notificações automáticas.
 - **Automações, Clipboard Inteligente & Pomodoro** (`automation_engine.py`):
-  - Regras agendadas (intervalo, horário diário ou alerta de CPU/RAM), histórico inteligente de `Ctrl+C` e timer Pomodoro.
+  - Regras agendadas (intervalo, horário diário ou alerta de CPU/RAM), histórico inteligente de `Ctrl+C` e timer Pomodoro integrado.
 - **App Instalável & Auto-Update Automático (`main`)** (`updater.py`, `Instalar_AURA.bat`, `.github/workflows/release-app.yml`):
-  - Sempre que um novo commit é enviado para a branch `main`, o aplicativo instalado detecta a atualização automaticamente, baixa o código atualizado (via Git ou pacote ZIP da `main`), atualiza dependências se necessário, envia notificação e reinicia com a nova versão.
+  - Sempre que um novo commit é enviado para a branch `main`, o aplicativo instalado detecta a atualização automaticamente, baixa o código atualizado, atualiza dependências se necessário e reinicia com a nova versão.
 
 ---
 
@@ -75,7 +78,7 @@ cd aura-assistant && git pull origin main && chmod +x iniciar_aura_ubuntu.sh && 
    git push origin main
    ```
 2. O GitHub Actions (`.github/workflows/release-app.yml`) gera automaticamente os artefatos atualizados (`AURA-OS-Portable.zip` e `Instalar_AURA.bat`) na release `latest`.
-3. O daemon de atualização em segundo plano (`updater.py`) no app instalado verifica periodicamente a branch `main` (padrão a cada `60s`, configurável na **Aba 7 — Configurações do Sistema**):
+3. O daemon de atualização em segundo plano (`updater.py`) no app instalado verifica periodicamente a branch `main` (configurável na aba **Configurações**):
    - Se instalado via Git: executa `git fetch origin main` + `git reset --hard origin/main`.
    - Se instalado via pacote portátil (sem Git): consulta a API de commits da `main`, baixa o novo pacote, preserva `aura_data.db` e `.env`, atualiza o código e reinicia o app automaticamente.
 
@@ -85,17 +88,19 @@ cd aura-assistant && git pull origin main && chmod +x iniciar_aura_ubuntu.sh && 
 
 | Arquivo / Pasta | Função |
 | --- | --- |
-| `desktop_widget.py` | Inicializa o servidor FastAPI, barra HUD CSS3 no topo, tray icon e atalho `Ctrl+Shift+A` |
-| `app.py` | API REST FastAPI (`localhost:8765`), rotas do chat, Maestri, sistema e auto-update |
-| `updater.py` | Motor de verificação, aplicação de updates da `main`, reinício automático e gerador de `.zip` |
-| `ai_engine.py` | Orquestração de respostas, chat principal e execução de agentes no Quadro Maestri 2D |
+| `desktop_widget.py` | Inicializa o servidor FastAPI, barra HUD no topo, tray icon e atalho `Ctrl+Shift+A` |
+| `app.py` | API REST FastAPI (`localhost:8765`), rotas do chat, sistema, otimizador e auto-update |
+| `updater.py` | Motor de verificação, aplicação de updates da `main` e reinício automático |
+| `ai_engine.py` | Orquestração de respostas do assistente e execução de ações no computador |
 | `free_ai_router.py` | Roteamento inteligente entre modelos gratuitos e provedores configurados |
 | `system_tools.py` | Controle do SO, apps instalados, elevação UAC, hardware, rede e rotinas |
-| `terminal_manager.py` | Sessões de terminal híbrido (IA + PowerShell/Bash) para os agentes |
+| `system_optimizer.py` | Limpeza de temporários, otimização de RAM, DNS e manutenção do sistema |
+| `terminal_manager.py` | Sessões de terminal integrado (PowerShell/Bash) no painel |
 | `remote_bridge.py` | Cloud Relay e túnel público para acesso remoto pelo celular |
 | `automation_engine.py` | Automações agendadas, monitor de clipboard e Pomodoro |
-| `storage.py` | Persistência SQLite (`aura_data.db`) para configurações, tarefas, notas e estado |
-| `static/` | Interfaces web: `index.html` (Painel/Maestri), `hud.html` (Barra Topo) e `mobile.html` |
+| `storage.py` | Persistência SQLite (`aura_data.db`) para configurações, chat, tarefas e notas |
+| `static/` | Interfaces web: `index.html` (Central IA & PC), `hud.html` (Barra Topo) e `mobile.html` |
+| `iniciar_aura_ubuntu.sh` | Instalador/inicializador automático para Linux / Ubuntu com `.venv` |
 | `Instalar_AURA.bat` | Instalador automático Windows com criação de atalho |
 | `build_exe.py` | Script PyInstaller para gerar executável Windows (`AURA-OS.exe`) |
 | `.github/workflows/release-app.yml` | Pipeline CI/CD para publicar builds automáticos a cada push na `main` |

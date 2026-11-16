@@ -3,46 +3,46 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AURA OS 4.0 — Maestri 2D Terminal Canvas & Assistente PC</title>
+  <title>AURA OS — Assistente Pessoal de Computador com IA</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
     :root {
-      --bg-deep: #04070e;
-      --bg-surface: rgba(11, 17, 32, 0.82);
-      --bg-card: rgba(18, 27, 48, 0.66);
-      --bg-card-hover: rgba(28, 41, 71, 0.82);
-      --bg-input: rgba(7, 11, 22, 0.92);
-      --border-subtle: rgba(148, 163, 184, 0.14);
-      --border-glow: rgba(56, 189, 248, 0.48);
-      --cyan: #38bdf8;
-      --indigo: #818cf8;
-      --violet: #c084fc;
+      --bg-deep: #060911;
+      --bg-surface: rgba(12, 18, 30, 0.90);
+      --bg-card: rgba(17, 25, 42, 0.78);
+      --bg-card-hover: rgba(24, 35, 58, 0.94);
+      --bg-input: rgba(8, 12, 22, 0.95);
+      --border-subtle: rgba(148, 163, 184, 0.13);
+      --border-glow: rgba(16, 185, 129, 0.45);
+      --cyan: #10b981;
+      --indigo: #06b6d4;
+      --violet: #8b5cf6;
       --emerald: #34d399;
-      --amber: #fbbf24;
-      --rose: #fb7185;
+      --amber: #f59e0b;
+      --rose: #f43f5e;
       --text-primary: #f8fafc;
       --text-secondary: #cbd5e1;
-      --text-muted: #64748b;
-      --radius-lg: 16px;
-      --radius-md: 11px;
-      --shadow-card: 0 14px 34px -8px rgba(0, 0, 0, 0.65), inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
+      --text-muted: #7c8ba1;
+      --radius-lg: 14px;
+      --radius-md: 10px;
+      --shadow-card: 0 12px 30px -10px rgba(0, 0, 0, 0.65), inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.24); border-radius: 99px; }
+    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.22); border-radius: 99px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--cyan); }
 
     body {
       background-color: var(--bg-deep);
       background-image:
-        radial-gradient(circle at 10% 15%, rgba(56, 189, 248, 0.13) 0%, transparent 40%),
-        radial-gradient(circle at 88% 12%, rgba(129, 140, 248, 0.13) 0%, transparent 40%),
-        radial-gradient(circle at 50% 90%, rgba(192, 132, 252, 0.09) 0%, transparent 45%);
+        radial-gradient(ellipse at 12% 10%, rgba(16, 185, 129, 0.11) 0%, transparent 42%),
+        radial-gradient(ellipse at 88% 12%, rgba(6, 182, 212, 0.11) 0%, transparent 42%),
+        radial-gradient(ellipse at 50% 95%, rgba(139, 92, 246, 0.08) 0%, transparent 45%);
       color: var(--text-primary);
       height: 100vh;
       display: flex;
@@ -54,10 +54,10 @@
 
     /* Header */
     header {
-      height: 62px;
-      padding: 0 22px;
-      background: rgba(5, 9, 19, 0.88);
-      backdrop-filter: blur(22px);
+      height: 58px;
+      padding: 0 20px;
+      background: rgba(7, 11, 20, 0.92);
+      backdrop-filter: blur(20px);
       border-bottom: 1px solid var(--border-subtle);
       display: flex;
       align-items: center;
@@ -65,77 +65,77 @@
       z-index: 30;
     }
 
-    .brand { display: flex; align-items: center; gap: 13px; }
-    .orb-wrap { position: relative; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .orb-wrap { position: relative; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; }
     .orb-ring {
       position: absolute; inset: 0; border-radius: 50%;
       background: conic-gradient(from 0deg, var(--cyan), var(--indigo), var(--violet), var(--cyan));
-      animation: spinOrb 4s linear infinite; filter: blur(3px);
+      animation: spinOrb 5s linear infinite; filter: blur(3px);
     }
     .orb-core {
-      position: relative; width: 30px; height: 30px; border-radius: 50%;
-      background: #070b16; border: 1.5px solid var(--cyan);
+      position: relative; width: 28px; height: 28px; border-radius: 50%;
+      background: #060a14; border: 1.5px solid var(--cyan);
       display: flex; align-items: center; justify-content: center; color: var(--cyan);
     }
     @keyframes spinOrb { to { transform: rotate(360deg); } }
 
     .brand-title h1 {
-      font-size: 16px; font-weight: 800; letter-spacing: 0.5px;
-      background: linear-gradient(90deg, #fff, var(--cyan), var(--indigo));
+      font-size: 15.5px; font-weight: 800; letter-spacing: 0.4px;
+      background: linear-gradient(90deg, #fff, var(--emerald), var(--indigo));
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       display: flex; align-items: center; gap: 8px;
     }
     .badge-tag {
-      font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 99px;
-      background: rgba(56, 189, 248, 0.14); border: 1px solid rgba(56, 189, 248, 0.38);
-      color: var(--cyan); -webkit-text-fill-color: var(--cyan);
+      font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 99px;
+      background: rgba(16, 185, 129, 0.14); border: 1px solid rgba(16, 185, 129, 0.38);
+      color: var(--emerald); -webkit-text-fill-color: var(--emerald);
     }
     .brand-title small { font-size: 11px; color: var(--text-muted); }
 
-    .header-actions { display: flex; align-items: center; gap: 8px; }
+    .header-actions { display: flex; align-items: center; gap: 7px; }
 
     .pill-info {
       font-family: 'JetBrains Mono', monospace; font-size: 11px;
       padding: 5px 11px; border-radius: 99px;
-      background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-subtle);
+      background: rgba(15, 23, 42, 0.85); border: 1px solid var(--border-subtle);
       color: var(--text-secondary); display: flex; align-items: center; gap: 7px;
     }
 
     .xp-pill {
-      font-size: 11.5px; font-weight: 700; padding: 5px 12px; border-radius: 99px;
-      background: rgba(192, 132, 252, 0.12); border: 1px solid rgba(192, 132, 252, 0.38);
-      color: var(--violet); display: flex; align-items: center; gap: 6px; cursor: pointer;
+      font-size: 11px; font-weight: 700; padding: 5px 11px; border-radius: 99px;
+      background: rgba(139, 92, 246, 0.14); border: 1px solid rgba(139, 92, 246, 0.36);
+      color: #c4b5fd; display: flex; align-items: center; gap: 5px; cursor: pointer;
     }
 
     .status-pill {
-      font-size: 11.5px; font-weight: 600; padding: 5px 12px; border-radius: 99px;
-      background: rgba(52, 211, 153, 0.11); border: 1px solid rgba(52, 211, 153, 0.35);
+      font-size: 11px; font-weight: 600; padding: 5px 11px; border-radius: 99px;
+      background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.34);
       color: var(--emerald); display: flex; align-items: center; gap: 6px;
     }
     .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--emerald); box-shadow: 0 0 8px var(--emerald); }
 
     /* Buttons */
     .btn {
-      background: rgba(28, 39, 64, 0.75); color: var(--text-primary);
-      border: 1px solid var(--border-subtle); padding: 7px 12px;
+      background: rgba(24, 34, 56, 0.78); color: var(--text-primary);
+      border: 1px solid var(--border-subtle); padding: 6px 12px;
       border-radius: var(--radius-md); font-size: 12px; font-weight: 600;
-      cursor: pointer; transition: all 0.18s ease;
+      cursor: pointer; transition: all 0.16s ease;
       display: inline-flex; align-items: center; justify-content: center; gap: 6px;
     }
     .btn:hover { background: var(--bg-card-hover); border-color: var(--border-glow); transform: translateY(-1px); }
     .btn-primary {
       background: linear-gradient(135deg, var(--cyan), var(--indigo));
-      color: #04070e; font-weight: 700; border: none;
+      color: #04100c; font-weight: 700; border: none;
     }
     .btn-glow {
-      background: rgba(56, 189, 248, 0.13); border: 1px solid rgba(56, 189, 248, 0.42); color: var(--cyan);
+      background: rgba(16, 185, 129, 0.14); border: 1px solid rgba(16, 185, 129, 0.42); color: var(--emerald);
     }
     .btn-danger {
-      background: rgba(251, 113, 133, 0.12); color: var(--rose); border-color: rgba(251, 113, 133, 0.3);
+      background: rgba(244, 63, 94, 0.13); color: #fda4af; border-color: rgba(244, 63, 94, 0.32);
     }
 
     /* Main Split Layout */
-    .workspace { flex: 1; display: grid; grid-template-columns: 360px 1fr; overflow: hidden; }
+    .workspace { flex: 1; display: grid; grid-template-columns: 350px 1fr; overflow: hidden; }
 
     /* Left Sidebar: Chat & Voice */
     .chat-sidebar {
@@ -223,7 +223,35 @@
 
     .tab-content { flex: 1; padding: 18px 20px; overflow-y: auto; display: none; position: relative; }
     .tab-content.active { display: block; }
-    #tab-maestri.active { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* --- CENTRAL IA & PC DASHBOARD --- */
+    .pc-hero-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 16px;
+    }
+    .pc-stat-card {
+      background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
+      padding: 14px 16px; box-shadow: var(--shadow-card); display: flex; flex-direction: column; gap: 8px;
+      transition: border-color 0.2s ease, transform 0.2s ease;
+    }
+    .pc-stat-card:hover { border-color: var(--border-glow); transform: translateY(-2px); }
+    .pc-stat-top { display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: var(--text-muted); font-weight: 600; }
+    .pc-stat-val { font-size: 24px; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: var(--text-primary); }
+    .pc-progress { height: 6px; border-radius: 99px; background: rgba(148, 163, 184, 0.14); overflow: hidden; }
+    .pc-progress-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--cyan), var(--indigo)); transition: width 0.35s ease; }
+    .quick-action-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 8px;
+    }
+    .quick-action-btn {
+      background: rgba(15, 23, 42, 0.72); border: 1px solid var(--border-subtle); border-radius: 11px;
+      padding: 10px 12px; color: var(--text-primary); font-size: 12px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.16s ease; text-align: left;
+    }
+    .quick-action-btn:hover { background: var(--bg-card-hover); border-color: var(--border-glow); transform: translateY(-1px); }
+    .pc-shell-box {
+      background: #04070d; border: 1px solid var(--border-subtle); border-radius: 12px;
+      padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #e2e8f0;
+      min-height: 170px; max-height: 260px; overflow-y: auto; white-space: pre-wrap; line-height: 1.5;
+    }
 
     /* --- MAESTRI 2D INFINITE WORKSPACE CANVAS (WITH LIVE TERMINALS) --- */
     .canvas-toolbar {
@@ -598,8 +626,8 @@
         <div class="orb-core"><i data-lucide="cpu" class="lucide"></i></div>
       </div>
       <div class="brand-title">
-        <h1><span id="headerAssistantName">AURA</span> OS <span class="badge-tag">v5.0 MAESTRI & SYSTEM OS</span></h1>
-        <small id="osHeaderSubtitle">Prompt Direto no Terminal • Apps Sincronizados • Configuração Total</small>
+        <h1><span id="headerAssistantName">AURA</span> OS <span class="badge-tag">ASSISTENTE IA DO PC</span></h1>
+        <small id="osHeaderSubtitle">Controle Inteligente do PC • Voz & Memória • Acesso Remoto 4G/5G</small>
       </div>
     </div>
 
@@ -626,7 +654,7 @@
       </button>
 
       <button class="btn btn-glow" onclick="launchTopHud()" title="Iniciar Painel CSS Flutuante no Topo da Tela">
-        <i data-lucide="panel-top" class="lucide"></i> Barra CSS Topo
+        <i data-lucide="panel-top" class="lucide"></i> Barra Topo
       </button>
 
       <button class="btn" id="btnToggleTts" onclick="toggleVoiceReply()">
@@ -642,7 +670,7 @@
     <!-- Left Sidebar: Chat & Voice -->
     <aside class="chat-sidebar" id="chatSidebar">
       <div class="chat-header">
-        <h2><i data-lucide="sparkles" class="lucide"></i> Comando & Memória Viva</h2>
+        <h2><i data-lucide="sparkles" class="lucide"></i> Assistente IA & Voz</h2>
         <div style="display:flex; align-items:center; gap:6px;">
           <span style="font-size: 10.5px; color: var(--text-muted);">Ctrl+Shift+A</span>
           <button class="btn" style="padding:3px 7px; font-size:11px;" title="Limpar histórico do chat" onclick="clearChatHistoryNow()">🗑️</button>
@@ -659,10 +687,10 @@
 
       <div class="chat-messages" id="chatMessages">
         <div class="msg msg-assistant">
-          Bem-vindo à <strong>AURA OS 5.0 (Maestri Terminal & System Sync)</strong>.<br><br>
-          • <strong>Prompt Direto no Terminal do Agente:</strong> Digite sua tarefa ou comando direto no terminal `aura-agent❯` de cada bloco Maestri e veja no terminal o agente trabalhando passo a passo + o resultado!<br>
-          • <strong>Apps Sincronizados com o PC:</strong> Seus programas instalados e rodando agora são escaneados automaticamente.<br>
-          • <strong>Configurações Completas (Aba 7):</strong> Personalize IA, Voz, Terminal, HUD e Alertas 4G/5G.
+          Bem-vindo à <strong>AURA OS — Assistente Pessoal de Computador com IA</strong>.<br><br>
+          • <strong>Comandos no PC por Texto ou Voz:</strong> Abra aplicativos, tire prints, limpe arquivos temporários, monitore CPU/RAM/Rede e execute comandos no sistema.<br>
+          • <strong>Memória Viva & Automações:</strong> Ensine hábitos, crie lembretes, gerencie tarefas e controle o PC pelo celular via 4G/5G.<br>
+          • <strong>Otimizador Completo:</strong> Limpe memória, atualize aplicativos e verifique drivers do sistema.
         </div>
       </div>
 
@@ -685,11 +713,14 @@
     <!-- Right Area -->
     <main class="main-area">
       <nav class="nav-tabs">
-        <button class="tab-btn active" data-tab="tab-maestri" onclick="switchTab('tab-maestri', this)">
-          <i data-lucide="terminal-square" class="lucide"></i> Maestri 2D
+        <button class="tab-btn active" data-tab="tab-assistant" onclick="switchTab('tab-assistant', this)">
+          <i data-lucide="sparkles" class="lucide"></i> Central IA & PC
         </button>
-        <button class="tab-btn" data-tab="tab-mobile" onclick="switchTab('tab-mobile', this)">
-          <i data-lucide="smartphone" class="lucide"></i> 4G/5G & Alertas
+        <button class="tab-btn" data-tab="tab-pc" onclick="switchTab('tab-pc', this)">
+          <i data-lucide="cpu" class="lucide"></i> Apps & Processos
+        </button>
+        <button class="tab-btn" data-tab="tab-optimizer" onclick="switchTab('tab-optimizer', this)">
+          <i data-lucide="gauge" class="lucide"></i> Otimizador
         </button>
         <button class="tab-btn" data-tab="tab-automations" onclick="switchTab('tab-automations', this)">
           <i data-lucide="zap" class="lucide"></i> Automações
@@ -697,117 +728,85 @@
         <button class="tab-btn" data-tab="tab-memory" onclick="switchTab('tab-memory', this)">
           <i data-lucide="brain-circuit" class="lucide"></i> Memória & IA
         </button>
-        <button class="tab-btn" data-tab="tab-pc" onclick="switchTab('tab-pc', this)">
-          <i data-lucide="cpu" class="lucide"></i> Apps & PC
-        </button>
         <button class="tab-btn" data-tab="tab-tasks" onclick="switchTab('tab-tasks', this)">
           <i data-lucide="check-square" class="lucide"></i> Tarefas & Web
+        </button>
+        <button class="tab-btn" data-tab="tab-mobile" onclick="switchTab('tab-mobile', this)">
+          <i data-lucide="smartphone" class="lucide"></i> 4G/5G & Alertas
         </button>
         <button class="tab-btn" data-tab="tab-settings" onclick="switchTab('tab-settings', this)">
           <i data-lucide="settings" class="lucide"></i> Configurações
         </button>
-        <button class="tab-btn" data-tab="tab-optimizer" onclick="switchTab('tab-optimizer', this)">
-          <i data-lucide="gauge" class="lucide"></i> Otimizador
-        </button>
       </nav>
 
-      <!-- TAB 1: MAESTRI 2D INFINITE WORKSPACE (WITH LIVE TERMINALS) -->
-      <section class="tab-content active" id="tab-maestri">
-        <div class="canvas-toolbar" style="padding:6px 12px;">
-          <div>
-            <select id="maestriTemplateSelect" onchange="applyMaestriTemplate(this.value)" style="padding:5px 8px; font-size:11px; border-radius:8px; max-width:220px;">
-              <option value="default">Template: Orquestração Geral</option>
-              <option value="coding_squad">Template: Squad Full-Stack Pro</option>
-              <option value="software_factory">Template: Fábrica de Software</option>
-              <option value="pc_audit">Template: Auditoria do PC</option>
-            </select>
-            <select id="activeWorkspaceSelect" onchange="setWorkspaceProject(this.value)" style="padding:5px 8px; font-size:11px; border-radius:8px; max-width:190px;" title="Projeto Ativo (sincroniza o diretório de todos os agentes)">
-              <option value="">📁 Projeto Ativo...</option>
-            </select>
+      <!-- TAB 1: CENTRAL IA & PC (ASSISTENTE DO COMPUTADOR) -->
+      <section class="tab-content active" id="tab-assistant">
+        <div class="pc-hero-grid">
+          <div class="pc-stat-card">
+            <div class="pc-stat-top"><span>PROCESSADOR (CPU)</span><i data-lucide="cpu" class="lucide" style="color:var(--cyan);"></i></div>
+            <div class="pc-stat-val" id="dashCpuVal">--%</div>
+            <div class="pc-progress"><div class="pc-progress-fill" id="dashCpuBar" style="width:0%;"></div></div>
+            <small style="color:var(--text-muted);" id="dashCpuSub">Aguardando leitura...</small>
           </div>
-          <div>
-            <button class="btn" style="padding:5px 9px; font-size:11px;" onclick="spawnNewCanvasAgent()">
-              <i data-lucide="plus-square" class="lucide"></i> + Agente
-            </button>
-            <button class="btn btn-primary" style="padding:5px 10px; font-size:11px;" onclick="orchestrateAllCanvasAgents()">
-              <i data-lucide="play" class="lucide"></i> Orquestrar
-            </button>
+          <div class="pc-stat-card">
+            <div class="pc-stat-top"><span>MEMÓRIA RAM</span><i data-lucide="memory-stick" class="lucide" style="color:var(--indigo);"></i></div>
+            <div class="pc-stat-val" id="dashRamVal">--%</div>
+            <div class="pc-progress"><div class="pc-progress-fill" id="dashRamBar" style="width:0%; background:linear-gradient(90deg, var(--indigo), var(--violet));"></div></div>
+            <small style="color:var(--text-muted);" id="dashRamSub">-- / -- GB</small>
+          </div>
+          <div class="pc-stat-card">
+            <div class="pc-stat-top"><span>ARMAZENAMENTO</span><i data-lucide="hard-drive" class="lucide" style="color:var(--emerald);"></i></div>
+            <div class="pc-stat-val" id="dashDiskVal">--%</div>
+            <div class="pc-progress"><div class="pc-progress-fill" id="dashDiskBar" style="width:0%; background:linear-gradient(90deg, var(--emerald), var(--amber));"></div></div>
+            <small style="color:var(--text-muted);" id="dashDiskSub">-- GB livres</small>
+          </div>
+          <div class="pc-stat-card">
+            <div class="pc-stat-top"><span>REDE & UPTIME</span><i data-lucide="wifi" class="lucide" style="color:var(--violet);"></i></div>
+            <div class="pc-stat-val" style="font-size:16px;" id="dashNetVal">↓ 0.0 / ↑ 0.0 KB/s</div>
+            <div class="pc-progress"><div class="pc-progress-fill" style="width:100%; opacity:0.45;"></div></div>
+            <small style="color:var(--text-muted);" id="dashNetSub">IP local • Uptime</small>
+          </div>
+        </div>
 
-            <div class="maestri-dropdown">
-              <button class="btn" style="padding:5px 10px; font-size:11px;" onclick="toggleMaestriMenu('maestriToolsMenu', event)">
-                🧰 Ferramentas ▾
-              </button>
-              <div class="maestri-dropdown-menu" id="maestriToolsMenu">
-                <button class="maestri-dropdown-item" onclick="closeMaestriMenus(); openPlaybooksModal()">📖 Playbooks & Auto Run</button>
-                <button class="maestri-dropdown-item" onclick="closeMaestriMenus(); openWorktreesModal()">🌳 Git Worktrees Isolados</button>
-                <button class="maestri-dropdown-item" onclick="closeMaestriMenus(); openGitDiffModal()">📂 Git Diff, Rollback & Commit</button>
-                <button class="maestri-dropdown-item" onclick="closeMaestriMenus(); openFilesExplorerModal()">📁 Arquivos & Git Log</button>
-                <button class="maestri-dropdown-item" onclick="closeMaestriMenus(); openGlobalEnvModal()">🔐 Variáveis Globais (Env)</button>
-                <div style="border-top:1px solid var(--border-subtle); margin:3px 0;"></div>
-                <button class="maestri-dropdown-item" onclick="closeMaestriMenus(); autoLayoutCanvasNodes()">🪄 Auto-Organizar Canvas</button>
-                <button class="maestri-dropdown-item" onclick="closeMaestriMenus(); exportMaestriMarkdown()">📄 Exportar Relatório .MD</button>
-                <button class="maestri-dropdown-item" onclick="closeMaestriMenus(); launchRunMaestroNow()">🚀 Abrir RunMaestro</button>
+        <div class="grid-2" style="gap:14px;">
+          <div class="card">
+            <div class="card-title"><i data-lucide="zap" class="lucide"></i> Controle Rápido do Computador</div>
+            <div class="quick-action-grid">
+              <button class="quick-action-btn" onclick="sendQuickCommand('Tire um print da tela')"><i data-lucide="camera" class="lucide" style="color:var(--cyan);"></i> Print da Tela</button>
+              <button class="quick-action-btn" onclick="sendQuickCommand('Limpar arquivos temporários')"><i data-lucide="trash-2" class="lucide" style="color:var(--amber);"></i> Limpar Temp</button>
+              <button class="quick-action-btn" onclick="runQuickOptimizeTask('trim_ram')"><i data-lucide="sparkles" class="lucide" style="color:var(--emerald);"></i> Otimizar RAM</button>
+              <button class="quick-action-btn" onclick="runQuickOptimizeTask('flush_dns')"><i data-lucide="globe" class="lucide" style="color:var(--indigo);"></i> Flush DNS</button>
+              <button class="quick-action-btn" onclick="sendQuickCommand('Ative o modo dev')"><i data-lucide="code-2" class="lucide" style="color:var(--cyan);"></i> Modo Dev</button>
+              <button class="quick-action-btn" onclick="sendQuickCommand('Ative o modo estudo')"><i data-lucide="book-open" class="lucide" style="color:var(--violet);"></i> Modo Estudo</button>
+              <button class="quick-action-btn" onclick="sendQuickCommand('Aumentar volume')"><i data-lucide="volume-2" class="lucide" style="color:var(--emerald);"></i> Volume +</button>
+              <button class="quick-action-btn" onclick="sendQuickCommand('Diminuir volume')"><i data-lucide="volume-1" class="lucide" style="color:var(--text-secondary);"></i> Volume −</button>
+              <button class="quick-action-btn" onclick="sendQuickCommand('Mutar som')"><i data-lucide="volume-x" class="lucide" style="color:var(--rose);"></i> Mudo</button>
+              <button class="quick-action-btn" onclick="sendQuickCommand('Pausar música')"><i data-lucide="play-pause" class="lucide" style="color:var(--indigo);"></i> Play / Pause</button>
+            </div>
+            <div style="border-top:1px solid var(--border-subtle); padding-top:10px; margin-top:4px;">
+              <div style="font-size:11px; color:var(--text-muted); font-weight:700; margin-bottom:7px;">PERGUNTAS & DIAGNÓSTICOS COM IA</div>
+              <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                <span class="chip" onclick="sendQuickCommand('Analise o uso atual de CPU e RAM e diga o que está consumindo mais')">🔍 Diagnosticar Lentidão</span>
+                <span class="chip" onclick="sendQuickCommand('Verifique minhas conexões de rede e portas abertas')">🌐 Diagnóstico de Rede</span>
+                <span class="chip" onclick="sendQuickCommand('Quais discos e espaço livre eu tenho no PC?')">💾 Espaço em Disco</span>
+                <span class="chip" onclick="sendQuickCommand('Resuma minhas tarefas e notas pendentes')">✅ Minhas Pendências</span>
               </div>
             </div>
+          </div>
 
-            <div class="zoom-pill">
-              <button class="btn" onclick="zoomCanvas(-0.1)" title="Diminuir Zoom">−</button>
-              <button class="btn" id="zoomBadge" onclick="resetCanvasCamera()" title="Resetar Zoom">100%</button>
-              <button class="btn" onclick="zoomCanvas(0.1)" title="Aumentar Zoom">+</button>
+          <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div class="card-title"><i data-lucide="terminal" class="lucide"></i> Terminal Rápido do Sistema</div>
+              <div style="display:flex; gap:6px;">
+                <button class="btn" style="padding:3px 8px; font-size:10.5px;" onclick="clearAssistantShell()">Limpar</button>
+                <button class="btn" style="padding:3px 8px; font-size:10.5px;" onclick="copyAssistantShell()">Copiar</button>
+              </div>
             </div>
-          </div>
-        </div>
-
-        <!-- Modo Maestro Compacto -->
-        <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:6px 12px; background:rgba(9,14,28,0.92); border-bottom:1px solid var(--border-subtle);">
-          <span style="font-size:10.5px; font-weight:700; color:var(--emerald); display:flex; align-items:center; gap:4px; white-space:nowrap;">
-            <i data-lucide="cpu" class="lucide"></i> MAESTRO
-          </span>
-          <input type="text" id="maestroGoalInput" placeholder="Objetivo para o Maestro delegar aos agentes em DAG/paralelo..." style="flex:1; min-width:200px; padding:5px 10px; font-size:11.5px;" onkeydown="if(event.key==='Enter') runMaestroModeNow();" />
-          <button class="btn btn-glow" id="maestroRunBtn" style="padding:5px 11px; font-size:11px;" onclick="runMaestroModeNow()">
-            <i data-lucide="zap" class="lucide"></i> Executar
-          </button>
-
-          <div class="maestri-dropdown">
-            <button class="btn" style="padding:5px 9px; font-size:11px;" onclick="toggleMaestriMenu('maestroPresetsMenu', event)">✨ Presets ▾</button>
-            <div class="maestri-dropdown-menu" id="maestroPresetsMenu">
-              <button class="maestri-dropdown-item" onclick="closeMaestriMenus(); runMaestroPreset('Auditar CPU, RAM, disco, processos ativos e propor otimizações')">🔍 Auditar PC</button>
-              <button class="maestri-dropdown-item" onclick="closeMaestriMenus(); runMaestroPreset('Analisar repositório Git local, commits recentes e status do GitHub')">🐙 Git & Repos</button>
-              <button class="maestri-dropdown-item" onclick="closeMaestriMenus(); runMaestroPreset('Pesquisar melhores práticas atuais de FastAPI + IA local e resumir')">🌐 Pesquisa Pro</button>
+            <div class="pc-shell-box" id="assistantShellOut">AURA Shell pronto. Digite qualquer comando do sistema (ex: ls, df -h, git status, python3 --version) ou use o chat ao lado para comandos em linguagem natural.</div>
+            <div style="display:flex; gap:8px;">
+              <input type="text" id="assistantShellInput" class="form-control" placeholder="$ comando no sistema (Enter para executar)..." style="flex:1; font-family:'JetBrains Mono',monospace; font-size:12px;" onkeydown="handleAssistantShellKey(event)" />
+              <button class="btn btn-primary" onclick="runAssistantShellCmd()">Executar</button>
             </div>
-          </div>
-
-          <div class="maestri-dropdown">
-            <button class="btn" style="padding:5px 9px; font-size:11px;" onclick="toggleMaestriMenu('maestroClisMenu', event)">⚙️ CLIs</button>
-            <div class="maestri-dropdown-menu" id="maestroClisMenu" style="min-width:290px; padding:10px;">
-              <div style="font-size:10.5px; color:var(--text-muted); margin-bottom:6px; font-weight:700;">CLIs & Ferramentas Detectadas:</div>
-              <div id="maestriClisBar" style="font-size:10.5px; color:var(--text-muted); display:flex; flex-wrap:wrap; gap:5px;">Carregando...</div>
-            </div>
-          </div>
-        </div>
-        <div id="maestroMissionBar" style="display:none; align-items:center; justify-content:space-between; gap:10px; padding:5px 14px; background:linear-gradient(90deg, rgba(16,185,129,0.12), rgba(56,189,248,0.08)); border-bottom:1px solid rgba(52,211,153,0.3); font-size:11px;">
-          <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
-            <span id="maestroPhasePill" style="padding:2px 8px; border-radius:999px; font-weight:700; font-size:10px; background:rgba(52,211,153,0.2); color:#34d399; border:1px solid rgba(52,211,153,0.45); text-transform:uppercase;">PLANEJANDO</span>
-            <span id="maestroStrategyText" style="color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Orquestrando agentes...</span>
-          </div>
-          <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
-            <span id="maestroElapsedText" style="font-family:'JetBrains Mono',monospace; color:var(--cyan); font-size:10.5px;">0.0s</span>
-            <button class="btn btn-danger" id="maestroCancelBtn" style="padding:2px 8px; font-size:10px; display:none;" onclick="cancelMaestroNow()">⏹ Parar</button>
-          </div>
-        </div>
-
-        <div class="canvas-viewport" id="canvasViewport">
-          <div class="canvas-world" id="canvasWorld">
-            <svg class="edges-svg" id="edgesSvg"></svg>
-            <div id="nodesLayer"></div>
-          </div>
-          <!-- 2D Interactive Mini-Map Radar -->
-          <div id="canvasMinimap" title="Clique ou arraste no Mini-Mapa para navegar pelo Canvas 2D" style="position:absolute; right:16px; bottom:16px; width:205px; height:132px; background:rgba(6,10,21,0.95); border:1px solid rgba(56,189,248,0.55); border-radius:10px; z-index:25; pointer-events:auto; cursor:crosshair; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,0.75);">
-            <div style="font-size:9px; color:var(--cyan); padding:4px 8px; border-bottom:1px solid rgba(148,163,184,0.18); font-weight:700; letter-spacing:0.5px; display:flex; justify-content:space-between;">
-              <span>MINI-MAPA MAESTRI 2D</span>
-              <span id="minimapCount" style="color:var(--emerald);">0 nós</span>
-            </div>
-            <div id="minimapDots" style="position:relative; width:205px; height:108px; background:radial-gradient(rgba(56,189,248,0.12) 1px, transparent 1px); background-size:10px 10px;"></div>
           </div>
         </div>
       </section>
@@ -1462,135 +1461,6 @@
     </main>
   </div>
 
-  <!-- Playbooks & Auto Run Modal (Official Maestro Feature) -->
-  <div id="playbooksModal" style="display:none; position:fixed; inset:0; background:rgba(2,5,12,0.84); backdrop-filter:blur(6px); z-index:150; align-items:center; justify-content:center; padding:18px;">
-    <div style="background:rgba(11,17,32,0.98); border:1px solid var(--border-glow); border-radius:14px; width:min(960px, 96vw); max-height:88vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 24px 60px rgba(0,0,0,0.85);">
-      <div style="padding:12px 16px; border-bottom:1px solid var(--border-subtle); display:flex; justify-content:space-between; align-items:center;">
-        <strong style="color:var(--cyan); font-size:13px;">📖 Auto Run & Playbooks (.md Spec-Driven & Goal-Driven)</strong>
-        <button class="btn btn-danger" style="padding:3px 9px;" onclick="document.getElementById('playbooksModal').style.display='none'">Fechar</button>
-      </div>
-      <div style="padding:14px 16px; overflow-y:auto; display:grid; grid-template-columns:250px 1fr; gap:14px;">
-        <div style="display:flex; flex-direction:column; gap:8px;">
-          <div style="font-size:11px; color:var(--text-muted); font-weight:700;">PLAYBOOKS (.maestro/playbooks)</div>
-          <div id="playbooksListBox" style="display:flex; flex-direction:column; gap:5px; max-height:240px; overflow-y:auto;"></div>
-          <input type="text" id="newPlaybookNameInput" class="form-control" placeholder="novo-playbook.md" style="font-size:11px;" />
-          <button class="btn" style="font-size:11px;" onclick="createNewPlaybook()">+ Criar / Abrir Playbook</button>
-          <div style="border-top:1px solid var(--border-subtle); padding-top:8px; margin-top:4px; display:flex; flex-direction:column; gap:6px;">
-            <label style="font-size:11px; color:var(--text-muted);">Modo Auto Run:</label>
-            <select id="autoRunModeSelect" class="form-control" style="font-size:11px;" onchange="toggleAutoRunModeUI()">
-              <option value="spec">Spec-Driven (Checklist .md)</option>
-              <option value="goal">Goal-Driven (Objetivo Autônomo)</option>
-            </select>
-            <select id="autoRunModelSelect" class="form-control" style="font-size:11px;">
-              <option value="free:qwen-coder">Qwen 2.5 Coder 32B</option>
-              <option value="free:deepseek">DeepSeek R1/V3</option>
-              <option value="free:openai">GPT-4o Mini</option>
-            </select>
-            <div style="display:flex; gap:6px;">
-              <button class="btn btn-glow" style="flex:1; font-size:11px;" onclick="startAutoRunNow()">▶ Auto Run</button>
-              <button class="btn btn-danger" style="font-size:11px;" onclick="cancelAutoRunNow()">⏹</button>
-            </div>
-          </div>
-        </div>
-        <div style="display:flex; flex-direction:column; gap:8px;">
-          <div id="autoRunSpecBox" style="display:flex; flex-direction:column; gap:6px;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <strong id="activePlaybookTitle" style="font-size:12px; color:var(--emerald);">Selecione um playbook</strong>
-              <button class="btn" style="padding:3px 9px; font-size:11px;" onclick="saveActivePlaybook()">💾 Salvar .md</button>
-            </div>
-            <textarea id="playbookEditorBox" rows="9" class="form-control" style="font-family:'JetBrains Mono',monospace; font-size:11px;" placeholder="- [ ] Tarefa 1&#10;- [ ] Tarefa 2"></textarea>
-          </div>
-          <div id="autoRunGoalBox" style="display:none; flex-direction:column; gap:6px;">
-            <label style="font-size:11.5px; color:var(--cyan);">Objetivo Autônomo (Goal-Driven, sessões isoladas):</label>
-            <textarea id="autoRunGoalInput" rows="3" class="form-control" placeholder="Ex: Auditar o projeto, mapear gargalos e propor melhorias concretas..."></textarea>
-          </div>
-          <div style="background:#020409; border:1px solid var(--border-subtle); border-radius:9px; padding:10px;">
-            <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:5px;">
-              <span id="autoRunProgressLabel" style="color:var(--cyan);">Aguardando execução...</span>
-              <span id="autoRunCounterLabel" style="color:var(--emerald);">0/0</span>
-            </div>
-            <pre id="autoRunLogsBox" style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#cbd5e1; max-height:150px; overflow:auto; white-space:pre-wrap; margin:0;"></pre>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Git Worktrees Modal (Official Maestro Feature) -->
-  <div id="worktreesModal" style="display:none; position:fixed; inset:0; background:rgba(2,5,12,0.84); backdrop-filter:blur(6px); z-index:150; align-items:center; justify-content:center; padding:18px;">
-    <div style="background:rgba(11,17,32,0.98); border:1px solid var(--border-glow); border-radius:14px; width:min(760px, 95vw); max-height:84vh; display:flex; flex-direction:column; overflow:hidden;">
-      <div style="padding:12px 16px; border-bottom:1px solid var(--border-subtle); display:flex; justify-content:space-between; align-items:center;">
-        <strong style="color:var(--emerald); font-size:13px;">🌳 Git Worktrees Isolados (Agentes em Branches Paralelas)</strong>
-        <button class="btn btn-danger" style="padding:3px 9px;" onclick="document.getElementById('worktreesModal').style.display='none'">Fechar</button>
-      </div>
-      <div style="padding:14px 16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px;">
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <input type="text" id="wtBranchInput" class="form-control" placeholder="Nome da branch (ex: feat/nova-api)" style="flex:1; min-width:180px;" />
-          <select id="wtAgentSelect" class="form-control" style="max-width:210px;">
-            <option value="">Sem vincular a agente</option>
-          </select>
-          <button class="btn btn-glow" onclick="createWorktreeNow()">+ Criar Worktree</button>
-        </div>
-        <div id="worktreesListBox" style="display:flex; flex-direction:column; gap:7px; font-size:11.5px;"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- File Explorer & Git Log Modal (Official Maestro Feature) -->
-  <div id="filesExplorerModal" style="display:none; position:fixed; inset:0; background:rgba(2,5,12,0.84); backdrop-filter:blur(6px); z-index:150; align-items:center; justify-content:center; padding:18px;">
-    <div style="background:rgba(11,17,32,0.98); border:1px solid var(--border-glow); border-radius:14px; width:min(980px, 96vw); max-height:88vh; display:flex; flex-direction:column; overflow:hidden;">
-      <div style="padding:12px 16px; border-bottom:1px solid var(--border-subtle); display:flex; justify-content:space-between; align-items:center;">
-        <strong style="color:var(--cyan); font-size:13px;">📁 Explorador de Arquivos & Git Commit Log</strong>
-        <button class="btn btn-danger" style="padding:3px 9px;" onclick="document.getElementById('filesExplorerModal').style.display='none'">Fechar</button>
-      </div>
-      <div style="padding:12px 16px; overflow-y:auto; display:grid; grid-template-columns:280px 1fr; gap:12px; flex:1;">
-        <div style="display:flex; flex-direction:column; gap:8px; overflow:hidden;">
-          <input type="text" id="fileExplorerFilter" class="form-control" placeholder="Filtrar arquivos..." oninput="filterExplorerFiles(this.value)" style="font-size:11px;" />
-          <div id="fileExplorerList" style="overflow-y:auto; max-height:36vh; display:flex; flex-direction:column; gap:3px; font-size:11px;"></div>
-          <div style="font-size:11px; color:var(--emerald); font-weight:700; margin-top:4px;">🕒 Git Log (<span id="gitLogBranchBadge">-</span>)</div>
-          <div id="gitLogList" style="overflow-y:auto; max-height:24vh; display:flex; flex-direction:column; gap:4px; font-size:10.5px;"></div>
-        </div>
-        <pre id="fileExplorerContent" style="background:#020409; border:1px solid var(--border-subtle); border-radius:9px; padding:12px; font-size:11px; font-family:'JetBrains Mono',monospace; color:#cbd5e1; overflow:auto; max-height:66vh; white-space:pre-wrap; margin:0;">Selecione um arquivo à esquerda para visualizar.</pre>
-      </div>
-    </div>
-  </div>
-
-  <!-- Global Environment Variables Modal (Official Maestro Feature) -->
-  <div id="globalEnvModal" style="display:none; position:fixed; inset:0; background:rgba(2,5,12,0.84); backdrop-filter:blur(6px); z-index:150; align-items:center; justify-content:center; padding:18px;">
-    <div style="background:rgba(11,17,32,0.98); border:1px solid var(--border-glow); border-radius:14px; width:min(620px, 95vw); display:flex; flex-direction:column; overflow:hidden;">
-      <div style="padding:12px 16px; border-bottom:1px solid var(--border-subtle); display:flex; justify-content:space-between; align-items:center;">
-        <strong style="color:var(--amber); font-size:13px;">🔐 Variáveis de Ambiente Globais (Agentes & Terminais)</strong>
-        <button class="btn btn-danger" style="padding:3px 9px;" onclick="document.getElementById('globalEnvModal').style.display='none'">Fechar</button>
-      </div>
-      <div style="padding:14px 16px; display:flex; flex-direction:column; gap:10px;">
-        <small style="color:var(--text-muted);">Uma por linha no formato <code>CHAVE=VALOR</code>. Aplicadas automaticamente em todos os terminais e agentes do Maestri.</small>
-        <textarea id="globalEnvTextarea" rows="8" class="form-control" style="font-family:'JetBrains Mono',monospace; font-size:11.5px;" placeholder="NODE_ENV=development&#10;API_URL=http://localhost:8000"></textarea>
-        <div style="display:flex; justify-content:flex-end; gap:8px;">
-          <button class="btn btn-glow" onclick="saveGlobalEnvVars()">💾 Salvar Variáveis Globais</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Git Diff & Rollback Modal -->
-  <div id="gitDiffModal" style="display:none; position:fixed; inset:0; background:rgba(2,5,12,0.82); backdrop-filter:blur(6px); z-index:150; align-items:center; justify-content:center; padding:18px;">
-    <div style="background:rgba(11,17,32,0.98); border:1px solid var(--border-glow); border-radius:14px; width:min(920px, 96vw); max-height:86vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 24px 60px rgba(0,0,0,0.85);">
-      <div style="padding:12px 16px; border-bottom:1px solid var(--border-subtle); display:flex; justify-content:space-between; align-items:center;">
-        <strong style="color:var(--cyan); font-size:13px;">📂 Git Diff & Rollback do Projeto Ativo</strong>
-        <button class="btn btn-danger" style="padding:3px 9px;" onclick="document.getElementById('gitDiffModal').style.display='none'">Fechar</button>
-      </div>
-      <div style="padding:12px 16px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:10px;">
-        <div id="gitDiffFilesList" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
-        <pre id="gitDiffCodeBox" style="background:#020409; border:1px solid var(--border-subtle); border-radius:9px; padding:12px; font-size:11px; font-family:'JetBrains Mono',monospace; color:#cbd5e1; overflow:auto; max-height:48vh; white-space:pre-wrap;"></pre>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; border-top:1px solid var(--border-subtle); padding-top:10px;">
-          <input type="text" id="gitCommitMsgInput" class="form-control" placeholder="Mensagem do commit (ex: feat: ajusta layout)" style="flex:1; min-width:220px;" />
-          <button class="btn" onclick="commitGitWorkspace(false)">💾 Commitar</button>
-          <button class="btn btn-glow" onclick="commitGitWorkspace(true)">🚀 Commit & Push</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <div class="toast-container" id="toastContainer"></div>
 
   <script>
@@ -1645,7 +1515,7 @@
       if (tabId === 'tab-automations') { loadAutomations(); loadClipboardDashboard(); }
       if (tabId === 'tab-pc') { loadNetworkDiagnostics(); loadQuickApps(); }
       if (tabId === 'tab-settings') { loadSystemSettings(); loadBackgroundStatus(); }
-      if (tabId === 'tab-maestri') { renderCanvasEdges(); renderMinimap(); }
+      if (tabId === 'tab-assistant') { refreshSystemStats(); }
       refreshIcons();
     }
 
@@ -2522,18 +2392,44 @@
         document.getElementById('cpuCores').textContent = `${d.cpu.cores} núcleos`;
         setGaugeValue('cpuCircle', d.cpu.percent);
 
+        const dashCpuVal = document.getElementById('dashCpuVal');
+        const dashCpuBar = document.getElementById('dashCpuBar');
+        const dashCpuSub = document.getElementById('dashCpuSub');
+        if (dashCpuVal) dashCpuVal.textContent = `${Math.round(d.cpu.percent)}%`;
+        if (dashCpuBar) dashCpuBar.style.width = `${Math.min(100, Math.round(d.cpu.percent))}%`;
+        if (dashCpuSub) dashCpuSub.textContent = `${d.cpu.cores} núcleos ativos`;
+
         document.getElementById('ramPercent').textContent = `${Math.round(d.ram.percent)}%`;
         document.getElementById('ramDetail').textContent = `${d.ram.used_gb} / ${d.ram.total_gb} GB`;
         setGaugeValue('ramCircle', d.ram.percent);
+
+        const dashRamVal = document.getElementById('dashRamVal');
+        const dashRamBar = document.getElementById('dashRamBar');
+        const dashRamSub = document.getElementById('dashRamSub');
+        if (dashRamVal) dashRamVal.textContent = `${Math.round(d.ram.percent)}%`;
+        if (dashRamBar) dashRamBar.style.width = `${Math.min(100, Math.round(d.ram.percent))}%`;
+        if (dashRamSub) dashRamSub.textContent = `${d.ram.used_gb} / ${d.ram.total_gb} GB em uso`;
 
         document.getElementById('diskPercent').textContent = `${Math.round(d.disk.percent)}%`;
         document.getElementById('diskDetail').textContent = `${d.disk.free_gb} GB livres (${d.disk.mount})`;
         setGaugeValue('diskCircle', d.disk.percent);
 
+        const dashDiskVal = document.getElementById('dashDiskVal');
+        const dashDiskBar = document.getElementById('dashDiskBar');
+        const dashDiskSub = document.getElementById('dashDiskSub');
+        if (dashDiskVal) dashDiskVal.textContent = `${Math.round(d.disk.percent)}%`;
+        if (dashDiskBar) dashDiskBar.style.width = `${Math.min(100, Math.round(d.disk.percent))}%`;
+        if (dashDiskSub) dashDiskSub.textContent = `${d.disk.free_gb} GB livres (${d.disk.mount})`;
+
         if (d.network) {
           document.getElementById('netDown').textContent = d.network.down_kbs;
           document.getElementById('netUp').textContent = d.network.up_kbs;
           document.getElementById('batDetail').textContent = `IP: ${d.network.local_ip} • Uptime: ${d.network.uptime}`;
+
+          const dashNetVal = document.getElementById('dashNetVal');
+          const dashNetSub = document.getElementById('dashNetSub');
+          if (dashNetVal) dashNetVal.textContent = `↓ ${d.network.down_kbs} / ↑ ${d.network.up_kbs} KB/s`;
+          if (dashNetSub) dashNetSub.textContent = `IP: ${d.network.local_ip} • Uptime: ${d.network.uptime}`;
         }
 
         if (d.remote) {
@@ -3803,31 +3699,83 @@
       document.getElementById('globalEnvModal').style.display = 'none';
     }
 
-    function closeMaestriMenus() {
-      document.querySelectorAll('.maestri-dropdown-menu.open').forEach(el => el.classList.remove('open'));
+    // --- CENTRAL IA & PC: TERMINAL RÁPIDO & OTIMIZAÇÃO ---
+    async function runAssistantShellCmd() {
+      const input = document.getElementById('assistantShellInput');
+      const out = document.getElementById('assistantShellOut');
+      const cmd = (input?.value || '').trim();
+      if (!cmd) return;
+      input.value = '';
+      if (out) {
+        out.textContent += `\n$ ${cmd}\nExecutando...`;
+        out.scrollTop = out.scrollHeight;
+      }
+      try {
+        const res = await fetch('/api/terminal/exec', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            node_id: 'pc-shell',
+            command: cmd,
+            node_name: 'AURA Shell',
+            notify_mobile: false
+          })
+        });
+        const d = await res.json();
+        const entry = d.last_entry || {};
+        const output = (entry.output || '').trim() || '(sem saída)';
+        const exitCode = entry.exit_code !== undefined ? entry.exit_code : 0;
+        if (out) {
+          out.textContent = out.textContent.replace(/\nExecutando\.\.\.$/, '') + `\n${output}\n[exit ${exitCode}]\n`;
+          out.scrollTop = out.scrollHeight;
+        }
+      } catch (e) {
+        if (out) {
+          out.textContent += `\nErro ao executar comando: ${e.message}\n`;
+          out.scrollTop = out.scrollHeight;
+        }
+      }
     }
 
-    function toggleMaestriMenu(menuId, ev) {
-      if (ev) ev.stopPropagation();
-      const target = document.getElementById(menuId);
-      const wasOpen = target && target.classList.contains('open');
-      closeMaestriMenus();
-      if (target && !wasOpen) target.classList.add('open');
+    function handleAssistantShellKey(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        runAssistantShellCmd();
+      }
     }
 
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest('.maestri-dropdown')) closeMaestriMenus();
-    });
+    function clearAssistantShell() {
+      const out = document.getElementById('assistantShellOut');
+      if (out) out.textContent = 'AURA Shell limpo. Pronto para novos comandos.';
+    }
+
+    function copyAssistantShell() {
+      const out = document.getElementById('assistantShellOut');
+      if (!out) return;
+      navigator.clipboard.writeText(out.textContent || '').then(() => showToast('Saída do terminal copiada!'));
+    }
+
+    async function runQuickOptimizeTask(task) {
+      showToast('Executando otimização no sistema...');
+      try {
+        const res = await fetch('/api/optimizer/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tasks: [task] })
+        });
+        const d = await res.json();
+        showToast(d.ok ? `✅ Otimização concluída (${task})` : '⚠️ Concluído com avisos');
+        refreshSystemStats();
+      } catch (e) {
+        showToast('Erro ao otimizar sistema.');
+      }
+    }
 
     window.addEventListener('DOMContentLoaded', () => {
       refreshIcons();
-      initCanvasInteractions();
       loadChatHistory();
       loadSystemSettings();
       loadUpdateStatus();
-      loadMaestriClis();
-      loadWorkspaceProjects();
-      loadCanvasState();
       refreshSystemStats();
       loadQuickApps();
       loadMemoryAndXp();
