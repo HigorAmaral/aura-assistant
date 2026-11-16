@@ -13,8 +13,16 @@ import subprocess
 import webbrowser
 from pathlib import Path
 
-from PIL import Image, ImageDraw
-import pystray
+try:
+    from PIL import Image, ImageDraw
+except ImportError:
+    Image = None  # type: ignore
+    ImageDraw = None  # type: ignore
+
+try:
+    import pystray
+except ImportError:
+    pystray = None  # type: ignore
 
 BASE_DIR = Path(__file__).parent
 sys.path.insert(0, str(BASE_DIR))
@@ -199,6 +207,9 @@ class JsHudBridge:
 
 
 def start_system_tray():
+    if pystray is None or Image is None or ImageDraw is None:
+        return
+
     def _on_show(icon, item):
         hud_control_dispatch("show")
 
@@ -270,23 +281,32 @@ if __name__ == "__main__":
     start_system_tray()
     start_global_hotkey_win32()
 
-    import webview
+    try:
+        import webview
 
-    x_pos = (_HUD_STATE["screen_w"] - COMPACT_W) // 2
-    win = webview.create_window(
-        title="AURA — Assistente no Topo da Tela",
-        url=HUD_URL,
-        js_api=bridge,
-        width=COMPACT_W,
-        height=COMPACT_H,
-        min_size=(160, 38),
-        x=x_pos,
-        y=0,
-        frameless=True,
-        shadow=False,
-        on_top=True,
-        easy_drag=False,
-        background_color="#000000",
-    )
-    _HUD_STATE["window"] = win
-    webview.start(on_hud_startup, win)
+        x_pos = (_HUD_STATE["screen_w"] - COMPACT_W) // 2
+        win = webview.create_window(
+            title="AURA — Assistente no Topo da Tela",
+            url=HUD_URL,
+            js_api=bridge,
+            width=COMPACT_W,
+            height=COMPACT_H,
+            min_size=(160, 38),
+            x=x_pos,
+            y=0,
+            frameless=True,
+            shadow=False,
+            on_top=True,
+            easy_drag=False,
+            background_color="#000000",
+        )
+        _HUD_STATE["window"] = win
+        webview.start(on_hud_startup, win)
+    except Exception as exc:
+        print(f"[AURA] Modo servidor web ativo em {API_URL} (HUD nativo indisponível: {exc})")
+        try:
+            open_standalone_app_window("")
+        except Exception:
+            pass
+        while True:
+            time.sleep(60)

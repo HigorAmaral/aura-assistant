@@ -27,13 +27,24 @@ echo "Instalando/atualizando dependencias Python no .venv..."
 echo "Iniciando AURA OS em segundo plano (Servidor :8765)..."
 nohup .venv/bin/python desktop_widget.py >/tmp/aura-os.log 2>&1 &
 AURA_PID=$!
-sleep 2
 
-if kill -0 "$AURA_PID" 2>/dev/null; then
+READY=0
+for _ in $(seq 1 20); do
+    if .venv/bin/python -c "import socket; s=socket.socket(); s.settimeout(0.3); exit(0 if s.connect_ex(('127.0.0.1', 8765))==0 else 1)" 2>/dev/null; then
+        READY=1
+        break
+    fi
+    if ! kill -0 "$AURA_PID" 2>/dev/null; then
+        break
+    fi
+    sleep 0.5
+done
+
+if [ "$READY" -eq 1 ]; then
     echo "AURA OS ativa (PID $AURA_PID)! Acesse http://localhost:8765"
     echo "Logs em: /tmp/aura-os.log"
 else
     echo "Falha ao iniciar AURA OS. Veja os logs abaixo:"
-    tail -n 30 /tmp/aura-os.log || true
+    tail -n 40 /tmp/aura-os.log || true
     exit 1
 fi
