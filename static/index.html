@@ -609,6 +609,7 @@
         <h2><i data-lucide="sparkles" class="lucide"></i> Comando & Memória Viva</h2>
         <div style="display:flex; align-items:center; gap:6px;">
           <span style="font-size: 10.5px; color: var(--text-muted);">Ctrl+Shift+A</span>
+          <button class="btn" style="padding:3px 7px; font-size:11px;" title="Limpar histórico do chat" onclick="clearChatHistoryNow()">🗑️</button>
           <button class="btn chat-close-btn" style="padding:3px 7px; font-size:11px;" onclick="toggleMobileChat(false)">×</button>
         </div>
       </div>
@@ -1425,7 +1426,12 @@
       </div>
       <div style="padding:12px 16px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:10px;">
         <div id="gitDiffFilesList" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
-        <pre id="gitDiffCodeBox" style="background:#020409; border:1px solid var(--border-subtle); border-radius:9px; padding:12px; font-size:11px; font-family:'JetBrains Mono',monospace; color:#cbd5e1; overflow:auto; max-height:55vh; white-space:pre-wrap;"></pre>
+        <pre id="gitDiffCodeBox" style="background:#020409; border:1px solid var(--border-subtle); border-radius:9px; padding:12px; font-size:11px; font-family:'JetBrains Mono',monospace; color:#cbd5e1; overflow:auto; max-height:48vh; white-space:pre-wrap;"></pre>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; border-top:1px solid var(--border-subtle); padding-top:10px;">
+          <input type="text" id="gitCommitMsgInput" class="form-control" placeholder="Mensagem do commit (ex: feat: ajusta layout)" style="flex:1; min-width:220px;" />
+          <button class="btn" onclick="commitGitWorkspace(false)">💾 Commitar</button>
+          <button class="btn btn-glow" onclick="commitGitWorkspace(true)">🚀 Commit & Push</button>
+        </div>
       </div>
     </div>
   </div>
@@ -3195,6 +3201,52 @@
       await openGitDiffModal();
     }
 
+    async function commitGitWorkspace(push) {
+      const inp = document.getElementById('gitCommitMsgInput');
+      const msg = inp ? inp.value.trim() : '';
+      if (!msg) {
+        showToast('Digite uma mensagem para o commit.');
+        return;
+      }
+      showToast(push ? 'Executando git add, commit e push...' : 'Executando git add e commit...');
+      const res = await fetch('/api/workspace/commit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg, push })
+      });
+      const d = await res.json();
+      showToast(d.message || (d.ok ? 'Commit concluído.' : 'Falha no commit.'));
+      if (d.ok) {
+        if (inp) inp.value = '';
+        await openGitDiffModal();
+      }
+    }
+
+    async function loadChatHistory() {
+      try {
+        const res = await fetch('/api/chat/history?limit=30');
+        const d = await res.json();
+        const items = d.items || [];
+        if (!items.length) return;
+        const box = document.getElementById('chatMessages');
+        if (!box) return;
+        box.innerHTML = '';
+        items.forEach(it => {
+          appendMessage(it.role === 'user' ? 'user' : 'assistant', formatMarkdown(it.content || ''));
+        });
+      } catch (e) {}
+    }
+
+    async function clearChatHistoryNow() {
+      if (!confirm('Limpar todo o histórico de chat salvo?')) return;
+      await fetch('/api/chat/history', { method: 'DELETE' });
+      const box = document.getElementById('chatMessages');
+      if (box) {
+        box.innerHTML = '<div class="msg msg-assistant">Histórico limpo. Pronto para uma nova conversa!</div>';
+      }
+      showToast('Histórico de chat limpo.');
+    }
+
     async function runPcOptimizationNow() {
       const tasks = [];
       if (document.getElementById('optCleanTemp')?.checked) tasks.push('clean_temp');
@@ -3233,28 +3285,52 @@
       `).join('');
     }
 
+    async function pollOptimizerUpgradeStatus() {
+      const box = document.getElementById('optimizerReportBox');
+      const timer = setInterval(async () => {
+        try {
+          const r = await fetch('/api/optimizer/status');
+          const st = await r.json();
+          if (box && st.message) box.textContent = st.message;
+          if (!st.running) {
+            clearInterval(timer);
+            showToast(st.ok ? 'Atualização de apps concluída!' : 'Atualização finalizada com avisos.');
+            await scanUpdatableAppsNow();
+          }
+        } catch (e) {
+          clearInterval(timer);
+        }
+      }, 2500);
+    }
+
     async function upgradeSingleApp(appId) {
-      showToast(`Atualizando <strong>${appId}</strong>...`);
+      showToast(`Iniciando atualização de <strong>${appId}</strong> em segundo plano...`);
       const res = await fetch('/api/optimizer/apps/upgrade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ app_ids: [appId] })
+        body: JSON.stringify({ app_ids: [appId], background: true })
       });
       const d = await res.json();
-      showToast(d.message || 'Atualização concluída.');
-      await scanUpdatableAppsNow();
+      if (d.started) {
+        pollOptimizerUpgradeStatus();
+      } else {
+        showToast(d.message || 'Atualização em andamento.');
+      }
     }
 
     async function upgradeAllAppsNow() {
-      showToast('Atualizando todos os aplicativos em lote...');
+      showToast('Iniciando atualização em lote em segundo plano...');
       const res = await fetch('/api/optimizer/apps/upgrade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ app_ids: [] })
+        body: JSON.stringify({ app_ids: [], background: true })
       });
       const d = await res.json();
-      showToast(d.message || 'Atualização concluída.');
-      await scanUpdatableAppsNow();
+      if (d.started) {
+        pollOptimizerUpgradeStatus();
+      } else {
+        showToast(d.message || 'Atualização em andamento.');
+      }
     }
 
     async function scanDriversNow() {
@@ -3291,6 +3367,7 @@
     window.addEventListener('DOMContentLoaded', () => {
       refreshIcons();
       initCanvasInteractions();
+      loadChatHistory();
       loadSystemSettings();
       loadUpdateStatus();
       loadMaestriClis();

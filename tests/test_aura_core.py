@@ -74,3 +74,54 @@ def test_system_optimizer_smoke():
     assert drv["ok"] is True
     apps = system_optimizer.scan_updatable_apps()
     assert apps["ok"] is True
+    st = system_optimizer.get_optimizer_job_status()
+    assert "running" in st
+
+
+def test_api_endpoints_and_pin_guard():
+    import asyncio
+    import httpx
+    import app as aura_app
+
+    async def _run():
+        transport = httpx.ASGITransport(app=aura_app.app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            r_hist = await client.get("/api/chat/history")
+            assert r_hist.status_code == 200
+            assert "items" in r_hist.json()
+
+            r_ws = await client.get("/api/workspace/projects")
+            assert r_ws.status_code == 200
+            assert "projects" in r_ws.json()
+
+            r_m_st = await client.get("/api/canvas/maestro-status")
+            assert r_m_st.status_code == 200
+            assert "phase" in r_m_st.json()
+
+            r_m_cancel = await client.post("/api/canvas/maestro-cancel")
+            assert r_m_cancel.status_code == 200
+            assert r_m_cancel.json()["ok"] is True
+
+            r_opt = await client.post("/api/optimizer/run", json={"tasks": ["trim_ram"]})
+            assert r_opt.status_code == 200
+            assert r_opt.json()["ok"] is True
+
+            r_opt_st = await client.get("/api/optimizer/status")
+            assert r_opt_st.status_code == 200
+            assert "running" in r_opt_st.json()
+
+        # Test remote PIN guard with non-local client IP
+        orig_pin = storage.get_settings().get("remote_pin", "")
+        try:
+            storage.update_settings({"remote_pin": "4321"})
+            remote_transport = httpx.ASGITransport(app=aura_app.app, client=("192.168.1.99", 50000))
+            async with httpx.AsyncClient(transport=remote_transport, base_url="http://testserver") as remote_client:
+                r_denied = await remote_client.get("/api/workspace/projects")
+                assert r_denied.status_code == 401
+                r_ok = await remote_client.get("/api/workspace/projects", headers={"X-AURA-Pin": "4321"})
+                assert r_ok.status_code == 200
+        finally:
+            storage.update_settings({"remote_pin": orig_pin})
+
+    asyncio.run(_run())
+

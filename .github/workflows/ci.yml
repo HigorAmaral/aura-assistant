@@ -1,0 +1,24 @@
+name: AURA CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest httpx
+      - name: Syntax check
+        run: python -m py_compile app.py storage.py free_ai_router.py maestri_orchestrator.py terminal_manager.py system_optimizer.py
+      - name: Run pytest
+        run: pytest -v

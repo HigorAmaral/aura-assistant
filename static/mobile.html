@@ -221,6 +221,12 @@
     <span class="status-pill" id="connPill">ONLINE</span>
   </div>
 
+  <div style="display:flex;gap:8px;align-items:center;background:var(--card);border:1px solid rgba(148,163,184,0.16);border-radius:12px;padding:7px 11px;">
+    <span style="font-size:11px;color:var(--muted);white-space:nowrap;">🔐 PIN Remoto:</span>
+    <input type="password" id="remotePinInput" placeholder="Opcional (se configurado no PC)" style="flex:1;background:rgba(5,8,16,0.75);border:1px solid rgba(148,163,184,0.2);border-radius:8px;padding:6px 9px;color:var(--text);font-size:12px;" />
+    <button class="send-btn" style="padding:6px 11px;font-size:11px;" onclick="saveRemotePin()">Salvar</button>
+  </div>
+
   <!-- Live PC Metrics + Pomodoro -->
   <div class="metrics">
     <div class="metric-box">
@@ -360,6 +366,29 @@
     let lastNotifId = 0;
     let cloudChannel = localStorage.getItem('aura_cloud_channel') || '';
     let cloudEventSource = null;
+
+    const _origFetch = window.fetch.bind(window);
+    window.fetch = function(url, options = {}) {
+      const pin = localStorage.getItem('aura_remote_pin') || '';
+      if (typeof url === 'string' && url.startsWith('/api/') && pin) {
+        const headers = new Headers(options.headers || {});
+        headers.set('X-AURA-Pin', pin);
+        options = { ...options, headers };
+      }
+      return _origFetch(url, options);
+    };
+
+    function saveRemotePin() {
+      const inp = document.getElementById('remotePinInput');
+      const val = (inp ? inp.value : '').trim();
+      localStorage.setItem('aura_remote_pin', val);
+      alert(val ? 'PIN Remoto salvo no celular!' : 'PIN Remoto removido.');
+    }
+
+    const _savedPin = localStorage.getItem('aura_remote_pin') || '';
+    if (_savedPin && document.getElementById('remotePinInput')) {
+      document.getElementById('remotePinInput').value = _savedPin;
+    }
 
     function switchMobPage(pageId, btnEl) {
       document.querySelectorAll('.mob-page').forEach(el => el.classList.remove('active'));

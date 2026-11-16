@@ -2,10 +2,26 @@ import os
 import re
 import shutil
 import subprocess
+import threading
+import time
 from typing import Any, Dict, List, Optional
 
 from storage import log_activity
 from system_tools import IS_WINDOWS, clean_temp_files
+from remote_bridge import push_mobile_notification
+
+
+_OPT_JOB_STATE: Dict[str, Any] = {
+    "running": False,
+    "task": "",
+    "message": "",
+    "ok": True,
+    "updated_at": 0.0,
+}
+
+
+def get_optimizer_job_status() -> Dict[str, Any]:
+    return dict(_OPT_JOB_STATE)
 
 
 def _run_cmd(cmd: List[str], timeout: int = 35) -> Dict[str, Any]:
@@ -130,6 +146,53 @@ def upgrade_apps(app_ids: Optional[List[str]] = None) -> Dict[str, Any]:
         res = _run_cmd(["flatpak", "update", "-y"], timeout=120)
         outputs.append(f"Flatpak: {res['stdout'][:400] or res['stderr'][:200]}")
     return {"ok": True, "message": "\n".join(outputs) or "Verificação de atualização concluída."}
+
+
+def start_upgrade_apps_async(app_ids: Optional[List[str]] = None) -> Dict[str, Any]:
+    if _OPT_JOB_STATE.get("running"):
+        return {"ok": True, "started": False, "message": "Já existe uma atualização de apps em andamento."}
+
+    _OPT_JOB_STATE.update({
+        "running": True,
+        "task": "upgrade_apps",
+        "message": "Atualizando aplicativos em segundo plano...",
+        "ok": True,
+        "updated_at": time.time(),
+    })
+
+    def _worker():
+        try:
+            res = upgrade_apps(app_ids)
+            msg = res.get("message", "Atualização concluída.")
+            if IS_WINDOWS and any(w in msg.lower() for w in ("access is denied", "acesso negado", "elevat", "administrator")):
+                msg += "\n⚠ Dica: Alguns instaladores exigem executar a AURA como Administrador (UAC)."
+            _OPT_JOB_STATE.update({
+                "running": False,
+                "task": "upgrade_apps",
+                "message": msg[:2000],
+                "ok": bool(res.get("ok", True)),
+                "updated_at": time.time(),
+            })
+            try:
+                push_mobile_notification(
+                    title="Otimizador: Apps Atualizados",
+                    body=msg[:220],
+                    category="OPTIMIZER",
+                    agent_name="Otimizador PC",
+                )
+            except Exception:
+                pass
+        except Exception as exc:
+            _OPT_JOB_STATE.update({
+                "running": False,
+                "task": "upgrade_apps",
+                "message": f"Erro: {exc}",
+                "ok": False,
+                "updated_at": time.time(),
+            })
+
+    threading.Thread(target=_worker, daemon=True).start()
+    return {"ok": True, "started": True, "message": "Atualização iniciada em segundo plano!"}
 
 
 def scan_drivers_and_firmware() -> Dict[str, Any]:

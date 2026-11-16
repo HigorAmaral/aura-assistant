@@ -112,6 +112,8 @@ from project_builder import PROJECTS_ROOT
 from system_optimizer import (
     scan_updatable_apps,
     upgrade_apps,
+    start_upgrade_apps_async,
+    get_optimizer_job_status,
     scan_drivers_and_firmware,
     trigger_driver_update_scan,
     run_pc_optimization,
@@ -328,12 +330,18 @@ class WorkspaceRevertRequest(BaseModel):
     file_path: str
 
 
+class WorkspaceCommitRequest(BaseModel):
+    message: str
+    push: bool = False
+
+
 class OptimizerRunRequest(BaseModel):
     tasks: Optional[List[str]] = None
 
 
 class AppUpgradeRequest(BaseModel):
     app_ids: Optional[List[str]] = None
+    background: bool = True
 
 
 @app.middleware("http")
@@ -564,13 +572,46 @@ def api_workspace_revert(req: WorkspaceRevertRequest):
         return {"ok": False, "message": str(exc)}
 
 
+@app.post("/api/workspace/commit")
+def api_workspace_commit(req: WorkspaceCommitRequest):
+    msg = (req.message or "").strip()
+    if not msg:
+        raise HTTPException(status_code=400, detail="Mensagem de commit obrigatória.")
+    ws = get_settings().get("active_workspace") or str(Path.cwd())
+    flags = subprocess.CREATE_NO_WINDOW if sys.platform.startswith("win") else 0
+    try:
+        add_res = subprocess.run(["git", "add", "-A"], cwd=ws, capture_output=True, text=True, timeout=15, creationflags=flags)
+        if add_res.returncode != 0:
+            return {"ok": False, "message": add_res.stderr.strip() or "Falha no git add."}
+        cm_res = subprocess.run(["git", "commit", "-m", msg], cwd=ws, capture_output=True, text=True, timeout=15, creationflags=flags)
+        if cm_res.returncode != 0:
+            return {"ok": False, "message": (cm_res.stderr or cm_res.stdout).strip() or "Falha no git commit."}
+        out = (cm_res.stdout or "Commit realizado.").strip()
+        if req.push:
+            push_res = subprocess.run(["git", "push"], cwd=ws, capture_output=True, text=True, timeout=30, creationflags=flags)
+            if push_res.returncode != 0:
+                return {"ok": False, "message": f"Commit ok, mas falha no push: {(push_res.stderr or push_res.stdout).strip()}"}
+            out += f"\nPush concluído: {(push_res.stdout or push_res.stderr).strip()}"
+        log_activity("WORKSPACE", f"Git commit{' + push' if req.push else ''}: {msg[:80]}")
+        return {"ok": True, "message": out}
+    except Exception as exc:
+        return {"ok": False, "message": str(exc)}
+
+
 @app.get("/api/optimizer/apps")
 def api_optimizer_apps():
     return scan_updatable_apps()
 
 
+@app.get("/api/optimizer/status")
+def api_optimizer_status():
+    return get_optimizer_job_status()
+
+
 @app.post("/api/optimizer/apps/upgrade")
 def api_optimizer_apps_upgrade(req: AppUpgradeRequest):
+    if req.background:
+        return start_upgrade_apps_async(req.app_ids)
     return upgrade_apps(req.app_ids)
 
 
