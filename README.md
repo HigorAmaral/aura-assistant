@@ -48,15 +48,21 @@ Ou no Windows, execute diretamente `iniciar_aura.bat` / `Iniciar_AURA_Background
 
 ## Instalação Rápida (Linux / Ubuntu)
 
-> **Nota:** O arquivo `Instalar_AURA.bat` é exclusivo para **Windows**. No Linux/Ubuntu, utilize o script [`iniciar_aura_ubuntu.sh`](iniciar_aura_ubuntu.sh).
+> **Nota:** O arquivo `Instalar_AURA.bat` é exclusivo para **Windows**. No Linux/Ubuntu, utilize o script [`iniciar_aura_ubuntu.sh`](iniciar_aura_ubuntu.sh), que cria automaticamente o ambiente virtual `.venv` (compatível com Ubuntu 24.04 / PEP 668), instala as dependências e inicia o servidor em `http://localhost:8765`.
 
-### Comando pronto em 1 passo (Terminal)
+### 1. Primeira instalação (comando pronto em 1 passo)
 ```bash
 git clone https://github.com/HigorAmaral/aura-assistant.git && cd aura-assistant && chmod +x iniciar_aura_ubuntu.sh && ./iniciar_aura_ubuntu.sh
 ```
 
+### 2. Se já tiver a pasta `aura-assistant` (atualizar e iniciar)
+```bash
+cd aura-assistant && git pull origin main && chmod +x iniciar_aura_ubuntu.sh && ./iniciar_aura_ubuntu.sh
+```
+
 > **Painel Web Local:** `http://localhost:8765`  
-> **Painel Mobile:** `http://localhost:8765/mobile`
+> **Painel Mobile:** `http://localhost:8765/mobile`  
+> **Logs em segundo plano (Linux):** `tail -f /tmp/aura-os.log`
 
 ---
 
