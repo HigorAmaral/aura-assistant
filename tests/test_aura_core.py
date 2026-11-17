@@ -251,4 +251,12 @@ def test_ubuntu_shell_cross_platform(tmp_path):
             assert r_exec.status_code == 200
             assert r_exec.json()["last_entry"]["exit_code"] == 0
 
+            r_health = await client.get("/api/optimizer/health")
+            assert r_health.status_code == 200
+            assert "health_score" in r_health.json()
+
+            r_lf = await client.get("/api/optimizer/large-files?min_mb=50&limit=5")
+            assert r_lf.status_code == 200
+            assert r_lf.json()["ok"] is True
+
     asyncio.run(_run())

@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import threading
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from storage import log_activity
@@ -303,11 +304,125 @@ def run_pc_optimization(tasks: Optional[List[str]] = None) -> Dict[str, Any]:
         if IS_WINDOWS:
             ps = "Get-CimInstance Win32_StartupCommand | Select-Object -First 10 Name, Location | Out-String"
             r = _run_cmd(["powershell", "-NoProfile", "-Command", ps], timeout=12)
-            report.append(f"📋 Itens de Inicialização:\n{r['stdout'][:600] or 'Nenhum item listado.'}")
+            report.append(f"[Inicialização] Itens detectados:\n{r['stdout'][:600] or 'Nenhum item listado.'}")
         else:
             r = _run_cmd(["ps", "-eo", "pid,comm,%cpu,%mem", "--sort=-%mem"], timeout=10)
             top_lines = "\n".join(r["stdout"].splitlines()[:8])
-            report.append(f"📋 Top Processos por Memória:\n{top_lines}")
+            report.append(f"[Processos] Top por Memória:\n{top_lines}")
+
+    if "power_plan" in selected:
+        if IS_WINDOWS:
+            r = _run_cmd(["powercfg", "/getactivescheme"], timeout=8)
+            report.append(f"[Energia] Plano ativo: {r['stdout'] or 'Padrão'}")
+        else:
+            gov_path = Path("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")
+            gov = gov_path.read_text().strip() if gov_path.exists() else "desconhecido"
+            report.append(f"[Energia] CPU Governor: {gov}")
+
+    if "disk_audit" in selected:
+        dl = Path.home() / "Downloads"
+        total_mb = 0.0
+        count = 0
+        if dl.exists():
+            for f in dl.iterdir():
+                if f.is_file():
+                    try:
+                        total_mb += f.stat().st_size / (1024 * 1024)
+                        count += 1
+                    except OSError:
+                        pass
+        report.append(f"[Disco] Pasta Downloads: {count} arquivos soltos ({total_mb:.1f} MB)")
 
     log_activity("OPTIMIZER", f"Otimização do PC executada ({', '.join(sorted(selected))})")
     return {"ok": True, "tasks": sorted(selected), "report": "\n\n".join(report)}
+
+
+def scan_large_files(min_mb: int = 20, limit: int = 20) -> Dict[str, Any]:
+    """Scan user directories (Downloads, Documents, Desktop, Videos) for large files."""
+    min_bytes = max(1, min_mb) * 1024 * 1024
+    roots = [
+        Path.home() / "Downloads",
+        Path.home() / "Documents",
+        Path.home() / "Desktop",
+        Path.home() / "Videos",
+    ]
+    found: List[Dict[str, Any]] = []
+    for root in roots:
+        if not root.exists():
+            continue
+        try:
+            for dirpath, _, filenames in os.walk(root):
+                # Skip deep node_modules / .git / venv folders
+                if any(skip in dirpath for skip in ("node_modules", ".git", ".venv", "__pycache__")):
+                    continue
+                for fn in filenames:
+                    fp = Path(dirpath) / fn
+                    try:
+                        sz = fp.stat().st_size
+                        if sz >= min_bytes:
+                            found.append({
+                                "name": fn,
+                                "path": str(fp),
+                                "folder": root.name,
+                                "size_mb": round(sz / (1024 * 1024), 1),
+                            })
+                    except OSError:
+                        continue
+                if len(found) >= 120:
+                    break
+        except OSError:
+            continue
+
+    found.sort(key=lambda x: x["size_mb"], reverse=True)
+    top = found[: max(1, min(limit, 50))]
+    total_mb = round(sum(x["size_mb"] for x in top), 1)
+    return {"ok": True, "min_mb": min_mb, "count": len(top), "total_mb": total_mb, "files": top}
+
+
+def get_system_health_summary() -> Dict[str, Any]:
+    """Return an actionable health & optimization score for CPU, RAM, Disk, and Power."""
+    import psutil
+
+    cpu = psutil.cpu_percent(interval=None)
+    vm = psutil.virtual_memory()
+    root_drive = os.environ.get("SystemDrive", "C:\\") if IS_WINDOWS else "/"
+    du = psutil.disk_usage(root_drive)
+
+    score = 100
+    tips: List[str] = []
+    if vm.percent > 85:
+        score -= 25
+        tips.append("RAM acima de 85%: execute 'Otimizar memória' ou feche abas/processos pesados.")
+    elif vm.percent > 70:
+        score -= 10
+        tips.append("RAM moderada (>70%): considere limpar processos em segundo plano.")
+
+    if du.percent > 90:
+        score -= 30
+        tips.append("Disco quase cheio (>90%): limpe temporários e verifique arquivos grandes.")
+    elif du.percent > 75:
+        score -= 10
+        tips.append("Espaço em disco em atenção (>75%): rode o analisador de arquivos grandes.")
+
+    if cpu > 80:
+        score -= 20
+        tips.append("CPU elevada (>80%): verifique o Top Processos na aba Apps & Processos.")
+
+    if not tips:
+        tips.append("Sistema saudável e equilibrado! Nenhuma ação urgente necessária.")
+
+    power_scheme = ""
+    if IS_WINDOWS:
+        r = _run_cmd(["powercfg", "/getactivescheme"], timeout=5)
+        power_scheme = r["stdout"] if r["ok"] else "Padrão"
+
+    return {
+        "ok": True,
+        "health_score": max(10, score),
+        "cpu_percent": round(cpu, 1),
+        "ram_percent": round(vm.percent, 1),
+        "disk_percent": round(du.percent, 1),
+        "disk_free_gb": round(du.free / (1024 ** 3), 1),
+        "power_scheme": power_scheme,
+        "recommendations": tips,
+    }

@@ -601,10 +601,10 @@
             <div style="border-top:1px solid var(--border-subtle); padding-top:10px; margin-top:4px;">
               <div style="font-size:11px; color:var(--text-muted); font-weight:700; margin-bottom:7px;">PERGUNTAS & DIAGNÓSTICOS COM IA</div>
               <div style="display:flex; flex-wrap:wrap; gap:6px;">
-                <span class="chip" onclick="sendQuickCommand('Analise o uso atual de CPU e RAM e diga o que está consumindo mais')">🔍 Diagnosticar Lentidão</span>
-                <span class="chip" onclick="sendQuickCommand('Verifique minhas conexões de rede e portas abertas')">🌐 Diagnóstico de Rede</span>
-                <span class="chip" onclick="sendQuickCommand('Quais discos e espaço livre eu tenho no PC?')">💾 Espaço em Disco</span>
-                <span class="chip" onclick="sendQuickCommand('Resuma minhas tarefas e notas pendentes')">✅ Minhas Pendências</span>
+                <span class="chip" onclick="sendQuickCommand('Analise o uso atual de CPU e RAM e diga o que está consumindo mais')"><i data-lucide="activity" class="lucide"></i> Diagnosticar Lentidão</span>
+                <span class="chip" onclick="sendQuickCommand('Verifique minhas conexões de rede e portas abertas')"><i data-lucide="globe" class="lucide"></i> Diagnóstico de Rede</span>
+                <span class="chip" onclick="sendQuickCommand('Quais discos e espaço livre eu tenho no PC?')"><i data-lucide="hard-drive" class="lucide"></i> Espaço em Disco</span>
+                <span class="chip" onclick="sendQuickCommand('Resuma minhas tarefas e notas pendentes')"><i data-lucide="check-circle-2" class="lucide"></i> Minhas Pendências</span>
               </div>
             </div>
           </div>
@@ -1339,6 +1339,8 @@
               <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="optFlushDns" checked /> Limpar cache DNS de rede</label>
               <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="optTrimRam" checked /> Otimizar memória & listar consumidores</label>
               <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="optStartup" checked /> Auditar inicialização / top processos</label>
+              <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="optPowerPlan" checked /> Verificar plano de energia / CPU</label>
+              <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="optDiskAudit" checked /> Auditar pasta Downloads & disco</label>
             </div>
             <button class="btn btn-primary" style="width:100%;" onclick="runPcOptimizationNow()">
               <i data-lucide="sparkles" class="lucide"></i> Otimizar PC Agora
@@ -1377,6 +1379,31 @@
             </button>
             <div id="optimizerDriversList" style="max-height:280px; overflow-y:auto; font-size:11.5px; color:var(--text-secondary);">
               Clique em "Listar Drivers" para inspecionar o hardware.
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top:14px;">
+          <div class="card">
+            <h3>
+              <span class="card-title-left"><i data-lucide="hard-drive" class="lucide" style="color:var(--violet);"></i> Analisador de Arquivos Grandes (&gt; 20 MB)</span>
+              <button class="btn" style="padding:4px 9px; font-size:11px;" onclick="scanLargeFilesNow()"><i data-lucide="search" class="lucide"></i> Escanear Disco</button>
+            </h3>
+            <p style="font-size:11.5px; color:var(--text-muted); margin-bottom:10px;">
+              Encontra rapidamente arquivos pesados em Downloads, Documentos, Desktop e Vídeos para liberar espaço.
+            </p>
+            <div id="optimizerLargeFilesList" style="max-height:220px; overflow-y:auto; font-size:11.5px; color:var(--text-secondary);">
+              Clique em "Escanear Disco" para localizar arquivos grandes.
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>
+              <span class="card-title-left"><i data-lucide="heart-pulse" class="lucide" style="color:var(--emerald);"></i> Saúde do PC & Recomendações</span>
+              <button class="btn" style="padding:4px 9px; font-size:11px;" onclick="loadOptimizerHealth()"><i data-lucide="refresh-cw" class="lucide"></i> Recalcular</button>
+            </h3>
+            <div id="optimizerHealthBox" style="font-size:12px; color:var(--text-secondary);">
+              Carregando análise de saúde do sistema...
             </div>
           </div>
         </div>
@@ -1425,6 +1452,7 @@
       if (tabId === 'tab-automations') { loadAutomations(); loadClipboardDashboard(); }
       if (tabId === 'tab-pc') { loadNetworkDiagnostics(); loadQuickApps(); }
       if (tabId === 'tab-packs') { loadPacksTab(); }
+      if (tabId === 'tab-optimizer') { loadOptimizerHealth(); }
       if (tabId === 'tab-settings') { loadSystemSettings(); loadBackgroundStatus(); }
       if (tabId === 'tab-assistant') { refreshSystemStats(); }
       refreshIcons();
@@ -2472,8 +2500,10 @@
       if (document.getElementById('optFlushDns')?.checked) tasks.push('flush_dns');
       if (document.getElementById('optTrimRam')?.checked) tasks.push('trim_ram');
       if (document.getElementById('optStartup')?.checked) tasks.push('startup_audit');
+      if (document.getElementById('optPowerPlan')?.checked) tasks.push('power_plan');
+      if (document.getElementById('optDiskAudit')?.checked) tasks.push('disk_audit');
       const box = document.getElementById('optimizerReportBox');
-      if (box) box.textContent = '⏳ Executando otimizações no sistema...';
+      if (box) box.textContent = 'Executando otimizações no sistema...';
       const res = await fetch('/api/optimizer/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2482,6 +2512,53 @@
       const d = await res.json();
       if (box) box.textContent = d.report || 'Concluído.';
       showToast('Otimização do sistema concluída!');
+      loadOptimizerHealth();
+    }
+
+    async function scanLargeFilesNow() {
+      const el = document.getElementById('optimizerLargeFilesList');
+      if (el) el.textContent = 'Escaneando pastas do usuário...';
+      try {
+        const res = await fetch('/api/optimizer/large-files?min_mb=20&limit=20');
+        const d = await res.json();
+        if (!d.files || !d.files.length) {
+          el.innerHTML = '<span style="color:var(--emerald);">Nenhum arquivo acima de 20 MB encontrado nas pastas principais.</span>';
+          return;
+        }
+        el.innerHTML = `<div style="margin-bottom:8px; color:var(--cyan); font-weight:700;">Total listado: ${d.total_mb} MB em ${d.count} arquivo(s)</div>` +
+          d.files.map(f => `
+            <div style="display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid var(--border-subtle); gap:8px;">
+              <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${f.path}">
+                <strong style="color:#fff;">${f.name}</strong> <small style="color:var(--text-muted);">(${f.folder})</small>
+              </div>
+              <span style="color:var(--amber); font-weight:700; flex:none;">${f.size_mb} MB</span>
+            </div>
+          `).join('');
+      } catch (e) {
+        if (el) el.textContent = 'Erro ao escanear arquivos.';
+      }
+    }
+
+    async function loadOptimizerHealth() {
+      const el = document.getElementById('optimizerHealthBox');
+      if (!el) return;
+      try {
+        const res = await fetch('/api/optimizer/health');
+        const d = await res.json();
+        const color = d.health_score >= 80 ? 'var(--emerald)' : (d.health_score >= 55 ? 'var(--amber)' : '#f87171');
+        el.innerHTML = `
+          <div style="display:flex; align-items:center; gap:14px; margin-bottom:10px;">
+            <div style="font-size:28px; font-weight:800; color:${color};">${d.health_score}/100</div>
+            <div style="font-size:11.5px; color:var(--text-muted); line-height:1.5;">
+              CPU: <strong style="color:#fff;">${d.cpu_percent}%</strong> | RAM: <strong style="color:#fff;">${d.ram_percent}%</strong> | Disco Livre: <strong style="color:#fff;">${d.disk_free_gb} GB</strong>
+              ${d.power_scheme ? `<br>Energia: <strong style="color:var(--cyan);">${d.power_scheme}</strong>` : ''}
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:5px;">
+            ${(d.recommendations || []).map(r => `<div style="padding:6px 10px; border-radius:8px; background:rgba(15,23,42,0.65); border:1px solid var(--border);">${r}</div>`).join('')}
+          </div>
+        `;
+      } catch (e) {}
     }
 
     async function scanUpdatableAppsNow() {

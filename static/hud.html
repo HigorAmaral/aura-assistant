@@ -701,9 +701,51 @@
       playingMedia: false,
       clipboard: [],
       remote: { active_qr_url: '', cloud_channel: '--' },
-      termOutput: '$ Terminal rápido pronto. Digite um comando abaixo.',
+      termOutput: 'Terminal rápido pronto. Digite um comando abaixo.',
+      shellMode: 'auto',
+      ubuntuBackend: 'Ubuntu Shell',
+      packOutput: 'Selecione um Pack acima para consultar em tempo real.',
       lastActivity: Date.now(),
     };
+
+    /* Ícones SVG limpos (substituindo emojis no painel HUD) */
+    const ICONS = {
+      home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+      terminal: '<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>',
+      blocks: '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/>',
+      check: '<polyline points="20 6 9 17 4 12"/>',
+      droplet: '<path d="M12 2.7C12 2.7 6 9.5 6 14a6 6 0 0 0 12 0c0-4.5-6-11.3-6-11.3z"/>',
+      timer: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5"/><path d="M9 2h6"/>',
+      music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+      zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+      palette: '<circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.7-.7 1.7-1.5 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.8.7-1.5 1.5-1.5H16c3.3 0 6-2.7 6-6 0-4.9-4.5-8.8-10-8.8z"/>',
+      book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+      activity: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+      code: '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
+      broom: '<path d="M19 4 10 13"/><path d="m7 10 7 7-3.5 3.5-7-7z"/>',
+      camera: '<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>',
+      lock: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+      eyeOff: '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>',
+      volUp: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
+      volDown: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>',
+      volMute: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>',
+      prev: '<polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5"/>',
+      next: '<polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/>',
+      play: '<polygon points="5 3 19 12 5 21 5 3"/>',
+      pause: '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>',
+      cloudSun: '<path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/><path d="M15.947 12.65a4 4 0 0 0-5.925-4.128"/><path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"/>',
+      dollar: '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+      news: '<path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>',
+      key: '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/>',
+      globe: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+      sunrise: '<path d="M12 2v8"/><path d="m4.93 10.93 1.41 1.41"/><path d="M2 18h2"/><path d="M20 18h2"/><path d="m19.07 10.93-1.41 1.41"/><path d="M22 22H2"/><path d="m8 6 4-4 4 4"/><path d="M16 18a4 4 0 0 0-8 0"/>',
+      sparkles: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>',
+    };
+
+    function ic(name, size = 14) {
+      const body = ICONS[name] || ICONS.sparkles;
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;display:inline-block;vertical-align:middle;">${body}</svg>`;
+    }
 
     const notch = document.getElementById('notch');
     const pill = document.getElementById('pill');
@@ -821,7 +863,7 @@
         dotCls = 'dot think';
         live = `<span class="live work"><span class="wk">${st.work.icon}</span><span class="nm">${esc(st.work.label)}…</span></span>`;
       } else if (st.pomo && st.pomo.active) {
-        live = `<span class="live">⏱ <span class="nm">${esc(st.pomo.label || 'Foco')}</span><span>${esc(st.pomo.formatted)}</span></span>`;
+        live = `<span class="live">${ic('timer', 13)} <span class="nm">${esc(st.pomo.label || 'Foco')}</span><span>${esc(st.pomo.formatted)}</span></span>`;
       } else if (st.playingMedia) {
         live = `<span class="live"><span class="eq"><b></b><b></b><b></b></span><span class="nm">${esc(st.mascot.name)}</span></span>`;
       } else {
@@ -833,13 +875,15 @@
 
     /* ====== RENDERIZAÇÃO DA BARRA LATERAL ====== */
     const NAV = [
-      ['home', '🏠', 'Início'],
-      ['tasks', '✅', 'Tarefas'],
-      ['habits', '💧', 'Hábitos'],
-      ['timers', '⏱', 'Timers'],
-      ['music', '🎵', 'Música'],
-      ['system', '⚡', 'Sistema'],
-      ['visual', '🎨', 'Visual'],
+      ['home', 'home', 'Início'],
+      ['terminal', 'terminal', 'Terminal'],
+      ['packs', 'blocks', 'Packs & APIs'],
+      ['tasks', 'check', 'Tarefas'],
+      ['habits', 'droplet', 'Hábitos'],
+      ['timers', 'timer', 'Timers'],
+      ['music', 'music', 'Música'],
+      ['system', 'zap', 'Sistema'],
+      ['visual', 'palette', 'Visual'],
     ];
 
     function renderSide() {
@@ -858,7 +902,7 @@
             <div class="lv"><em>Nv ${st.level}</em><i><b style="width:${st.xpPercent}%"></b></i></div>
           </div>
         </div>
-        ${NAV.map(([k, i, l]) => `<button class="nv${st.view === k ? ' on' : ''}" data-v="${k}">${i} ${l}${counts[k] ? `<span class="c">${counts[k]}</span>` : ''}</button>`).join('')}
+        ${NAV.map(([k, iconName, l]) => `<button class="nv${st.view === k ? ' on' : ''}" data-v="${k}">${ic(iconName, 14)} ${l}${counts[k] ? `<span class="c">${counts[k]}</span>` : ''}</button>`).join('')}
         <div class="side-foot">
           <button class="sbtn primary" data-act="open-app" title="Abrir Painel Completo AURA OS">Painel AURA</button>
           <button class="sbtn" data-act="collapse" title="Recolher entalho">▲</button>
@@ -879,7 +923,7 @@
     function vHome() {
       const msgsHtml = st.chat.length
         ? st.chat.map(m => `<div class="m ${m[0]}">${esc(m[1]).replace(/\n/g, '<br>')}</div>`).join('')
-        : `<div style="margin:auto;color:var(--mist);font-size:12.5px;text-align:center">Oi! Eu sou a ${esc(st.mascot.name)} 👋<br>Fale comigo ou toque numa sugestão acima.</div>`;
+        : `<div style="margin:auto;color:var(--mist);font-size:12.5px;text-align:center">Olá! Eu sou a ${esc(st.mascot.name)}.<br>Fale comigo ou toque numa sugestão acima.</div>`;
       return `
         <div class="main-head">
           <div><h4>Olá!</h4><div class="sub">Fale ou digite um comando para a ${esc(st.mascot.name)}</div></div>
@@ -896,15 +940,15 @@
           <div class="convo" id="convo">${msgsHtml}</div>
           <div class="mini">
             <div class="top">
-              <div class="art">🎵</div>
+              <div class="art">${ic('music', 18)}</div>
               <div style="min-width:0"><b>Mídia & PC</b><small>Controle rápido</small></div>
             </div>
             <div class="ctl">
-              <button data-media="vol_down" title="Volume -">🔉</button>
-              <button data-media="prev" title="Anterior">⏮</button>
-              <button class="pp" data-media="play_pause" title="Play / Pause">${st.playingMedia ? '❚❚' : '▶'}</button>
-              <button data-media="next" title="Próxima">⏭</button>
-              <button data-media="vol_up" title="Volume +">🔊</button>
+              <button data-media="vol_down" title="Volume -">${ic('volDown', 14)}</button>
+              <button data-media="prev" title="Anterior">${ic('prev', 14)}</button>
+              <button class="pp" data-media="play_pause" title="Play / Pause">${st.playingMedia ? ic('pause', 14) : ic('play', 14)}</button>
+              <button data-media="next" title="Próxima">${ic('next', 14)}</button>
+              <button data-media="vol_up" title="Volume +">${ic('volUp', 14)}</button>
             </div>
             <div class="mini-stats">
               <span>CPU <b>${st.cpu}%</b></span>
@@ -912,6 +956,49 @@
             </div>
           </div>
         </div>
+      `;
+    }
+
+    function vTerminal() {
+      return `
+        <div class="main-head" style="margin-bottom:4px;">
+          <div>
+            <h4>Terminal Integrado</h4>
+            <div class="sub">Sistema Padrão ou Ubuntu Shell (WSL / Docker / Universal)</div>
+          </div>
+          <select id="hudShellMode" style="padding:4px 8px;font-size:11px;border-radius:8px;background:#141624;color:var(--ink);border:1px solid var(--line);">
+            <option value="auto"${st.shellMode === 'auto' ? ' selected' : ''}>Sistema Padrão</option>
+            <option value="ubuntu"${st.shellMode === 'ubuntu' ? ' selected' : ''}>Ubuntu (${esc(st.ubuntuBackend)})</option>
+          </select>
+        </div>
+        <div class="ask" style="margin-bottom:6px;">
+          <input type="text" id="termInput" placeholder="${st.shellMode === 'ubuntu' ? 'ubuntu@aura:~$ ls -la, uname -a, git status…' : '$ dir, ls, git status, python --version…'}" style="font-family:var(--font-mono);font-size:12px;" autocomplete="off" />
+          <button class="ask-send" id="termSend" title="Executar">${ic('play', 12)}</button>
+        </div>
+        <div class="chips" style="margin:0 0 6px;">
+          <button class="chip" data-term-chip="uname -a">${ic('terminal', 12)} uname -a</button>
+          <button class="chip" data-term-chip="ls -la">${ic('terminal', 12)} ls -la</button>
+          <button class="chip" data-term-chip="git status">${ic('code', 12)} git status</button>
+          <button class="chip" data-term-chip="df -h">${ic('activity', 12)} df -h</button>
+        </div>
+        <div class="term-box" id="termBox" style="flex:1;height:auto;min-height:140px;">${esc(st.termOutput)}</div>
+      `;
+    }
+
+    function vPacks() {
+      return `
+        <h4>Packs & APIs Rápidas</h4>
+        <div class="sub">Consulte clima, cotações, notícias, briefing e utilitários dev direto do topo</div>
+        <div class="chips" style="margin:0 0 8px;">
+          <button class="chip" data-hud-pack="weather">${ic('cloudSun', 12)} Clima</button>
+          <button class="chip" data-hud-pack="finance">${ic('dollar', 12)} Cotações</button>
+          <button class="chip" data-hud-pack="news">${ic('news', 12)} Tech News</button>
+          <button class="chip" data-hud-pack="briefing">${ic('sunrise', 12)} Briefing</button>
+          <button class="chip" data-hud-dev="password">${ic('key', 12)} Senha Forte</button>
+          <button class="chip" data-hud-dev="uuid">${ic('code', 12)} UUID</button>
+          <button class="chip" data-hud-dev="public_ip">${ic('globe', 12)} IP Público</button>
+        </div>
+        <div class="term-box" id="hudPackBox" style="flex:1;height:auto;min-height:155px;color:var(--lavender);border-color:rgba(90,216,255,.25);">${esc(st.packOutput)}</div>
       `;
     }
 
@@ -944,19 +1031,19 @@
         <div class="sub">Pequenas vitórias de hoje</div>
         <div class="scroll-area">
           <div class="row">
-            <span style="font-size:20px">💧</span>
-            <div class="t">Água <small>${w}/8 copos${w >= 8 ? ' · ✅ Meta batida!' : ''}</small><div class="bar"><i style="width:${Math.min(100, w / 8 * 100)}%"></i></div></div>
+            <span style="color:var(--sky);display:grid;place-items:center;">${ic('droplet', 20)}</span>
+            <div class="t">Água <small>${w}/8 copos${w >= 8 ? ' · Meta batida!' : ''}</small><div class="bar"><i style="width:${Math.min(100, w / 8 * 100)}%"></i></div></div>
             <button class="rb" data-habit="water" data-delta="-1">−</button>
             <button class="rb plus" data-habit="water" data-delta="1">+</button>
           </div>
           <div class="row">
-            <span style="font-size:20px">📖</span>
-            <div class="t">Ler <small>${r}/1 vez${r >= 1 ? ' · ✅' : ''}</small><div class="bar"><i style="width:${r >= 1 ? 100 : 0}%"></i></div></div>
+            <span style="color:var(--glow);display:grid;place-items:center;">${ic('book', 20)}</span>
+            <div class="t">Ler <small>${r}/1 vez${r >= 1 ? ' · Concluído' : ''}</small><div class="bar"><i style="width:${r >= 1 ? 100 : 0}%"></i></div></div>
             <button class="rb plus" data-habit="read" data-delta="1">${r >= 1 ? '✓' : '+'}</button>
           </div>
           <div class="row">
-            <span style="font-size:20px">🏃</span>
-            <div class="t">Exercício / Pausa <small>${e}/1 vez${e >= 1 ? ' · ✅' : ''}</small><div class="bar"><i style="width:${e >= 1 ? 100 : 0}%"></i></div></div>
+            <span style="color:var(--warn);display:grid;place-items:center;">${ic('activity', 20)}</span>
+            <div class="t">Exercício / Pausa <small>${e}/1 vez${e >= 1 ? ' · Concluído' : ''}</small><div class="bar"><i style="width:${e >= 1 ? 100 : 0}%"></i></div></div>
             <button class="rb plus" data-habit="exercise" data-delta="1">${e >= 1 ? '✓' : '+'}</button>
           </div>
         </div>
@@ -981,17 +1068,17 @@
         <h4>Música & Mídia</h4>
         <div class="sub">Controle global de áudio do computador</div>
         <div class="row" style="padding:14px;gap:14px;">
-          <div style="width:68px;height:68px;border-radius:14px;background:linear-gradient(135deg,#2b4a1e,#161829);display:grid;place-items:center;font-size:28px;flex:none;">🎵</div>
+          <div style="width:68px;height:68px;border-radius:14px;background:linear-gradient(135deg,#2b4a1e,#161829);display:grid;place-items:center;color:var(--glow);flex:none;">${ic('music', 28)}</div>
           <div style="flex:1;min-width:0;">
             <b style="font:800 16px var(--font-display);display:block;">Player do Sistema</b>
             <small style="color:var(--mist);font-size:12px;">Spotify, YouTube ou Mídia ativa</small>
             <div class="ctl" style="justify-content:flex-start;margin-top:10px;gap:8px;">
-              <button data-media="prev" title="Anterior">⏮</button>
-              <button class="pp" data-media="play_pause" title="Tocar / Pausar">${st.playingMedia ? '❚❚' : '▶'}</button>
-              <button data-media="next" title="Próxima">⏭</button>
-              <button data-media="vol_down" title="Volume -">🔉</button>
-              <button data-media="vol_up" title="Volume +">🔊</button>
-              <button data-media="mute" title="Mudo">🔇</button>
+              <button data-media="prev" title="Anterior">${ic('prev', 14)}</button>
+              <button class="pp" data-media="play_pause" title="Tocar / Pausar">${st.playingMedia ? ic('pause', 14) : ic('play', 14)}</button>
+              <button data-media="next" title="Próxima">${ic('next', 14)}</button>
+              <button data-media="vol_down" title="Volume -">${ic('volDown', 14)}</button>
+              <button data-media="vol_up" title="Volume +">${ic('volUp', 14)}</button>
+              <button data-media="mute" title="Mudo">${ic('volMute', 14)}</button>
             </div>
           </div>
         </div>
@@ -1011,16 +1098,16 @@
         <div class="sub">Atalhos rápidos, terminal e acesso celular 4G/5G</div>
         <div class="scroll-area">
           <div class="sys-grid">
-            <button class="sys-tile" data-routine="dev">💻 Modo Dev</button>
-            <button class="sys-tile" data-routine="study">📚 Modo Estudo</button>
-            <button class="sys-tile" data-routine="clean">🧹 Modo Faxina</button>
-            <button class="sys-tile" data-shot="1">📸 Capturar Tela</button>
-            <button class="sys-tile" data-power="lock">🔒 Bloquear PC</button>
-            <button class="sys-tile" data-act="hide">👻 Ocultar HUD</button>
+            <button class="sys-tile" data-routine="dev">${ic('code', 14)} Modo Dev</button>
+            <button class="sys-tile" data-routine="study">${ic('book', 14)} Modo Estudo</button>
+            <button class="sys-tile" data-routine="clean">${ic('broom', 14)} Modo Faxina</button>
+            <button class="sys-tile" data-shot="1">${ic('camera', 14)} Capturar Tela</button>
+            <button class="sys-tile" data-power="lock">${ic('lock', 14)} Bloquear PC</button>
+            <button class="sys-tile" data-act="hide">${ic('eyeOff', 14)} Ocultar HUD</button>
           </div>
           <div class="ask">
             <input type="text" id="termInput" placeholder="Comando rápido (ls, dir, git status, python --version)…" style="font-family:var(--font-mono);font-size:12px;" />
-            <button class="ask-send" id="termSend">▶</button>
+            <button class="ask-send" id="termSend">${ic('play', 12)}</button>
           </div>
           <div class="term-box" id="termBox">${esc(st.termOutput)}</div>
           ${qr ? `<div class="row" style="margin-top:8px;">${qr}<div class="t">Celular 4G/5G<small style="user-select:text;">${esc(st.remote.active_qr_url)}</small></div></div>` : ''}
@@ -1067,14 +1154,14 @@
           <div class="cust-sec">
             <label>Modo de Voz</label>
             <div class="chips" style="margin-top:0;">
-              <button class="chip" data-voice="toggle">${st.mascot.silentMode ? '🤫 Modo só executar (mudo)' : '🔊 Responder em voz alta'}</button>
+              <button class="chip" data-voice="toggle">${st.mascot.silentMode ? ic('volMute', 13) + ' Modo só executar (mudo)' : ic('volUp', 13) + ' Responder em voz alta'}</button>
             </div>
           </div>
         </div>
       `;
     }
 
-    const VIEWS = { home: vHome, tasks: vTasks, habits: vHabits, timers: vTimers, music: vMusic, system: vSystem, visual: vVisual };
+    const VIEWS = { home: vHome, terminal: vTerminal, packs: vPacks, tasks: vTasks, habits: vHabits, timers: vTimers, music: vMusic, system: vSystem, visual: vVisual };
 
     function render() {
       renderPill();
@@ -1289,17 +1376,71 @@
         const cmd = inp && inp.value.trim();
         if (!cmd) return;
         inp.value = '';
-        st.termOutput += `\n> ${cmd}\nExecutando…`;
+        const modeSel = document.getElementById('hudShellMode');
+        if (modeSel) st.shellMode = modeSel.value;
+        st.termOutput += `\n${st.shellMode === 'ubuntu' ? 'ubuntu@aura:~$' : '$'} ${cmd}\nExecutando…`;
         render();
-        const r = await fetch('/api/terminal/input', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ node_id: 'hud-term', raw_input: cmd, agent_name: 'AURA Terminal', mode: 'auto' })
-        });
-        const res = await r.json();
-        const sess = res.terminal_session || res.session;
-        if (sess && sess.history) {
-          st.termOutput = sess.history.slice(-3).map(h => `$ ${h.cmd}\n${h.output}`).join('\n\n');
+        if (st.shellMode === 'ubuntu') {
+          const r = await fetch('/api/terminal/exec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ node_id: 'hud-term', command: cmd, node_name: 'HUD Ubuntu', shell_mode: 'ubuntu' })
+          });
+          const res = await r.json();
+          if (res.session?.history) {
+            st.termOutput = res.session.history.slice(-3).map(h => `${h.cmd}\n${h.output}`).join('\n\n');
+          }
+        } else {
+          const r = await fetch('/api/terminal/input', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ node_id: 'hud-term', raw_input: cmd, agent_name: 'AURA Terminal', mode: 'auto' })
+          });
+          const res = await r.json();
+          const sess = res.terminal_session || res.session;
+          if (sess && sess.history) {
+            st.termOutput = sess.history.slice(-3).map(h => `$ ${h.cmd}\n${h.output}`).join('\n\n');
+          }
+        }
+        render();
+        return;
+      }
+      if (d.termChip) {
+        const inp = document.getElementById('termInput');
+        if (inp) { inp.value = d.termChip; document.getElementById('termSend')?.click(); }
+        return;
+      }
+      if (d.hudPack) {
+        st.packOutput = 'Consultando API...';
+        render();
+        try {
+          const urlMap = {
+            weather: '/api/packs/weather?city=Sao+Paulo',
+            finance: '/api/packs/finance',
+            news: '/api/packs/news?topic=pt&limit=5',
+            briefing: '/api/packs/briefing?city=Sao+Paulo',
+          };
+          const r = await fetch(urlMap[d.hudPack]);
+          const data = await r.json();
+          st.packOutput = JSON.stringify(data, null, 2);
+        } catch (err) {
+          st.packOutput = 'Erro ao consultar pack.';
+        }
+        render();
+        return;
+      }
+      if (d.hudDev) {
+        st.packOutput = 'Gerando...';
+        render();
+        try {
+          const r = await fetch('/api/packs/dev-utils', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: d.hudDev, params: { length: 18 } })
+          });
+          st.packOutput = JSON.stringify(await r.json(), null, 2);
+        } catch (err) {
+          st.packOutput = 'Erro ao executar utilitário.';
         }
         render();
         return;
@@ -1346,6 +1487,22 @@
         toast(st.mascot.silentMode ? '🤫 Modo só executar ativado' : '🔊 Voz ativada');
         render();
         saveHudState({ mascot: st.mascot });
+      }
+    });
+
+    notch.addEventListener('change', async (e) => {
+      if (e.target.id === 'hudShellMode') {
+        st.shellMode = e.target.value;
+        try {
+          const r = await fetch('/api/terminal/mode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ node_id: 'hud-term', mode: st.shellMode })
+          });
+          const d = await r.json();
+          if (d.ubuntu?.label) st.ubuntuBackend = d.ubuntu.label;
+        } catch (err) {}
+        render();
       }
     });
 

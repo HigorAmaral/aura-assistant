@@ -110,6 +110,8 @@ from system_optimizer import (
     scan_drivers_and_firmware,
     trigger_driver_update_scan,
     run_pc_optimization,
+    scan_large_files,
+    get_system_health_summary,
 )
 from updater import (
     get_update_status,
@@ -596,6 +598,16 @@ def api_optimizer_drivers_scan():
 @app.post("/api/optimizer/run")
 def api_optimizer_run(req: OptimizerRunRequest):
     return run_pc_optimization(req.tasks)
+
+
+@app.get("/api/optimizer/large-files")
+def api_optimizer_large_files(min_mb: int = 20, limit: int = 20):
+    return scan_large_files(min_mb=min_mb, limit=limit)
+
+
+@app.get("/api/optimizer/health")
+def api_optimizer_health():
+    return get_system_health_summary()
 
 
 # --- Gerenciador de Processos do Sistema ---
