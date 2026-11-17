@@ -1273,3 +1273,81 @@ def kill_process_by_pid(pid: int) -> Dict[str, Any]:
     except Exception as e:
         return {"success": False, "message": f"Erro ao encerrar PID {pid}: {e}"}
 
+
+def get_open_ports(limit: int = 35) -> List[Dict[str, Any]]:
+    """Return active listening TCP/UDP network ports with owning process name and PID."""
+    ports: List[Dict[str, Any]] = []
+    seen = set()
+    try:
+        conns = psutil.net_connections(kind="inet")
+    except Exception:
+        return []
+
+    proc_cache: Dict[int, str] = {}
+    for c in conns:
+        try:
+            if c.status not in ("LISTEN", "NONE", "") and c.type == socket.SOCK_STREAM:
+                continue
+            if not c.laddr:
+                continue
+            ip = c.laddr.ip
+            port = c.laddr.port
+            proto = "TCP" if c.type == socket.SOCK_STREAM else "UDP"
+            key = (proto, ip, port, c.pid)
+            if key in seen:
+                continue
+            seen.add(key)
+            pid = c.pid or 0
+            if pid and pid not in proc_cache:
+                try:
+                    proc_cache[pid] = psutil.Process(pid).name()
+                except Exception:
+                    proc_cache[pid] = "system"
+            ports.append(
+                {
+                    "protocol": proto,
+                    "ip": ip,
+                    "port": port,
+                    "pid": pid,
+                    "process": proc_cache.get(pid, "system"),
+                    "status": c.status or "LISTEN",
+                }
+            )
+        except Exception:
+            continue
+
+    ports.sort(key=lambda x: x["port"])
+    return ports[: max(1, min(limit, 100))]
+
+
+def get_dev_environment_info() -> Dict[str, Any]:
+    """Detect installed developer runtimes and CLI tools with versions."""
+    tools = {
+        "python": ["python", "--version"],
+        "node": ["node", "--version"],
+        "npm": ["npm", "--version"],
+        "git": ["git", "--version"],
+        "gh": ["gh", "--version"],
+        "docker": ["docker", "--version"],
+    }
+    if IS_WINDOWS:
+        tools["winget"] = ["winget", "--version"]
+
+    results: Dict[str, Dict[str, Any]] = {}
+    for name, cmd in tools.items():
+        exe_path = shutil.which(cmd[0])
+        if not exe_path:
+            results[name] = {"installed": False, "version": "", "path": ""}
+            continue
+        version_str = ""
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=3)
+            raw = (proc.stdout or proc.stderr or "").strip().splitlines()
+            if raw:
+                version_str = raw[0][:80]
+        except Exception:
+            version_str = "instalado"
+        results[name] = {"installed": True, "version": version_str, "path": exe_path}
+    return {"ok": True, "os": OS_NAME, "tools": results}
+
+

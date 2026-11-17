@@ -1,20 +1,27 @@
 import sqlite3
 import json
+import threading
+import time
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
 DB_PATH = Path(__file__).parent / "aura_data.db"
+_SETTINGS_LOCK = threading.Lock()
+_SETTINGS_CACHE: Dict[str, Any] = {"data": None, "ts": 0.0}
 
 
 def get_conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(DB_PATH), timeout=15.0)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout=15000;")
     return conn
 
 
 def init_db() -> None:
     with get_conn() as conn:
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
         conn.executescript(
             """
             CREATE TABLE IF NOT EXISTS tasks (
@@ -517,24 +524,47 @@ def get_settings() -> Dict[str, Any]:
         "remote_pin": "",
         "active_workspace": str(Path.cwd()),
         "global_env_vars": {},
+        "cerebras_api_key": "",
+        "deepseek_api_key": "",
+        "custom_openai_url": "",
+        "custom_openai_key": "",
+        "custom_openai_model": "",
+        "enabled_packs": {
+            "weather": True,
+            "finance": True,
+            "news": True,
+            "translate": True,
+            "dev_utils": True,
+            "productivity": True,
+        },
     }
-    with get_conn() as conn:
-        rows = conn.execute("SELECT key, value FROM settings").fetchall()
-        for r in rows:
-            try:
-                defaults[r["key"]] = json.loads(r["value"])
-            except Exception:
-                defaults[r["key"]] = r["value"]
+    now = time.monotonic()
+    with _SETTINGS_LOCK:
+        if _SETTINGS_CACHE["data"] is not None and (now - _SETTINGS_CACHE["ts"]) < 2.0:
+            return dict(_SETTINGS_CACHE["data"])
+
+        with get_conn() as conn:
+            rows = conn.execute("SELECT key, value FROM settings").fetchall()
+            for r in rows:
+                try:
+                    defaults[r["key"]] = json.loads(r["value"])
+                except Exception:
+                    defaults[r["key"]] = r["value"]
+        _SETTINGS_CACHE["data"] = dict(defaults)
+        _SETTINGS_CACHE["ts"] = now
     return defaults
 
 
 def update_settings(new_settings: Dict[str, Any]) -> Dict[str, Any]:
-    with get_conn() as conn:
-        for k, v in new_settings.items():
-            conn.execute(
-                "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-                (k, json.dumps(v)),
-            )
+    with _SETTINGS_LOCK:
+        with get_conn() as conn:
+            for k, v in new_settings.items():
+                conn.execute(
+                    "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                    (k, json.dumps(v)),
+                )
+        _SETTINGS_CACHE["data"] = None
+        _SETTINGS_CACHE["ts"] = 0.0
     log_activity("CONFIG", "Configurações do sistema atualizadas")
     return get_settings()
 
@@ -570,4 +600,35 @@ def clear_chat_history() -> int:
     with get_conn() as conn:
         cur = conn.execute("DELETE FROM chat_history")
         return cur.rowcount
+
+
+def export_all_data() -> Dict[str, Any]:
+    """Export tasks, notes, automations, memories, triggers, and sanitized settings as JSON."""
+    settings = get_settings()
+    sensitive_keys = {
+        "gemini_api_key",
+        "groq_api_key",
+        "openrouter_api_key",
+        "cerebras_api_key",
+        "deepseek_api_key",
+        "custom_openai_key",
+        "remote_pin",
+    }
+    safe_settings = {k: ("***" if k in sensitive_keys and v else v) for k, v in settings.items()}
+    with get_conn() as conn:
+        tasks = [dict(r) for r in conn.execute("SELECT * FROM tasks ORDER BY id DESC").fetchall()]
+        notes = [dict(r) for r in conn.execute("SELECT * FROM notes ORDER BY id DESC").fetchall()]
+        memories = [dict(r) for r in conn.execute("SELECT * FROM memories ORDER BY id DESC").fetchall()]
+        triggers = [dict(r) for r in conn.execute("SELECT * FROM custom_triggers ORDER BY id DESC").fetchall()]
+        automations = [dict(r) for r in conn.execute("SELECT * FROM automations ORDER BY id DESC").fetchall()]
+    return {
+        "exported_at": datetime.now().isoformat(),
+        "version": "5.1.0",
+        "tasks": tasks,
+        "notes": notes,
+        "memories": memories,
+        "custom_triggers": triggers,
+        "automations": automations,
+        "settings": safe_settings,
+    }
 

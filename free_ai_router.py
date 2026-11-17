@@ -66,6 +66,33 @@ FREE_AI_POOL: List[Dict[str, Any]] = [
         "specialty": "Rotação Open-Weight",
     },
     {
+        "id": "cerebras:llama-3.3-70b",
+        "name": "Llama 3.3 70B (Cerebras Free Tier)",
+        "provider": "Cerebras Cloud",
+        "model_slug": "llama-3.3-70b",
+        "requires_key": True,
+        "key_setting": "cerebras_api_key",
+        "specialty": "Velocidade Extrema (2000+ tok/s)",
+    },
+    {
+        "id": "deepseek:chat",
+        "name": "DeepSeek V3/Chat (API Oficial)",
+        "provider": "DeepSeek API",
+        "model_slug": "deepseek-chat",
+        "requires_key": True,
+        "key_setting": "deepseek_api_key",
+        "specialty": "Código & Raciocínio Avançado",
+    },
+    {
+        "id": "custom:openai",
+        "name": "Custom OpenAI-Compatible API",
+        "provider": "Custom Endpoint",
+        "model_slug": "gpt-4o-mini",
+        "requires_key": True,
+        "key_setting": "custom_openai_url",
+        "specialty": "LM Studio / vLLM / Together / Custom",
+    },
+    {
         "id": "ollama:local",
         "name": "Ollama Local (Offline)",
         "provider": "Localhost GPU/CPU",
@@ -159,9 +186,35 @@ def _resolve_task_config(task_type: str, preferred_model_id: Optional[str]) -> t
     return temp, order
 
 
-def _call_pollinations_free(model_slug: str, system_prompt: str, user_prompt: str, temperature: float = 0.45) -> str:
-    """Call Pollinations Free OpenAI-compatible endpoint (zero API key required)."""
-    url = "https://text.pollinations.ai/openai"
+_HTTP_POOL: Optional[httpx.Client] = None
+
+
+def _get_http_client() -> httpx.Client:
+    """Shared connection-pooled httpx.Client to avoid TCP/TLS handshake overhead per request."""
+    global _HTTP_POOL
+    if _HTTP_POOL is None or _HTTP_POOL.is_closed:
+        _HTTP_POOL = httpx.Client(
+            timeout=22.0,
+            follow_redirects=True,
+            limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+        )
+    return _HTTP_POOL
+
+
+def _call_openai_compatible(
+    url: str,
+    model_slug: str,
+    system_prompt: str,
+    user_prompt: str,
+    temperature: float = 0.45,
+    api_key: str = "",
+    provider_label: str = "Provider",
+    timeout: float = 20.0,
+) -> str:
+    """Unified caller for OpenAI-compatible chat completion APIs (Pollinations, Groq, OpenRouter, Cerebras, DeepSeek, Custom)."""
+    headers: Dict[str, str] = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
     payload = {
         "model": model_slug,
         "messages": [
@@ -170,72 +223,74 @@ def _call_pollinations_free(model_slug: str, system_prompt: str, user_prompt: st
         ],
         "temperature": temperature,
     }
-    with httpx.Client(timeout=22.0, follow_redirects=True) as client:
-        resp = client.post(url, json=payload)
-        if resp.status_code == 429 or resp.status_code >= 500:
-            raise RuntimeError(f"HTTP {resp.status_code} (Limite de tokens/requisições atingido)")
-        resp.raise_for_status()
-        data = resp.json()
-        choices = data.get("choices", [])
-        if choices and choices[0].get("message", {}).get("content"):
-            return _clean_model_reply(choices[0]["message"]["content"])
-        raise RuntimeError("Resposta vazia do provedor gratuito")
+    client = _get_http_client()
+    resp = client.post(url, headers=headers, json=payload, timeout=timeout)
+    if resp.status_code == 429 or resp.status_code >= 500:
+        raise RuntimeError(f"{provider_label} HTTP {resp.status_code} (Limite/Indisponível)")
+    resp.raise_for_status()
+    data = resp.json()
+    choices = data.get("choices", [])
+    if choices and choices[0].get("message", {}).get("content"):
+        return _clean_model_reply(choices[0]["message"]["content"])
+    raise RuntimeError(f"Resposta vazia de {provider_label}")
+
+
+def _call_pollinations_free(model_slug: str, system_prompt: str, user_prompt: str, temperature: float = 0.45) -> str:
+    """Call Pollinations Free OpenAI-compatible endpoint (zero API key required)."""
+    return _call_openai_compatible(
+        url="https://text.pollinations.ai/openai",
+        model_slug=model_slug,
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        temperature=temperature,
+        provider_label="Pollinations",
+        timeout=22.0,
+    )
 
 
 def _call_groq_free(api_key: str, model_slug: str, system_prompt: str, user_prompt: str, temperature: float = 0.4) -> str:
-    url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {api_key}"}
-    payload = {
-        "model": model_slug,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        "temperature": temperature,
-    }
-    with httpx.Client(timeout=18.0) as client:
-        resp = client.post(url, headers=headers, json=payload)
-        if resp.status_code == 429:
-            raise RuntimeError("Groq 429 Quota Exceeded")
-        resp.raise_for_status()
-        return _clean_model_reply(resp.json()["choices"][0]["message"]["content"])
+    return _call_openai_compatible(
+        url="https://api.groq.com/openai/v1/chat/completions",
+        model_slug=model_slug,
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        temperature=temperature,
+        api_key=api_key,
+        provider_label="Groq",
+        timeout=18.0,
+    )
 
 
 def _call_openrouter_free(api_key: str, model_slug: str, system_prompt: str, user_prompt: str, temperature: float = 0.4) -> str:
-    url = "https://openrouter.ai/api/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {api_key}"}
-    payload = {
-        "model": model_slug,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        "temperature": temperature,
-    }
-    with httpx.Client(timeout=20.0) as client:
-        resp = client.post(url, headers=headers, json=payload)
-        if resp.status_code == 429:
-            raise RuntimeError("OpenRouter 429 Quota Exceeded")
-        resp.raise_for_status()
-        return _clean_model_reply(resp.json()["choices"][0]["message"]["content"])
+    return _call_openai_compatible(
+        url="https://openrouter.ai/api/v1/chat/completions",
+        model_slug=model_slug,
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        temperature=temperature,
+        api_key=api_key,
+        provider_label="OpenRouter",
+        timeout=20.0,
+    )
 
 
 def _call_ollama_local(ollama_url: str, model_slug: str, system_prompt: str, user_prompt: str, temperature: float = 0.4) -> str:
-    with httpx.Client(timeout=16.0) as client:
-        resp = client.post(
-            f"{ollama_url.rstrip('/')}/api/chat",
-            json={
-                "model": model_slug,
-                "stream": False,
-                "options": {"temperature": temperature},
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-            },
-        )
-        resp.raise_for_status()
-        return _clean_model_reply(resp.json().get("message", {}).get("content", ""))
+    client = _get_http_client()
+    resp = client.post(
+        f"{ollama_url.rstrip('/')}/api/chat",
+        json={
+            "model": model_slug,
+            "stream": False,
+            "options": {"temperature": temperature},
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+        },
+        timeout=16.0,
+    )
+    resp.raise_for_status()
+    return _clean_model_reply(resp.json().get("message", {}).get("content", ""))
 
 
 def call_with_free_ai_failover(
@@ -287,17 +342,71 @@ def call_with_free_ai_failover(
                 reply = _call_pollinations_free(candidate["model_slug"], system_prompt, user_prompt, temperature=eff_temp)
             elif pid.startswith("gemini:"):
                 from google import genai
+                from google.genai import types
                 client = genai.Client(api_key=key_val)
-                inter = client.interactions.create(
-                    model="gemini-3.8-flash",
-                    input=user_prompt,
-                    system_instruction=system_prompt,
-                )
-                reply = _clean_model_reply(inter.output_text or "")
+                gemini_model = settings.get("gemini_model") or "gemini-2.5-flash"
+                try:
+                    resp = client.models.generate_content(
+                        model=gemini_model,
+                        contents=user_prompt,
+                        config=types.GenerateContentConfig(
+                            system_instruction=system_prompt,
+                            temperature=eff_temp,
+                        ),
+                    )
+                    reply = _clean_model_reply(resp.text or "")
+                except Exception:
+                    inter = client.interactions.create(
+                        model=gemini_model,
+                        input=user_prompt,
+                        system_instruction=system_prompt,
+                    )
+                    reply = _clean_model_reply(inter.output_text or "")
             elif pid.startswith("groq:"):
                 reply = _call_groq_free(key_val, candidate["model_slug"], system_prompt, user_prompt, temperature=eff_temp)
             elif pid.startswith("openrouter:"):
                 reply = _call_openrouter_free(key_val, candidate["model_slug"], system_prompt, user_prompt, temperature=eff_temp)
+            elif pid.startswith("cerebras:"):
+                reply = _call_openai_compatible(
+                    url="https://api.cerebras.ai/v1/chat/completions",
+                    model_slug=candidate["model_slug"],
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    temperature=eff_temp,
+                    api_key=key_val,
+                    provider_label="Cerebras",
+                    timeout=15.0,
+                )
+            elif pid.startswith("deepseek:"):
+                reply = _call_openai_compatible(
+                    url="https://api.deepseek.com/chat/completions",
+                    model_slug=candidate["model_slug"],
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    temperature=eff_temp,
+                    api_key=key_val,
+                    provider_label="DeepSeek",
+                    timeout=20.0,
+                )
+            elif pid == "custom:openai":
+                custom_url = str(settings.get("custom_openai_url", "")).strip()
+                custom_key = str(settings.get("custom_openai_key", "")).strip()
+                custom_model = str(settings.get("custom_openai_model", "")).strip() or candidate["model_slug"]
+                if not custom_url:
+                    continue
+                endpoint = custom_url.rstrip("/")
+                if not endpoint.endswith("/chat/completions"):
+                    endpoint = f"{endpoint}/chat/completions"
+                reply = _call_openai_compatible(
+                    url=endpoint,
+                    model_slug=custom_model,
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    temperature=eff_temp,
+                    api_key=custom_key,
+                    provider_label="Custom API",
+                    timeout=22.0,
+                )
             elif pid == "ollama:local":
                 reply = _call_ollama_local(
                     settings.get("ollama_url", "http://localhost:11434"),

@@ -34,6 +34,7 @@ from storage import (
     clear_activity_logs,
     get_chat_history,
     clear_chat_history,
+    export_all_data,
 )
 from system_tools import (
     get_system_stats,
@@ -54,6 +55,8 @@ from system_tools import (
     create_desktop_launcher,
     get_network_diagnostics,
     power_control,
+    get_open_ports,
+    get_dev_environment_info,
     IS_WINDOWS,
 )
 from file_tools import (
@@ -109,6 +112,17 @@ from updater import (
     apply_update,
     start_auto_update_daemon,
     build_portable_app_zip,
+)
+from packs_manager import (
+    list_packs,
+    toggle_pack,
+    run_pack_action,
+    get_weather,
+    get_finance_quotes,
+    get_tech_news,
+    translate_text,
+    run_dev_util,
+    get_daily_briefing,
 )
 
 
@@ -306,6 +320,38 @@ class SettingsUpdateRequest(BaseModel):
     remote_pin: Optional[str] = None
     active_workspace: Optional[str] = None
     global_env_vars: Optional[Dict[str, str]] = None
+    cerebras_api_key: Optional[str] = None
+    deepseek_api_key: Optional[str] = None
+    custom_openai_url: Optional[str] = None
+    custom_openai_key: Optional[str] = None
+    custom_openai_model: Optional[str] = None
+    enabled_packs: Optional[Dict[str, bool]] = None
+
+
+class PackToggleRequest(BaseModel):
+    enabled: Optional[bool] = None
+
+
+class PackRunRequest(BaseModel):
+    action: str = ""
+    params: Dict[str, Any] = {}
+
+
+class TranslateRequest(BaseModel):
+    text: str
+    target_lang: str = "en"
+    source_lang: str = "pt"
+
+
+class DevUtilRequest(BaseModel):
+    action: str
+    params: Dict[str, Any] = {}
+
+
+class WebhookTriggerRequest(BaseModel):
+    event: str = "chat"
+    payload: Dict[str, Any] = {}
+    notify_mobile: bool = True
 
 
 class WorkspaceSetRequest(BaseModel):
@@ -1036,6 +1082,132 @@ def api_download_bundle():
         media_type="application/zip",
         headers={"Content-Disposition": 'attachment; filename="AURA-OS-App.zip"'},
     )
+
+
+# --- Packs, External APIs, Webhooks & Extended System Endpoints ---
+@app.get("/api/capabilities")
+def api_capabilities():
+    return {
+        "name": "AURA OS",
+        "version": "5.1.0",
+        "docs_url": "/docs",
+        "openapi_url": "/openapi.json",
+        "packs": list_packs(),
+        "ai_pool": get_free_pool_status(),
+        "endpoints": {
+            "chat": "POST /api/chat",
+            "packs_list": "GET /api/packs",
+            "packs_run": "POST /api/packs/{pack_id}/run",
+            "weather": "GET /api/packs/weather?city=Sao+Paulo",
+            "finance": "GET /api/packs/finance?pairs=USD-BRL,EUR-BRL,BTC-BRL",
+            "news": "GET /api/packs/news?topic=pt&limit=6",
+            "translate": "POST /api/packs/translate",
+            "dev_utils": "POST /api/packs/dev-utils",
+            "briefing": "GET /api/packs/briefing?city=Sao+Paulo",
+            "ports": "GET /api/system/ports",
+            "dev_env": "GET /api/system/dev-env",
+            "backup": "GET /api/system/backup",
+            "webhook": "POST /api/webhooks/trigger",
+        },
+    }
+
+
+@app.get("/api/packs")
+def api_list_packs():
+    return {"packs": list_packs()}
+
+
+@app.post("/api/packs/{pack_id}/toggle")
+def api_toggle_pack(pack_id: str, req: Optional[PackToggleRequest] = None):
+    enabled = req.enabled if req else None
+    res = toggle_pack(pack_id, enabled=enabled)
+    if not res.get("ok"):
+        raise HTTPException(status_code=404, detail=res.get("error", "Pack não encontrado"))
+    return res
+
+
+@app.post("/api/packs/{pack_id}/run")
+def api_run_pack(pack_id: str, req: PackRunRequest):
+    return run_pack_action(pack_id=pack_id, action=req.action, params=req.params)
+
+
+@app.get("/api/packs/weather")
+def api_pack_weather(city: str = "São Paulo"):
+    return run_pack_action("weather", "forecast", {"city": city})
+
+
+@app.get("/api/packs/finance")
+def api_pack_finance(pairs: str = "USD-BRL,EUR-BRL,BTC-BRL,ETH-BRL"):
+    return run_pack_action("finance", "quotes", {"pairs": pairs})
+
+
+@app.get("/api/packs/news")
+def api_pack_news(topic: str = "pt", limit: int = 6):
+    return run_pack_action("news", "headlines", {"topic": topic, "limit": limit})
+
+
+@app.post("/api/packs/translate")
+def api_pack_translate(req: TranslateRequest):
+    return run_pack_action(
+        "translate",
+        "translate",
+        {"text": req.text, "target_lang": req.target_lang, "source_lang": req.source_lang},
+    )
+
+
+@app.post("/api/packs/dev-utils")
+def api_pack_dev_utils(req: DevUtilRequest):
+    return run_pack_action("dev_utils", req.action, req.params)
+
+
+@app.get("/api/packs/briefing")
+def api_pack_briefing(city: str = "São Paulo"):
+    return run_pack_action("productivity", "daily_briefing", {"city": city})
+
+
+@app.get("/api/system/ports")
+def api_system_ports(limit: int = 35):
+    ports = get_open_ports(limit=limit)
+    return {"ports": ports, "count": len(ports)}
+
+
+@app.get("/api/system/dev-env")
+def api_system_dev_env():
+    return get_dev_environment_info()
+
+
+@app.get("/api/system/backup")
+def api_system_backup():
+    data = export_all_data()
+    return JSONResponse(
+        content=data,
+        headers={"Content-Disposition": 'attachment; filename="aura-backup.json"'},
+    )
+
+
+@app.post("/api/webhooks/trigger")
+def api_webhook_trigger(req: WebhookTriggerRequest):
+    ev = (req.event or "chat").lower().strip()
+    p = req.payload or {}
+    if ev == "chat":
+        msg = str(p.get("message", "")).strip()
+        if not msg:
+            raise HTTPException(status_code=400, detail="Campo payload.message é obrigatório.")
+        result = process_chat_message(msg, preferred_model=p.get("preferred_model"))
+        if req.notify_mobile:
+            push_mobile_notification("Webhook Chat", result.get("reply", "")[:200], category="WEBHOOK")
+        return {"ok": True, "event": ev, "result": result}
+    if ev == "pack":
+        pack_id = str(p.get("pack_id", ""))
+        action = str(p.get("action", ""))
+        params = p.get("params") if isinstance(p.get("params"), dict) else {}
+        return {"ok": True, "event": ev, "result": run_pack_action(pack_id, action, params)}
+    if ev == "notify":
+        title = str(p.get("title", "Alerta Webhook"))
+        body = str(p.get("body", "Evento recebido pela API AURA."))
+        push_mobile_notification(title, body, category="WEBHOOK")
+        return {"ok": True, "event": ev, "notified": True}
+    raise HTTPException(status_code=400, detail=f"Evento webhook '{ev}' não suportado (use chat, pack ou notify).")
 
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

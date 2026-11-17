@@ -26,6 +26,16 @@ from system_tools import (
     lock_workstation,
     run_productivity_routine,
     check_installed_program,
+    get_open_ports,
+)
+from packs_manager import (
+    is_pack_enabled,
+    get_weather,
+    get_finance_quotes,
+    get_tech_news,
+    translate_text,
+    run_dev_util,
+    get_daily_briefing,
 )
 from file_tools import search_local_files, organize_directory, create_text_file
 from web_tools import search_web, read_and_summarize_url
@@ -295,6 +305,110 @@ def run_smart_local_agent(message: str, fallback_only: bool = False) -> Dict[str
         last_e = exec_res.get("last_entry") or {}
         actions_taken.append({"tool": "disk_inventory", "args": {}, "result": last_e})
         return {"reply": f"**Discos & Armazenamento do Sistema:**\n```\n{last_e.get('output', '')}\n```", "actions_taken": actions_taken, "provider": "AURA Full System Shell"}
+
+    if any(kw in lower for kw in ("portas abertas", "portas em uso", "portas escutando", "quais portas")):
+        ports = get_open_ports(limit=25)
+        actions_taken.append({"tool": "get_open_ports", "args": {}, "result": {"count": len(ports)}})
+        if not ports:
+            return {"reply": "Nenhuma porta de escuta encontrada ou permissão insuficiente.", "actions_taken": actions_taken, "provider": "AURA Network Inspector"}
+        lines = [f"• **{p['protocol']} `:{p['port']}`** ({p['ip']}) — `{p['process']}` (PID {p['pid']})" for p in ports[:15]]
+        return {"reply": f"**Portas em Escuta no Sistema ({len(ports)}):**\n\n" + "\n".join(lines), "actions_taken": actions_taken, "provider": "AURA Network Inspector"}
+
+    # --- Packs & External APIs ---
+    if is_pack_enabled("productivity") and any(kw in lower for kw in ("briefing diário", "briefing diario", "resumo do meu dia", "resumo do dia")):
+        brief = get_daily_briefing()
+        actions_taken.append({"tool": "pack_daily_briefing", "args": {}, "result": {"ok": brief.get("ok")}})
+        lines = [
+            f"**Briefing Diário AURA OS:**",
+            f"• **PC:** CPU {brief['system']['cpu_percent']}% | RAM {brief['system']['ram_percent']}% | Disco livre: {brief['system']['disk_free_gb']} GB | Uptime: {brief['system']['uptime']}",
+            f"• **Tarefas Pendentes:** {brief['pending_tasks_count']} | **Notas Recentes:** {brief['recent_notes_count']}",
+        ]
+        if brief.get("top_tasks"):
+            lines.append("• **Próximas Tarefas:** " + "; ".join(f"[{t['priority'].upper()}] {t['title']}" for t in brief["top_tasks"][:3]))
+        if brief.get("weather"):
+            w = brief["weather"]
+            lines.append(f"• **Clima ({w['location']}):** {w['temperature_c']}°C — {w['condition']}")
+        if brief.get("finance"):
+            q_str = " | ".join(f"{q['pair']}: {q['bid']:.2f} ({q['pct_change']:+.2f}%)" for q in brief["finance"][:3])
+            lines.append(f"• **Mercado:** {q_str}")
+        return {"reply": "\n".join(lines), "actions_taken": actions_taken, "provider": "AURA Pack: Produtividade"}
+
+    weather_match = re.search(
+        r"(?:clima|previs[aã]o\s+do\s+tempo|temperatura|como\s+est[aá]\s+o\s+tempo)(?:\s+(?:em|no|na|de|para)\s+([a-zA-ZÀ-ÿ0-9\s-]{2,40}))?",
+        text,
+        re.IGNORECASE,
+    )
+    if weather_match and is_pack_enabled("weather") and any(k in lower for k in ("clima", "previsão do tempo", "previsao do tempo", "como está o tempo", "como esta o tempo")):
+        city = (weather_match.group(1) or "São Paulo").strip(" ?!.")
+        w = get_weather(city)
+        actions_taken.append({"tool": "pack_weather", "args": {"city": city}, "result": {"ok": w.get("ok")}})
+        if not w.get("ok"):
+            return {"reply": w.get("error", "Erro ao consultar clima."), "actions_taken": actions_taken, "provider": "AURA Pack: Clima"}
+        fc_lines = [f"  - `{d['date']}`: {d['temp_min']}°C ~ {d['temp_max']}°C ({d['condition']}, chuva {d['rain_prob']}%)" for d in w.get("forecast", [])]
+        reply = (
+            f"**Clima em {w['location']}:**\n"
+            f"• **Agora:** {w['temperature_c']}°C (Sensação {w['feels_like_c']}°C) — **{w['condition']}**\n"
+            f"• **Umidade:** {w['humidity_percent']}% | **Vento:** {w['wind_kmh']} km/h\n"
+            + ("\n**Próximos dias:**\n" + "\n".join(fc_lines) if fc_lines else "")
+        )
+        return {"reply": reply, "actions_taken": actions_taken, "provider": "AURA Pack: Clima"}
+
+    if is_pack_enabled("finance") and any(kw in lower for kw in ("dólar", "dolar", "cotação", "cotacao", "cotações", "cotacoes", "bitcoin", "btc", "preço do euro", "preco do euro")):
+        fq = get_finance_quotes()
+        actions_taken.append({"tool": "pack_finance", "args": {}, "result": {"ok": fq.get("ok")}})
+        if not fq.get("ok"):
+            return {"reply": fq.get("error", "Erro ao consultar cotações."), "actions_taken": actions_taken, "provider": "AURA Pack: Finanças"}
+        lines = [f"• **{q['pair']}** ({q['name']}): **R$ {q['bid']:,.2f}** ({q['pct_change']:+.2f}%)" for q in fq["quotes"]]
+        return {"reply": "**Cotações em Tempo Real (AwesomeAPI):**\n\n" + "\n".join(lines), "actions_taken": actions_taken, "provider": "AURA Pack: Finanças"}
+
+    if is_pack_enabled("news") and any(kw in lower for kw in ("notícias de tecnologia", "noticias de tecnologia", "notícias tech", "noticias tech", "hacker news", "tabnews")):
+        topic = "hn" if "hacker news" in lower else "pt"
+        nw = get_tech_news(topic=topic, limit=6)
+        actions_taken.append({"tool": "pack_news", "args": {"topic": topic}, "result": {"ok": nw.get("ok")}})
+        if not nw.get("ok"):
+            return {"reply": nw.get("error", "Erro ao buscar notícias."), "actions_taken": actions_taken, "provider": "AURA Pack: Notícias"}
+        lines = [f"• **{it['title']}** *(+{it['score']})*\n  {it['url']}" for it in nw["items"]]
+        return {"reply": f"**Principais Notícias Tech ({nw['items'][0]['source'] if nw['items'] else topic}):**\n\n" + "\n".join(lines), "actions_taken": actions_taken, "provider": "AURA Pack: Notícias"}
+
+    trans_match = re.match(
+        r"^(?:aura[,\s]+)?(?:traduza|traduzir)\s+(?:para\s+(?:o\s+)?)?(ingl[eê]s|espanhol|franc[eê]s|alem[aã]o|italiano|japon[eê]s|portugu[eê]s|en|es|fr|de|it|ja|pt)[:\s]+(.+)$",
+        text,
+        re.IGNORECASE,
+    )
+    if trans_match and is_pack_enabled("translate"):
+        tgt_lang = trans_match.group(1).strip()
+        phrase = trans_match.group(2).strip()
+        tr = translate_text(phrase, target_lang=tgt_lang)
+        actions_taken.append({"tool": "pack_translate", "args": {"target_lang": tgt_lang}, "result": {"ok": tr.get("ok")}})
+        if tr.get("ok"):
+            return {"reply": f"**Tradução ({tr['source_lang']} → {tr['target_lang']}):**\n\n{tr['translated']}", "actions_taken": actions_taken, "provider": "AURA Pack: Tradutor"}
+        return {"reply": tr.get("error", "Erro na tradução."), "actions_taken": actions_taken, "provider": "AURA Pack: Tradutor"}
+
+    if is_pack_enabled("dev_utils"):
+        if any(kw in lower for kw in ("gere uma senha", "gerar senha", "criar senha forte", "nova senha")):
+            res = run_dev_util("password", {"length": 18})
+            actions_taken.append({"tool": "pack_dev_utils", "args": {"action": "password"}, "result": {"ok": True}})
+            return {"reply": f"**Senha Forte Gerada ({res['length']} caracteres):**\n`{res['result']}`", "actions_taken": actions_taken, "provider": "AURA Pack: Dev Utils"}
+        if any(kw in lower for kw in ("gere um uuid", "gerar uuid", "novo uuid")):
+            res = run_dev_util("uuid")
+            actions_taken.append({"tool": "pack_dev_utils", "args": {"action": "uuid"}, "result": {"ok": True}})
+            return {"reply": f"**UUID v4 Gerado:**\n`{res['result']}`", "actions_taken": actions_taken, "provider": "AURA Pack: Dev Utils"}
+        if any(kw in lower for kw in ("meu ip público", "meu ip publico", "ip externo", "qual meu ip externo")):
+            res = run_dev_util("public_ip")
+            actions_taken.append({"tool": "pack_dev_utils", "args": {"action": "public_ip"}, "result": {"ok": res.get("ok")}})
+            if res.get("ok"):
+                return {
+                    "reply": f"**IP Público:** `{res['ip']}`\n• **Local:** {res['city']}, {res['region']} — {res['country']}\n• **Provedor:** {res['isp']}",
+                    "actions_taken": actions_taken,
+                    "provider": "AURA Pack: Dev Utils",
+                }
+        calc_match = re.match(r"^(?:aura[,\s]+)?(?:calcule|calcular|quanto\s+[eé])\s+([0-9\s\+\-\*\/\.\,\(\)\^%×÷]+)[?!.]*$", text, re.IGNORECASE)
+        if calc_match:
+            expr = calc_match.group(1).strip()
+            res = run_dev_util("calc", {"expression": expr})
+            if res.get("ok"):
+                actions_taken.append({"tool": "pack_dev_utils", "args": {"action": "calc", "expression": expr}, "result": res})
+                return {"reply": f"**Resultado:** `{expr}` = **{res['result']}**", "actions_taken": actions_taken, "provider": "AURA Pack: Dev Utils"}
 
     if any(kw in lower for kw in ("qual meu ip", "meu endereço ip", "meu ip local", "configuração de rede")):
         cmd = "ipconfig | findstr /i \"IPv4 Gateway\"" if IS_WINDOWS else "ip -4 addr show"

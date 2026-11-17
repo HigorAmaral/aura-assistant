@@ -543,6 +543,9 @@
         <button class="tab-btn" data-tab="tab-tasks" onclick="switchTab('tab-tasks', this)">
           <i data-lucide="check-square" class="lucide"></i> Tarefas & Web
         </button>
+        <button class="tab-btn" data-tab="tab-packs" onclick="switchTab('tab-packs', this)">
+          <i data-lucide="blocks" class="lucide"></i> Packs & APIs
+        </button>
         <button class="tab-btn" data-tab="tab-mobile" onclick="switchTab('tab-mobile', this)">
           <i data-lucide="smartphone" class="lucide"></i> 4G/5G & Alertas
         </button>
@@ -947,6 +950,87 @@
         </div>
       </section>
 
+      <!-- TAB: PACKS & APIS EXTERNAS -->
+      <section class="tab-content" id="tab-packs">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; background:rgba(11,17,32,0.9); border:1px solid var(--border-glow); padding:12px 16px; border-radius:14px; flex-wrap:wrap; gap:10px;">
+          <div>
+            <h2 style="font-size:15px; font-weight:800; color:#fff; display:flex; align-items:center; gap:8px;">
+              <i data-lucide="blocks" class="lucide" style="color:var(--cyan);"></i>
+              Packs Modulares, APIs Externas & Ferramentas Dev
+            </h2>
+            <small style="color:var(--text-muted); font-size:11.5px;">Ative/desative pacotes de APIs gratuitas (Clima, Finanças, Notícias, Tradução, Dev Utils) e integre via REST/Webhooks.</small>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <a href="/docs" target="_blank" class="btn" style="text-decoration:none;"><i data-lucide="book-open" class="lucide"></i> Swagger /docs</a>
+            <a href="/api/system/backup" class="btn" style="text-decoration:none;"><i data-lucide="download" class="lucide"></i> Backup JSON</a>
+            <button class="btn primary" onclick="loadPacksTab()"><i data-lucide="refresh-cw" class="lucide"></i> Atualizar</button>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <!-- Card 1: Packs Disponíveis -->
+          <div class="card">
+            <h3><span class="card-title-left"><i data-lucide="package" class="lucide" style="color:var(--emerald);"></i> Packs Instalados (Zero-Key)</span></h3>
+            <div id="packsCatalogList" style="display:flex; flex-direction:column; gap:8px;">
+              <small style="color:var(--text-muted);">Carregando packs...</small>
+            </div>
+          </div>
+
+          <!-- Card 2: Testador Rápido de APIs -->
+          <div class="card">
+            <h3><span class="card-title-left"><i data-lucide="flask-conical" class="lucide" style="color:var(--violet);"></i> Testador Rápido de Packs</span></h3>
+            <div class="form-row">
+              <input type="text" id="packWeatherCity" placeholder="Cidade (ex: São Paulo)" value="São Paulo" style="flex:1;" />
+              <button class="btn" onclick="runPackDemo('weather')"><i data-lucide="cloud-sun" class="lucide"></i> Clima</button>
+              <button class="btn" onclick="runPackDemo('finance')"><i data-lucide="dollar-sign" class="lucide"></i> Cotações</button>
+              <button class="btn" onclick="runPackDemo('news')"><i data-lucide="newspaper" class="lucide"></i> Tech News</button>
+            </div>
+            <div class="form-row">
+              <input type="text" id="packTranslateText" placeholder="Texto para traduzir ou calcular..." style="flex:1;" />
+              <select id="packTranslateLang" style="width:105px;">
+                <option value="en">Inglês</option>
+                <option value="es">Espanhol</option>
+                <option value="fr">Francês</option>
+                <option value="pt">Português</option>
+              </select>
+              <button class="btn" onclick="runPackDemo('translate')"><i data-lucide="languages" class="lucide"></i> Traduzir</button>
+            </div>
+            <div class="form-row" style="flex-wrap:wrap;">
+              <button class="btn" onclick="runDevUtilDemo('password')"><i data-lucide="key-round" class="lucide"></i> Senha Forte</button>
+              <button class="btn" onclick="runDevUtilDemo('uuid')"><i data-lucide="fingerprint" class="lucide"></i> UUID</button>
+              <button class="btn" onclick="runDevUtilDemo('public_ip')"><i data-lucide="globe" class="lucide"></i> IP Público</button>
+              <button class="btn" onclick="runPackDemo('briefing')"><i data-lucide="sunrise" class="lucide"></i> Briefing Diário</button>
+            </div>
+            <pre id="packDemoOutput" style="background:rgba(2,6,23,0.7); border:1px solid var(--border); border-radius:10px; padding:10px; font-size:11.5px; color:#cbd5e1; max-height:220px; overflow:auto; white-space:pre-wrap; margin:0;">Selecione uma ação acima para testar os Packs em tempo real.</pre>
+          </div>
+
+          <!-- Card 3: Portas Abertas & Ambiente Dev -->
+          <div class="card">
+            <h3>
+              <span class="card-title-left"><i data-lucide="network" class="lucide" style="color:var(--cyan);"></i> Portas em Escuta & Ambiente Dev</span>
+              <button class="btn" style="padding:4px 10px; font-size:11px;" onclick="loadPortsAndDevEnv()"><i data-lucide="refresh-cw" class="lucide"></i> Scan</button>
+            </h3>
+            <div id="devEnvBadges" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;"></div>
+            <div id="openPortsList" style="max-height:200px; overflow-y:auto; font-size:12px;"></div>
+          </div>
+
+          <!-- Card 4: Endpoints REST & Webhooks -->
+          <div class="card">
+            <h3><span class="card-title-left"><i data-lucide="webhook" class="lucide" style="color:var(--amber);"></i> API REST & Webhooks AURA</span></h3>
+            <p style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">Integre automações externas (n8n, Zapier, Atalhos do iPhone/Android, scripts) usando os endpoints locais:</p>
+            <div style="font-family:monospace; font-size:11.5px; background:rgba(2,6,23,0.7); border:1px solid var(--border); border-radius:10px; padding:10px; color:#94a3b8; line-height:1.65;">
+              <div><strong style="color:#38bdf8;">GET</strong> /api/capabilities</div>
+              <div><strong style="color:#38bdf8;">GET</strong> /api/packs/weather?city=Curitiba</div>
+              <div><strong style="color:#38bdf8;">GET</strong> /api/packs/finance</div>
+              <div><strong style="color:#38bdf8;">GET</strong> /api/packs/news?topic=pt</div>
+              <div><strong style="color:#34d399;">POST</strong> /api/packs/translate</div>
+              <div><strong style="color:#34d399;">POST</strong> /api/packs/dev-utils</div>
+              <div><strong style="color:#34d399;">POST</strong> /api/webhooks/trigger</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- TAB 7: COMPLETE SYSTEM CONFIGURATION -->
       <section class="tab-content" id="tab-settings">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; background:rgba(11,17,32,0.9); border:1px solid var(--border-glow); padding:12px 16px; border-radius:14px;">
@@ -1032,6 +1116,19 @@
             <div class="cfg-group">
               <label class="cfg-label">OpenRouter API Key <span class="cfg-hint">(Modelos :free)</span></label>
               <input type="password" id="cfg_openrouter_api_key" placeholder="sk-or-v1-..." />
+            </div>
+            <div class="cfg-group">
+              <label class="cfg-label">Cerebras API Key <span class="cfg-hint">(Llama 70B Ultra-Veloz)</span></label>
+              <input type="password" id="cfg_cerebras_api_key" placeholder="csk-..." />
+            </div>
+            <div class="cfg-group">
+              <label class="cfg-label">DeepSeek API Key <span class="cfg-hint">(DeepSeek V3/Chat)</span></label>
+              <input type="password" id="cfg_deepseek_api_key" placeholder="sk-..." />
+            </div>
+            <div class="form-row" style="margin-bottom:8px;">
+              <input type="text" id="cfg_custom_openai_url" placeholder="Custom OpenAI URL (ex: http://localhost:1234/v1)" style="flex:1;" />
+              <input type="password" id="cfg_custom_openai_key" placeholder="API Key" style="width:110px;" />
+              <input type="text" id="cfg_custom_openai_model" placeholder="Modelo" style="width:110px;" />
             </div>
             <div class="form-row" style="margin-bottom:0;">
               <input type="text" id="cfg_ollama_url" placeholder="http://localhost:11434" style="flex:1;" title="URL do Ollama" />
@@ -1322,6 +1419,7 @@
       if (tabId === 'tab-mobile') { loadBackgroundStatus(); refreshSystemStats(); }
       if (tabId === 'tab-automations') { loadAutomations(); loadClipboardDashboard(); }
       if (tabId === 'tab-pc') { loadNetworkDiagnostics(); loadQuickApps(); }
+      if (tabId === 'tab-packs') { loadPacksTab(); }
       if (tabId === 'tab-settings') { loadSystemSettings(); loadBackgroundStatus(); }
       if (tabId === 'tab-assistant') { refreshSystemStats(); }
       refreshIcons();
@@ -2087,11 +2185,120 @@
       showToast(d.message);
     }
 
+    async function loadPacksTab() {
+      try {
+        const res = await fetch('/api/packs');
+        const data = await res.json();
+        const container = document.getElementById('packsCatalogList');
+        if (container && data.packs) {
+          container.innerHTML = data.packs.map(p => `
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:rgba(15,23,42,0.55);">
+              <div>
+                <div style="font-weight:700; font-size:13px; color:#fff;">${p.name}</div>
+                <div style="font-size:11.5px; color:var(--text-muted);">${p.description}</div>
+              </div>
+              <button class="btn ${p.enabled ? 'primary' : ''}" style="min-width:84px; font-size:11.5px;" onclick="togglePackItem('${p.id}', ${!p.enabled})">
+                ${p.enabled ? 'ATIVO' : 'INATIVO'}
+              </button>
+            </div>
+          `).join('');
+        }
+      } catch (e) {}
+      loadPortsAndDevEnv();
+    }
+
+    async function togglePackItem(packId, enabled) {
+      try {
+        await fetch(`/api/packs/${packId}/toggle`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({enabled})
+        });
+        loadPacksTab();
+      } catch (e) {}
+    }
+
+    async function runPackDemo(kind) {
+      const out = document.getElementById('packDemoOutput');
+      out.textContent = 'Consultando API...';
+      try {
+        let res;
+        if (kind === 'weather') {
+          const city = encodeURIComponent(document.getElementById('packWeatherCity').value || 'São Paulo');
+          res = await fetch(`/api/packs/weather?city=${city}`);
+        } else if (kind === 'finance') {
+          res = await fetch('/api/packs/finance');
+        } else if (kind === 'news') {
+          res = await fetch('/api/packs/news?topic=pt&limit=6');
+        } else if (kind === 'translate') {
+          const text = document.getElementById('packTranslateText').value || 'Olá, tudo bem?';
+          const target_lang = document.getElementById('packTranslateLang').value || 'en';
+          res = await fetch('/api/packs/translate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({text, target_lang, source_lang: 'pt'})
+          });
+        } else if (kind === 'briefing') {
+          const city = encodeURIComponent(document.getElementById('packWeatherCity').value || 'São Paulo');
+          res = await fetch(`/api/packs/briefing?city=${city}`);
+        }
+        const data = await res.json();
+        out.textContent = JSON.stringify(data, null, 2);
+      } catch (e) {
+        out.textContent = 'Erro ao executar pack: ' + e;
+      }
+    }
+
+    async function runDevUtilDemo(action) {
+      const out = document.getElementById('packDemoOutput');
+      out.textContent = 'Executando...';
+      try {
+        const res = await fetch('/api/packs/dev-utils', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({action, params: {length: 18}})
+        });
+        out.textContent = JSON.stringify(await res.json(), null, 2);
+      } catch (e) {
+        out.textContent = 'Erro: ' + e;
+      }
+    }
+
+    async function loadPortsAndDevEnv() {
+      try {
+        const [pRes, eRes] = await Promise.all([
+          fetch('/api/system/ports?limit=20'),
+          fetch('/api/system/dev-env')
+        ]);
+        const pData = await pRes.json();
+        const eData = await eRes.json();
+        const badges = document.getElementById('devEnvBadges');
+        if (badges && eData.tools) {
+          badges.innerHTML = Object.entries(eData.tools).map(([k, v]) => `
+            <span style="padding:4px 8px; border-radius:8px; font-size:11px; border:1px solid ${v.installed ? 'rgba(52,211,153,0.4)' : 'rgba(148,163,184,0.2)'}; background:${v.installed ? 'rgba(16,185,129,0.12)' : 'rgba(15,23,42,0.5)'}; color:${v.installed ? '#6ee7b7' : '#64748b'};">
+              ${k}: ${v.installed ? (v.version || 'OK') : 'não encontrado'}
+            </span>
+          `).join('');
+        }
+        const list = document.getElementById('openPortsList');
+        if (list && pData.ports) {
+          list.innerHTML = pData.ports.map(pt => `
+            <div style="display:flex; justify-content:space-between; padding:5px 8px; border-bottom:1px solid rgba(148,163,184,0.1);">
+              <span><strong style="color:var(--cyan);">${pt.protocol} :${pt.port}</strong> <span style="color:var(--text-muted);">(${pt.ip})</span></span>
+              <span style="color:#cbd5e1;">${pt.process} <small style="color:var(--text-muted);">PID ${pt.pid}</small></span>
+            </div>
+          `).join('') || '<small style="color:var(--text-muted);">Nenhuma porta em escuta detectada.</small>';
+        }
+      } catch (e) {}
+    }
+
     // --- COMPLETE SYSTEM SETTINGS (TAB 7) ---
     const SETTINGS_FIELDS = [
       'assistant_name', 'response_style', 'custom_system_prompt',
       'ai_provider', 'default_free_model', 'gemini_api_key',
-      'groq_api_key', 'openrouter_api_key', 'ollama_url', 'ollama_model',
+      'groq_api_key', 'openrouter_api_key', 'cerebras_api_key', 'deepseek_api_key',
+      'custom_openai_url', 'custom_openai_key', 'custom_openai_model',
+      'ollama_url', 'ollama_model',
       'voice_reply', 'auto_learn_memory', 'terminal_input_mode',
       'agent_auto_exec_shell', 'default_terminal_cwd', 'terminal_timeout_sec',
       'hud_compact_w', 'hud_expanded_w', 'hud_expanded_h',
