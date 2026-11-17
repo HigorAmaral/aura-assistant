@@ -95,7 +95,12 @@ from automation_engine import (
     get_pomodoro_status,
 )
 from ai_engine import process_chat_message
-from terminal_manager import sync_all_terminal_cwds, set_terminal_cwd
+from terminal_manager import (
+    sync_all_terminal_cwds,
+    set_terminal_cwd,
+    set_terminal_mode,
+    get_ubuntu_shell_status,
+)
 from project_builder import PROJECTS_ROOT
 from system_optimizer import (
     scan_updatable_apps,
@@ -248,6 +253,12 @@ class TerminalExecRequest(BaseModel):
     command: str
     node_name: str = "Terminal AURA"
     notify_mobile: bool = False
+    shell_mode: Optional[str] = None
+
+
+class TerminalModeRequest(BaseModel):
+    node_id: str = "pc-shell"
+    mode: str = "ubuntu"
 
 
 class TerminalAgentInputRequest(BaseModel):
@@ -598,7 +609,20 @@ def api_kill_process(pid: int):
     return kill_process_by_pid(pid)
 
 
-# --- Terminal (Unified Shell Execution) ---
+# --- Terminal (Unified Shell Execution & Cross-Platform Ubuntu Shell) ---
+@app.get("/api/terminal/ubuntu/status")
+def api_ubuntu_shell_status():
+    return get_ubuntu_shell_status()
+
+
+@app.post("/api/terminal/mode")
+def api_set_terminal_mode(req: TerminalModeRequest):
+    res = set_terminal_mode(req.node_id, req.mode)
+    if not res.get("ok"):
+        raise HTTPException(status_code=400, detail=res.get("error", "Erro ao alterar modo"))
+    return res
+
+
 @app.get("/api/terminal/{node_id}")
 def api_get_terminal(node_id: str):
     return get_or_init_terminal_session(node_id)
@@ -611,6 +635,7 @@ def api_exec_terminal(req: TerminalExecRequest):
         command=req.command,
         notify_mobile=req.notify_mobile,
         node_name=req.node_name,
+        shell_mode=req.shell_mode or "",
     )
 
 

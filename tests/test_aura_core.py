@@ -209,3 +209,46 @@ def test_extended_system_and_api_endpoints():
             assert len(r_wh.json()["result"]["result"]) == 36
 
     asyncio.run(_run())
+
+
+def test_ubuntu_shell_cross_platform(tmp_path):
+    import ubuntu_shell
+    import httpx
+    import app as aura_app
+
+    info = ubuntu_shell.detect_ubuntu_backend()
+    assert info["ok"] is True
+    assert "python_posix" in info["available_backends"]
+    assert ubuntu_shell.windows_to_wsl_path(r"C:\Users\Test\proj") == "/mnt/c/Users/Test/proj"
+
+    # Test pure-Python POSIX fallback directly so it is deterministic on any OS
+    f1 = tmp_path / "hello.txt"
+    f1.write_text("alpha\nbeta\ngamma\n", encoding="utf-8")
+
+    r_ls = ubuntu_shell.execute_ubuntu_command("ls -la", cwd=str(tmp_path), preferred_backend="python_posix")
+    assert r_ls["exit_code"] == 0
+    assert "hello.txt" in r_ls["output"]
+
+    r_pipe = ubuntu_shell.execute_ubuntu_command("cat hello.txt | grep beta", cwd=str(tmp_path), preferred_backend="python_posix")
+    assert r_pipe["exit_code"] == 0
+    assert "beta" in r_pipe["output"]
+
+    r_uname = ubuntu_shell.execute_ubuntu_command("uname -a", cwd=str(tmp_path), preferred_backend="python_posix")
+    assert r_uname["exit_code"] == 0 and "Linux" in r_uname["output"]
+
+    async def _run():
+        transport = httpx.ASGITransport(app=aura_app.app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            r_st = await client.get("/api/terminal/ubuntu/status")
+            assert r_st.status_code == 200
+            assert r_st.json()["ok"] is True
+
+            r_mode = await client.post("/api/terminal/mode", json={"node_id": "test-ubuntu", "mode": "ubuntu"})
+            assert r_mode.status_code == 200
+            assert r_mode.json()["shell_mode"] == "ubuntu"
+
+            r_exec = await client.post("/api/terminal/exec", json={"node_id": "test-ubuntu", "command": "uname -a", "shell_mode": "ubuntu"})
+            assert r_exec.status_code == 200
+            assert r_exec.json()["last_entry"]["exit_code"] == 0
+
+    asyncio.run(_run())

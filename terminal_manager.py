@@ -7,6 +7,7 @@ from typing import Dict, Any, List
 from system_tools import IS_WINDOWS, OS_NAME
 from storage import log_activity, get_settings
 from remote_bridge import push_mobile_notification
+from ubuntu_shell import detect_ubuntu_backend, execute_ubuntu_command
 
 # Per-node terminal state (working directory + scrollback buffer)
 _TERMINAL_SESSIONS: Dict[str, Dict[str, Any]] = {}
@@ -51,6 +52,8 @@ def get_or_init_terminal_session(node_id: str, initial_cwd: str = "") -> Dict[st
             "node_id": node_id,
             "cwd": default_dir,
             "shell": shell_name,
+            "shell_mode": "auto",
+            "ubuntu_backend": detect_ubuntu_backend()["label"],
             "history": [
                 {
                     "ts": datetime.now().strftime("%H:%M:%S"),
@@ -94,6 +97,7 @@ def execute_terminal_command(
     command: str,
     notify_mobile: bool = False,
     node_name: str = "Terminal AURA",
+    shell_mode: str = "",
 ) -> Dict[str, Any]:
     """Execute a real shell command inside an AURA terminal session."""
     sess = get_or_init_terminal_session(node_id)
@@ -105,6 +109,11 @@ def execute_terminal_command(
 
     if not cmd_clean:
         return {"session": sess, "last_entry": None}
+
+    effective_mode = (shell_mode or sess.get("shell_mode") or "auto").lower().strip()
+    if cmd_clean.lower().startswith(("ubuntu:", "wsl:")):
+        effective_mode = "ubuntu"
+        cmd_clean = cmd_clean.split(":", 1)[1].strip()
 
     ts = datetime.now().strftime("%H:%M:%S")
     cwd = sess["cwd"]
@@ -144,8 +153,22 @@ def execute_terminal_command(
                 proc_env[str(ek).strip()] = str(ev)
 
     start_t = time.time()
+    backend_used = sess.get("shell", "System")
     try:
-        if IS_WINDOWS:
+        if effective_mode == "ubuntu":
+            u_res = execute_ubuntu_command(
+                command=cmd_clean,
+                cwd=cwd,
+                env=proc_env,
+                timeout_sec=timeout_sec,
+            )
+            out = (u_res.get("output") or "").strip() or "(Comando executado sem saída de texto)"
+            code = int(u_res.get("exit_code", 0))
+            if u_res.get("cwd") and os.path.isdir(u_res["cwd"]):
+                sess["cwd"] = u_res["cwd"]
+            backend_used = u_res.get("backend_label", "Ubuntu Shell")
+            sess["ubuntu_backend"] = backend_used
+        elif IS_WINDOWS:
             creationflags = subprocess.CREATE_NO_WINDOW
             proc = subprocess.run(
                 ["powershell", "-NoProfile", "-Command", cmd_clean],
@@ -156,6 +179,9 @@ def execute_terminal_command(
                 timeout=timeout_sec,
                 creationflags=creationflags,
             )
+            out = (proc.stdout or "") + ("\n" + proc.stderr if proc.stderr else "")
+            out = out.strip() or "(Comando executado sem saída de texto)"
+            code = proc.returncode
         else:
             proc = subprocess.run(
                 ["bash", "-c", cmd_clean],
@@ -165,9 +191,9 @@ def execute_terminal_command(
                 text=True,
                 timeout=timeout_sec,
             )
-        out = (proc.stdout or "") + ("\n" + proc.stderr if proc.stderr else "")
-        out = out.strip() or "(Comando executado sem saída de texto)"
-        code = proc.returncode
+            out = (proc.stdout or "") + ("\n" + proc.stderr if proc.stderr else "")
+            out = out.strip() or "(Comando executado sem saída de texto)"
+            code = proc.returncode
     except subprocess.TimeoutExpired:
         out = f"Tempo limite ({timeout_sec}s) atingido para o comando no terminal."
         code = 124
@@ -220,3 +246,19 @@ def set_terminal_cwd(node_id: str, target_dir: str) -> Dict[str, Any]:
     sess = get_or_init_terminal_session(node_id, initial_cwd=resolved)
     sess["cwd"] = resolved
     return {"ok": True, "node_id": node_id, "cwd": resolved}
+
+
+def set_terminal_mode(node_id: str, mode: str = "ubuntu") -> Dict[str, Any]:
+    """Switch terminal shell mode between 'auto'/'native' and 'ubuntu'."""
+    m = (mode or "auto").lower().strip()
+    if m not in ("auto", "ubuntu", "native"):
+        return {"ok": False, "error": "Modo inválido. Use 'auto', 'ubuntu' ou 'native'."}
+    sess = get_or_init_terminal_session(node_id)
+    sess["shell_mode"] = m
+    ubuntu_info = detect_ubuntu_backend()
+    sess["ubuntu_backend"] = ubuntu_info["label"]
+    return {"ok": True, "node_id": node_id, "shell_mode": m, "ubuntu": ubuntu_info}
+
+
+def get_ubuntu_shell_status() -> Dict[str, Any]:
+    return detect_ubuntu_backend()
