@@ -32,6 +32,7 @@ from storage import (
     save_synced_apps_batch,
     delete_synced_app,
     clear_activity_logs,
+    log_activity,
     get_chat_history,
     clear_chat_history,
     export_all_data,
@@ -94,7 +95,8 @@ from automation_engine import (
     stop_pomodoro,
     get_pomodoro_status,
 )
-from ai_engine import process_chat_message
+from ai_engine import process_chat_message, stream_chat_message, reset_chat_memory
+from ai_tools import get_tools_catalog
 from terminal_manager import (
     sync_all_terminal_cwds,
     set_terminal_cwd,
@@ -451,6 +453,37 @@ def api_chat(req: ChatRequest):
     return process_chat_message(req.message, preferred_model=req.preferred_model)
 
 
+@app.post("/api/chat/stream")
+def api_chat_stream(req: ChatRequest):
+    if not req.message.strip():
+        raise HTTPException(status_code=400, detail="Mensagem vazia")
+
+    def event_generator():
+        try:
+            for ev in stream_chat_message(req.message, preferred_model=req.preferred_model):
+                ev_type = ev.get("type", "message")
+                payload = json.dumps(ev, ensure_ascii=False, default=str)
+                yield f"event: {ev_type}\ndata: {payload}\n\n"
+        except Exception as exc:
+            err_payload = json.dumps({"type": "error", "message": str(exc)}, ensure_ascii=False)
+            yield f"event: error\ndata: {err_payload}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.get("/api/ai/tools")
+def api_ai_tools():
+    return {"tools": get_tools_catalog()}
+
+
 @app.get("/api/ai/pool")
 def api_ai_pool():
     return {"pool": get_free_pool_status()}
@@ -489,6 +522,7 @@ def api_chat_history(limit: int = 20):
 @app.delete("/api/chat/history")
 def api_clear_chat_history():
     cleared = clear_chat_history()
+    reset_chat_memory()
     return {"ok": True, "deleted": cleared}
 
 
@@ -691,7 +725,7 @@ def api_terminal_agent_input(req: TerminalAgentInputRequest):
         return {
             "execution_type": "ai_prompt",
             "output": chat_res.get("reply", ""),
-            "provider_used": chat_res.get("provider_used", "AURA AI"),
+            "provider_used": chat_res.get("provider", "AURA AI"),
         }
 
 

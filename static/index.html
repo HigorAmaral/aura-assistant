@@ -183,6 +183,44 @@
       border-radius: 5px; background: rgba(52, 211, 153, 0.14);
       border: 1px solid rgba(52, 211, 153, 0.35); color: var(--emerald);
     }
+    .tool-badge.running {
+      background: rgba(56, 189, 248, 0.14);
+      border-color: rgba(56, 189, 248, 0.4);
+      color: var(--cyan);
+      animation: pulseBadge 1.2s ease-in-out infinite;
+    }
+    .tool-badge.err {
+      background: rgba(248, 113, 113, 0.14);
+      border-color: rgba(248, 113, 113, 0.4);
+      color: #f87171;
+    }
+    @keyframes pulseBadge { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+    .stream-status {
+      font-size: 11px; color: var(--text-muted); margin-bottom: 5px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .stream-cursor {
+      display: inline-block; width: 7px; height: 13px; margin-left: 2px;
+      background: var(--cyan); vertical-align: middle; border-radius: 2px;
+      animation: blinkCursor 0.85s steps(2, start) infinite;
+    }
+    @keyframes blinkCursor { to { visibility: hidden; } }
+    .code-block {
+      background: rgba(3, 7, 18, 0.92); border: 1px solid var(--border-subtle);
+      border-radius: 8px; padding: 9px 11px; margin: 6px 0; overflow-x: auto;
+      font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.45;
+      color: #e2e8f0; white-space: pre;
+    }
+    .chat-model-bar {
+      display: flex; align-items: center; justify-content: space-between; gap: 6px;
+      padding: 5px 11px; border-top: 1px solid var(--border-subtle);
+      background: rgba(5, 9, 19, 0.65); font-size: 11px; color: var(--text-muted);
+    }
+    .chat-model-select {
+      background: rgba(15, 23, 42, 0.9); color: var(--text-main);
+      border: 1px solid var(--border-subtle); border-radius: 6px;
+      padding: 3px 7px; font-size: 11px; outline: none; max-width: 210px;
+    }
     .chat-input-area {
       padding: 11px; border-top: 1px solid var(--border-subtle);
       background: rgba(5, 9, 19, 0.88); display: flex; gap: 7px; align-items: center;
@@ -506,6 +544,24 @@
         </div>
       </div>
 
+      <div class="chat-model-bar">
+        <span style="display:flex;align-items:center;gap:5px;">
+          <i data-lucide="cpu" style="width:12px;height:12px;color:var(--emerald);"></i>
+          <span>Modelo:</span>
+        </span>
+        <select id="chatModelSelect" class="chat-model-select" title="Escolher modelo de IA ou deixar em Auto">
+          <option value="">Auto (Roteamento Inteligente)</option>
+          <option value="free:openai">GPT-4o Mini (Free Pool)</option>
+          <option value="free:deepseek">DeepSeek R1/V3 (Free Pool)</option>
+          <option value="free:qwen-coder">Qwen 2.5 Coder (Free Pool)</option>
+          <option value="free:mistral">Mistral Small 3 (Free Pool)</option>
+          <option value="gemini:gemini-3.8-flash">Gemini 3.8 Flash</option>
+          <option value="groq:llama-3.3-70b">Groq Llama 3.3 70B</option>
+          <option value="openrouter:free">OpenRouter (:free)</option>
+          <option value="ollama:local">Ollama Local (Offline)</option>
+        </select>
+      </div>
+
       <div class="chat-input-area">
         <button class="btn-mic" id="btnMic" onclick="toggleSpeechRecognition()" title="Comando por Voz">
           <i data-lucide="mic" class="lucide"></i>
@@ -513,10 +569,10 @@
         <input
           type="text"
           id="chatInput"
-          placeholder="Comande o PC, ensine um hábito ou pergunte à IA..."
+          placeholder="Comande o PC, combine ações ou pergunte à IA..."
           onkeydown="if(event.key==='Enter') sendChatMessage()"
         />
-        <button class="btn btn-primary" onclick="sendChatMessage()">
+        <button class="btn btn-primary" id="btnSendChat" onclick="sendChatMessage()" title="Enviar / Parar">
           <i data-lucide="send" class="lucide"></i>
         </button>
       </div>
@@ -1433,13 +1489,23 @@
 
     function formatMarkdown(text) {
       if (!text) return '';
-      return text
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const codeBlocks = [];
+      const withPlaceholders = escaped.replace(/```(?:[\w+-]*)\n?([\s\S]*?)```/g, (_, code) => {
+        const idx = codeBlocks.length;
+        codeBlocks.push(`<pre class="code-block"><code>${code.replace(/^\n+|\n+$/g, '')}</code></pre>`);
+        return `__CODE_BLOCK_${idx}__`;
+      });
+      let html = withPlaceholders
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.+?)\*/g, '<em>$1</em>')
         .replace(/`([^`]+)`/g, '<code style="background:rgba(56,189,248,0.14);padding:2px 6px;border-radius:4px;color:#38bdf8;font-family:JetBrains Mono,monospace;">$1</code>')
-        .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank" style="color:#38bdf8;">$1</a>')
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:#38bdf8;">$1</a>')
         .replace(/\n/g, '<br>');
+      codeBlocks.forEach((blk, idx) => {
+        html = html.replace(`__CODE_BLOCK_${idx}__`, blk);
+      });
+      return html;
     }
 
     function switchTab(tabId, btnEl) {
@@ -1531,27 +1597,165 @@
       }
     }
 
+    let activeChatAbortController = null;
+
+    function _setChatStreamingUi(isStreaming) {
+      const btn = document.getElementById('btnSendChat');
+      if (!btn) return;
+      if (isStreaming) {
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-danger');
+        btn.innerHTML = '■';
+        btn.title = 'Parar geração';
+      } else {
+        btn.classList.remove('btn-danger');
+        btn.classList.add('btn-primary');
+        btn.innerHTML = '<i data-lucide="send" class="lucide"></i>';
+        btn.title = 'Enviar';
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+
     async function sendChatMessage() {
+      if (activeChatAbortController) {
+        activeChatAbortController.abort();
+        activeChatAbortController = null;
+        _setChatStreamingUi(false);
+        return;
+      }
+
       const input = document.getElementById('chatInput');
       const message = input.value.trim();
       if (!message) return;
       input.value = '';
       appendMessage('user', formatMarkdown(message));
 
+      const preferredModel = document.getElementById('chatModelSelect')?.value || null;
+
+      // Create live streaming assistant bubble
+      const box = document.getElementById('chatMessages');
+      const div = document.createElement('div');
+      div.className = 'msg msg-assistant';
+      const statusEl = document.createElement('div');
+      statusEl.className = 'stream-status';
+      statusEl.textContent = '⏳ Pensando...';
+      const bodyEl = document.createElement('div');
+      const toolsEl = document.createElement('div');
+      div.appendChild(statusEl);
+      div.appendChild(bodyEl);
+      div.appendChild(toolsEl);
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+
+      let accText = '';
+      let finalReply = '';
+      const toolBadges = {};
+      const controller = new AbortController();
+      activeChatAbortController = controller;
+      _setChatStreamingUi(true);
+
       try {
-        const res = await fetch('/api/chat', {
+        const res = await fetch('/api/chat/stream', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message })
+          body: JSON.stringify({ message, preferred_model: preferredModel }),
+          signal: controller.signal,
         });
-        const data = await res.json();
-        appendMessage('assistant', formatMarkdown(data.reply), data.actions_taken || []);
-        if (data.provider) document.getElementById('providerText').textContent = data.provider;
-        speakText(data.reply);
+
+        if (!res.ok || !res.body) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+
+        const handleSseBlock = (block) => {
+          const lines = block.split('\n');
+          let evType = 'message';
+          const dataLines = [];
+          for (const line of lines) {
+            if (line.startsWith('event:')) evType = line.slice(6).trim();
+            else if (line.startsWith('data:')) dataLines.push(line.slice(5).trim());
+          }
+          if (!dataLines.length) return;
+          let payload;
+          try { payload = JSON.parse(dataLines.join('\n')); } catch { return; }
+
+          if (evType === 'status') {
+            statusEl.style.display = 'flex';
+            statusEl.textContent = '⏳ ' + (payload.message || 'Processando...');
+          } else if (evType === 'provider') {
+            if (payload.provider_name) {
+              const pt = document.getElementById('providerText');
+              if (pt) pt.textContent = payload.provider_name;
+              statusEl.textContent = `⚡ ${payload.provider_name}`;
+            }
+          } else if (evType === 'tool_start') {
+            const tName = payload.tool || 'tool';
+            statusEl.style.display = 'flex';
+            statusEl.textContent = `⚙️ Executando ${tName}...`;
+            const badge = document.createElement('span');
+            badge.className = 'tool-badge running';
+            badge.textContent = `⚙️ ${tName}`;
+            toolsEl.appendChild(badge);
+            toolBadges[tName] = badge;
+          } else if (evType === 'tool_result') {
+            const tName = payload.tool || 'tool';
+            const badge = toolBadges[tName] || document.createElement('span');
+            badge.className = 'tool-badge ' + (payload.ok ? '' : 'err');
+            const sum = payload.summary ? ` — ${payload.summary}` : '';
+            badge.textContent = `${payload.ok ? '✅' : '⚠️'} ${tName}${sum}`;
+            if (!badge.parentNode) toolsEl.appendChild(badge);
+          } else if (evType === 'token') {
+            statusEl.style.display = 'none';
+            accText += (payload.text || '');
+            bodyEl.innerHTML = formatMarkdown(accText) + '<span class="stream-cursor"></span>';
+          } else if (evType === 'done') {
+            statusEl.style.display = 'none';
+            finalReply = payload.reply || accText;
+            bodyEl.innerHTML = formatMarkdown(finalReply);
+            if (payload.provider) {
+              const pt = document.getElementById('providerText');
+              if (pt) pt.textContent = payload.provider;
+            }
+          } else if (evType === 'error') {
+            statusEl.style.display = 'none';
+            bodyEl.innerHTML = formatMarkdown(accText + `\n\nErro: ${payload.message || 'Falha no stream'}`);
+          }
+          box.scrollTop = box.scrollHeight;
+        };
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split('\n\n');
+          buffer = parts.pop() || '';
+          for (const part of parts) {
+            if (part.trim()) handleSseBlock(part);
+          }
+        }
+        if (buffer.trim()) handleSseBlock(buffer);
+        if (!finalReply && accText) {
+          statusEl.style.display = 'none';
+          finalReply = accText;
+          bodyEl.innerHTML = formatMarkdown(finalReply);
+        }
+
+        if (finalReply) speakText(finalReply);
         loadMemoryAndXp();
         loadTasks();
       } catch (err) {
-        appendMessage('assistant', 'Erro: ' + err);
+        statusEl.style.display = 'none';
+        if (err && err.name === 'AbortError') {
+          bodyEl.innerHTML = formatMarkdown(accText || '*Geração interrompida pelo usuário.*');
+        } else {
+          bodyEl.innerHTML = 'Erro: ' + err;
+        }
+      } finally {
+        activeChatAbortController = null;
+        _setChatStreamingUi(false);
       }
     }
 

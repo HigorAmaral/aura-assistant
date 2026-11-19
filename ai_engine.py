@@ -1,7 +1,8 @@
 import os
 import re
+from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Callable
+from typing import Dict, Any, Iterator, List, Optional, Callable
 
 from storage import (
     list_tasks,
@@ -46,7 +47,16 @@ from memory_engine import (
     get_memory_context_for_prompt,
     get_memory_stats,
 )
-from free_ai_router import call_with_free_ai_failover
+from free_ai_router import call_with_free_ai_failover, stream_with_free_ai_failover
+from ai_tools import (
+    execute_tool,
+    extract_tool_calls,
+    format_tool_result_for_llm,
+    format_tools_for_system_prompt,
+    is_safe_agent_cmd,
+    strip_tool_calls,
+    summarize_tool_result,
+)
 from remote_bridge import push_mobile_notification
 from terminal_manager import (
     execute_terminal_command,
@@ -68,6 +78,59 @@ BASE_SYSTEM_INSTRUCTION = (
 )
 
 _CHAT_HISTORY: List[Dict[str, str]] = []
+MAX_TOOL_ROUNDS = 4
+
+
+def reset_chat_memory() -> None:
+    """Clear in-memory conversational context (called when chat history is cleared)."""
+    _CHAT_HISTORY.clear()
+
+
+def _load_recent_history_if_needed() -> None:
+    if not _CHAT_HISTORY:
+        try:
+            for row in get_chat_history(8):
+                _CHAT_HISTORY.append({"role": row["role"], "content": row["content"]})
+        except Exception:
+            pass
+
+
+def _persist_turn(user_message: str, assistant_reply: str, provider: str = "") -> None:
+    if not assistant_reply:
+        return
+    _CHAT_HISTORY.append({"role": "user", "content": user_message})
+    _CHAT_HISTORY.append({"role": "assistant", "content": assistant_reply})
+    if len(_CHAT_HISTORY) > 20:
+        del _CHAT_HISTORY[:-20]
+    try:
+        append_chat_history("user", user_message)
+        append_chat_history("assistant", assistant_reply, provider=provider)
+    except Exception:
+        pass
+
+
+def _is_compound_request(text: str) -> bool:
+    """Detect multi-action or analytical compound requests that should use the LLM tool-calling loop."""
+    low = (text or "").strip().lower()
+    if len(low) < 18:
+        return False
+    # Connectors that typically chain two or more actions
+    if any(sep in low for sep in (" e depois ", " depois ", " além disso ", " alem disso ", " em seguida ", "; ")):
+        return True
+    action_verbs = (
+        "abra ", "abrir ", "feche ", "fechar ", "limpe ", "limpar ", "tire ", "tirar ",
+        "mostre ", "mostrar ", "liste ", "listar ", "crie ", "criar ", "adicione ",
+        "execute ", "rode ", "pesquise ", "verifique ", "organize ", "esvazie ",
+        "aumente ", "diminua ", "mute ", "pause ", "analise ", "diagnostique ",
+    )
+    hits = sum(1 for v in action_verbs if v in low)
+    if hits >= 2:
+        return True
+    if (" e " in low or ", " in low) and any(
+        w in low for w in ("me diga", "me explique", "analise", "recomende", "o que fechar", "quais processos", "quanto sobrou")
+    ):
+        return True
+    return False
 
 
 def _infer_task_type(text: str, role: str = "") -> str:
@@ -83,8 +146,7 @@ def _infer_task_type(text: str, role: str = "") -> str:
     return "general"
 
 
-
-def build_system_instruction(extra_role: str = "") -> str:
+def build_system_instruction(extra_role: str = "", include_tools: bool = True) -> str:
     s = get_settings()
     name = s.get("assistant_name", "AURA")
     style = s.get("response_style", "direto_tecnico")
@@ -95,10 +157,30 @@ def build_system_instruction(extra_role: str = "") -> str:
         "detalhado_didatico": "Explique passo a passo de forma didática, detalhada e com exemplos claros.",
         "executivo_resumido": "Responda em formato de resumo executivo enxuto com bullet points de alto impacto.",
     }
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+    os_label = "Windows" if IS_WINDOWS else "Linux"
+    workspace = s.get("active_workspace") or str(Path.cwd())
+    try:
+        pending_tasks = len(list_tasks(include_done=False))
+    except Exception:
+        pending_tasks = 0
+
+    env_ctx = (
+        f"CONTEXTO ATUAL DO AMBIENTE:\n"
+        f"- Data/Hora local: {now_str}\n"
+        f"- Sistema Operacional: {os_label}\n"
+        f"- Workspace ativo: {workspace}\n"
+        f"- Tarefas pendentes: {pending_tasks}"
+    )
+
     parts = [
         f"Seu nome é {name}. " + BASE_SYSTEM_INSTRUCTION,
         f"ESTILO DE RESPOSTA: {style_map.get(style, style_map['direto_tecnico'])}",
+        env_ctx,
     ]
+    if include_tools:
+        parts.append(format_tools_for_system_prompt())
     if custom:
         parts.append(f"INSTRUÇÃO PERSONALIZADA DO USUÁRIO: {custom}")
     if extra_role:
@@ -614,120 +696,317 @@ def _build_smart_web_fallback(
     return "\n\n".join(parts)
 
 
-def process_chat_message(message: str, preferred_model: Optional[str] = None) -> Dict[str, Any]:
-    local_res = run_smart_local_agent(message, fallback_only=True)
-    if local_res.get("reply"):
-        return local_res
+class _StreamToolGuard:
+    """
+    Filters <tool_call>...</tool_call> blocks out of the live token stream while
+    still preserving the full raw text for tool-call parsing at round end.
+    """
 
-    actions_taken = local_res.get("actions_taken", [])
+    def __init__(self) -> None:
+        self._buf: str = ""
+        self._in_tool: bool = False
+        self.raw_parts: List[str] = []
 
-    lower = message.lower()
+    def feed(self, chunk: str) -> str:
+        if not chunk:
+            return ""
+        self.raw_parts.append(chunk)
+        self._buf += chunk
+        visible: List[str] = []
+
+        while self._buf:
+            low = self._buf.lower()
+            if self._in_tool:
+                end_idx = low.find("</tool_call>")
+                if end_idx != -1:
+                    self._buf = self._buf[end_idx + len("</tool_call>"):]
+                    self._in_tool = False
+                    self._buf = self._buf.lstrip("\r\n")
+                    continue
+                if len(self._buf) > 14:
+                    self._buf = self._buf[-14:]
+                break
+            else:
+                start_idx = low.find("<tool_call>")
+                if start_idx != -1:
+                    if start_idx > 0:
+                        visible.append(self._buf[:start_idx])
+                    self._buf = self._buf[start_idx + len("<tool_call>"):]
+                    self._in_tool = True
+                    continue
+                safe_len = len(self._buf)
+                for k in range(min(10, len(self._buf)), 0, -1):
+                    if "<tool_call>".startswith(low[-k:]):
+                        safe_len = len(self._buf) - k
+                        break
+                if safe_len > 0:
+                    visible.append(self._buf[:safe_len])
+                    self._buf = self._buf[safe_len:]
+                break
+
+        return "".join(visible)
+
+    def flush(self) -> str:
+        if self._in_tool:
+            self._buf = ""
+            return ""
+        rem = self._buf
+        self._buf = ""
+        return rem
+
+    @property
+    def raw_text(self) -> str:
+        return "".join(self.raw_parts)
+
+
+def stream_chat_message(message: str, preferred_model: Optional[str] = None) -> Iterator[Dict[str, Any]]:
+    """
+    Main intelligent chat generator with:
+      1. Zero-latency local fast-path for single unambiguous commands.
+      2. Multi-step LLM Tool-Calling loop (up to MAX_TOOL_ROUNDS) for compound/chained PC actions.
+      3. Real-time token streaming (SSE) with automatic failover across Free/Gemini/Groq/OpenRouter/Ollama.
+      4. Unified persistence to SQLite + in-memory history.
+    """
+    clean_msg = (message or "").strip()
+    if not clean_msg:
+        yield {"type": "done", "reply": "", "actions_taken": [], "provider": "Sistema", "model_id": "", "failover_chain": []}
+        return
+
+    # 1. Single-intent fast-path (skip if compound multi-action request so LLM can chain tools)
+    actions_taken: List[Dict[str, Any]] = []
+    if not _is_compound_request(clean_msg):
+        local_res = run_smart_local_agent(clean_msg, fallback_only=True)
+        if local_res.get("reply"):
+            reply = local_res["reply"]
+            provider = local_res.get("provider", "AURA System Core")
+            acts = local_res.get("actions_taken", [])
+            for a in acts:
+                yield {"type": "tool_start", "tool": a.get("tool", "local"), "args": a.get("args", {})}
+                yield {
+                    "type": "tool_result",
+                    "tool": a.get("tool", "local"),
+                    "ok": bool((a.get("result") or {}).get("success", True)) if isinstance(a.get("result"), dict) else True,
+                    "summary": summarize_tool_result(a.get("tool", ""), a.get("result") if isinstance(a.get("result"), dict) else {}),
+                }
+            yield {"type": "provider", "model_id": "aura:local", "provider_name": provider}
+            yield {"type": "token", "text": reply}
+            _persist_turn(clean_msg, reply, provider=provider)
+            yield {
+                "type": "done",
+                "reply": reply,
+                "actions_taken": acts,
+                "provider": provider,
+                "model_id": "aura:local",
+                "failover_chain": [],
+            }
+            return
+        actions_taken = local_res.get("actions_taken", [])
+
+    # 2. Pre-fetch high-signal context (GitHub / URL / Web) when explicitly mentioned
+    lower = clean_msg.lower()
     extra_contexts: List[str] = []
 
     if _is_github_intent(lower):
-        gh_ctx = format_github_context(message)
-        actions_taken.append({"tool": "github_cli", "args": {"query": message}, "result": {"ok": gh_ctx.get("ok")}})
+        yield {"type": "tool_start", "tool": "github_cli", "args": {"query": clean_msg}}
+        gh_ctx = format_github_context(clean_msg)
+        actions_taken.append({"tool": "github_cli", "args": {"query": clean_msg}, "result": {"ok": gh_ctx.get("ok")}})
+        yield {"type": "tool_result", "tool": "github_cli", "ok": bool(gh_ctx.get("ok")), "summary": "Contexto GitHub carregado"}
         if gh_ctx.get("summary"):
             extra_contexts.append(f"[DADOS REAIS DO GITHUB DO USUÁRIO VIA GH CLI]:\n{gh_ctx['summary']}")
 
-    url_match = re.search(r"https?://[^\s<>\"']+", message)
+    url_match = re.search(r"https?://[^\s<>\"']+", clean_msg)
     if url_match and not any(v in lower for v in ("abra ", "abrir ", "acesse ")):
         target_url = url_match.group(0).rstrip(".,);")
+        yield {"type": "tool_start", "tool": "read_url", "args": {"url": target_url}}
         url_res = read_and_summarize_url(target_url)
-        actions_taken.append({"tool": "read_and_summarize_url", "args": {"url": target_url}, "result": {"ok": bool(url_res.get("content"))}})
+        ok_url = bool(url_res.get("content"))
+        actions_taken.append({"tool": "read_url", "args": {"url": target_url}, "result": {"ok": ok_url}})
+        yield {"type": "tool_result", "tool": "read_url", "ok": ok_url, "summary": url_res.get("title", target_url)[:80]}
         if url_res.get("content"):
             extra_contexts.append(f"[CONTEÚDO DA URL '{target_url}']:\n{url_res['content'][:2500]}")
 
     if any(w in lower for w in ("pesquise", "pesquisar", "notícias", "noticias", "web", "internet", "tendências", "tendencias")):
-        q = re.sub(r"^(?:pesquise|pesquisar|busque na web|sobre)\s+", "", message, flags=re.IGNORECASE).strip()
+        q = re.sub(r"^(?:pesquise|pesquisar|busque na web|sobre)\s+", "", clean_msg, flags=re.IGNORECASE).strip()
+        yield {"type": "tool_start", "tool": "search_web", "args": {"query": q}}
         w_res = search_web(q, max_results=4)
         actions_taken.append({"tool": "search_web", "args": {"query": q}, "result": w_res})
+        yield {"type": "tool_result", "tool": "search_web", "ok": bool(w_res.get("results")), "summary": f"{len(w_res.get('results') or [])} resultado(s)"}
         if w_res.get("results"):
             snippets = "\n".join([f"- {r['title']}: {r['snippet']} ({r['url']})" for r in w_res["results"]])
             extra_contexts.append(f"[RESULTADOS DA WEB EM TEMPO REAL PARA '{q}']:\n{snippets}")
 
-    web_context = ("\n\n" + "\n\n".join(extra_contexts)) if extra_contexts else ""
+    # 3. Build multi-turn messages array
+    _load_recent_history_if_needed()
+    conv_messages: List[Dict[str, str]] = [
+        {"role": t["role"], "content": t["content"][:1200]}
+        for t in _CHAT_HISTORY[-8:]
+        if t.get("role") in ("user", "assistant") and t.get("content")
+    ]
+    user_turn_content = clean_msg + (("\n\n" + "\n\n".join(extra_contexts)) if extra_contexts else "")
+    conv_messages.append({"role": "user", "content": user_turn_content})
 
-    if not _CHAT_HISTORY:
-        try:
-            for row in get_chat_history(6):
-                _CHAT_HISTORY.append({"role": row["role"], "content": row["content"]})
-        except Exception:
-            pass
+    sys_prompt = build_system_instruction(include_tools=True)
+    task_type = _infer_task_type(clean_msg)
+    eff_model = (preferred_model or "").strip() or None
 
-    history_block = ""
-    if _CHAT_HISTORY:
-        recent_turns = _CHAT_HISTORY[-6:]
-        history_block = (
-            "[HISTÓRICO RECENTE DA CONVERSA]:\n"
-            + "\n".join(f"{t['role'].upper()}: {t['content'][:400]}" for t in recent_turns)
-            + "\n\n"
+    final_visible_parts: List[str] = []
+    last_provider = "AURA AI"
+    last_model_id = ""
+    last_failover: List[str] = []
+    any_success = False
+
+    # 4. Multi-round Tool-Calling + Streaming Loop
+    for round_idx in range(MAX_TOOL_ROUNDS):
+        guard = _StreamToolGuard()
+        round_done: Dict[str, Any] = {}
+        round_visible_parts: List[str] = []
+
+        for ev in stream_with_free_ai_failover(
+            user_prompt="",
+            system_prompt=sys_prompt,
+            preferred_model_id=eff_model,
+            task_type=task_type,
+            messages=conv_messages,
+        ):
+            ev_type = ev.get("type")
+            if ev_type == "status":
+                yield ev
+            elif ev_type == "provider":
+                last_provider = ev.get("provider_name", last_provider)
+                last_model_id = ev.get("model_id", last_model_id)
+                yield ev
+            elif ev_type == "token":
+                vis = guard.feed(ev.get("text", ""))
+                if vis:
+                    round_visible_parts.append(vis)
+                    yield {"type": "token", "text": vis}
+            elif ev_type == "done":
+                round_done = ev
+
+        tail = guard.flush()
+        if tail:
+            round_visible_parts.append(tail)
+            yield {"type": "token", "text": tail}
+
+        last_failover = round_done.get("failover_chain") or last_failover
+        if not round_done.get("success"):
+            break
+
+        any_success = True
+        last_provider = round_done.get("provider_name", last_provider)
+        last_model_id = round_done.get("model_id", last_model_id)
+
+        raw_round = guard.raw_text or round_done.get("reply", "")
+        tool_calls = extract_tool_calls(raw_round)
+
+        if not tool_calls or round_idx == MAX_TOOL_ROUNDS - 1:
+            clean_final = strip_tool_calls(raw_round)
+            if clean_final:
+                final_visible_parts.append(clean_final)
+            break
+
+        # Execute every requested tool in this round and feed results back to the LLM
+        conv_messages.append({"role": "assistant", "content": raw_round})
+        tool_result_blocks: List[str] = []
+        for tc in tool_calls[:5]:
+            t_name = tc["name"]
+            t_args = tc["arguments"]
+            yield {"type": "tool_start", "tool": t_name, "args": t_args}
+            t_res = execute_tool(t_name, t_args)
+            t_summary = summarize_tool_result(t_name, t_res)
+            actions_taken.append({"tool": t_name, "args": t_args, "result": t_res})
+            yield {"type": "tool_result", "tool": t_name, "ok": bool(t_res.get("ok")), "summary": t_summary}
+            tool_result_blocks.append(format_tool_result_for_llm(t_name, t_args, t_res))
+
+        if round_visible_parts:
+            final_visible_parts.append("".join(round_visible_parts).strip())
+            yield {"type": "token", "text": "\n\n"}
+
+        conv_messages.append(
+            {
+                "role": "user",
+                "content": (
+                    "Resultados das ferramentas executadas:\n\n"
+                    + "\n\n".join(tool_result_blocks)
+                    + "\n\nAgora conclua a resposta para o usuário de forma clara, objetiva e sem repetir blocos <tool_call>."
+                ),
+            }
         )
 
-    sys_prompt = build_system_instruction()
-    ai_out = call_with_free_ai_failover(
-        user_prompt=history_block + f"MENSAGEM ATUAL DO USUÁRIO:\n{message}" + web_context,
-        system_prompt=sys_prompt,
-        preferred_model_id=preferred_model,
-        task_type=_infer_task_type(message),
-    )
-
-    if ai_out["success"]:
-        _CHAT_HISTORY.append({"role": "user", "content": message})
-        _CHAT_HISTORY.append({"role": "assistant", "content": ai_out["reply"]})
-        if len(_CHAT_HISTORY) > 16:
-            del _CHAT_HISTORY[:-16]
-        try:
-            append_chat_history("user", message)
-            append_chat_history("assistant", ai_out["reply"], provider=ai_out.get("provider_name", ""))
-        except Exception:
-            pass
+    if any_success:
+        full_reply = "\n\n".join(p for p in final_visible_parts if p).strip()
+        if not full_reply and actions_taken:
+            full_reply = "Ações executadas com sucesso:\n" + "\n".join(
+                f"• `{a['tool']}` — {summarize_tool_result(a['tool'], a.get('result') if isinstance(a.get('result'), dict) else {})}"
+                for a in actions_taken
+            )
+            yield {"type": "token", "text": full_reply}
 
         failover_note = ""
-        if ai_out.get("failover_chain"):
-            failover_note = f"\n\n*Rotação Automática de IA: {', '.join(ai_out['failover_chain'])} → Atendido por **{ai_out['provider_name']}***"
+        if last_failover:
+            failover_note = f"\n\n*Rotação Automática de IA: {', '.join(last_failover)} → Atendido por **{last_provider}***"
+            yield {"type": "token", "text": failover_note}
 
-        # Send notification to smartphone that AI finished responding!
+        full_with_note = full_reply + failover_note
+        _persist_turn(clean_msg, full_reply, provider=last_provider)
+
         push_mobile_notification(
-            title=f"IA Concluída ({ai_out['provider_name']})",
-            body=ai_out["reply"][:240],
+            title=f"IA Concluída ({last_provider})",
+            body=full_reply[:240],
             category="IA CONCLUÍDA",
-            agent_name=ai_out["provider_name"],
+            agent_name=last_provider,
         )
 
-        return {
-            "reply": ai_out["reply"] + failover_note,
+        yield {
+            "type": "done",
+            "reply": full_with_note,
             "actions_taken": actions_taken,
-            "provider": ai_out["provider_name"],
-            "model_id": ai_out["model_id"],
-            "failover_chain": ai_out.get("failover_chain", []),
+            "provider": last_provider,
+            "model_id": last_model_id,
+            "failover_chain": last_failover,
         }
+        return
 
-    fallback_reply = _build_smart_web_fallback(message, failover_chain=ai_out.get("failover_chain"))
-    return {
+    # 5. All LLM providers unavailable -> Smart Web + Local fallback
+    fallback_reply = _build_smart_web_fallback(clean_msg, failover_chain=last_failover)
+    provider = "AURA Web + Motor Local"
+    yield {"type": "provider", "model_id": "aura:fallback", "provider_name": provider}
+    yield {"type": "token", "text": fallback_reply}
+    _persist_turn(clean_msg, fallback_reply, provider=provider)
+    yield {
+        "type": "done",
         "reply": fallback_reply,
         "actions_taken": actions_taken,
-        "provider": "AURA Web + Motor Local",
+        "provider": provider,
+        "model_id": "aura:fallback",
+        "failover_chain": last_failover,
     }
+
+
+def process_chat_message(message: str, preferred_model: Optional[str] = None) -> Dict[str, Any]:
+    """Synchronous chat entrypoint (used by /api/chat, HUD, Mobile and tests)."""
+    final_payload: Dict[str, Any] = {
+        "reply": "",
+        "actions_taken": [],
+        "provider": "AURA AI",
+        "model_id": "",
+        "failover_chain": [],
+    }
+    for ev in stream_chat_message(message, preferred_model=preferred_model):
+        if ev.get("type") == "done":
+            final_payload = {
+                "reply": ev.get("reply", ""),
+                "actions_taken": ev.get("actions_taken", []),
+                "provider": ev.get("provider", "AURA AI"),
+                "model_id": ev.get("model_id", ""),
+                "failover_chain": ev.get("failover_chain", []),
+            }
+    return final_payload
 
 
 def _is_safe_agent_cmd(cmd: str) -> bool:
     """Block obviously destructive shell commands during autonomous agent tool loops."""
-    low = (cmd or "").lower().strip()
-    if not low:
-        return False
-    blocked = (
-        "rm -rf /",
-        "rm -rf /*",
-        "mkfs",
-        "format c:",
-        "del /s /q c:\\",
-        "rd /s /q c:\\",
-        "shutdown",
-        "reboot",
-        ":(){:|:&};:",
-    )
-    return not any(b in low for b in blocked)
+    return is_safe_agent_cmd(cmd)
 
 
 def _infer_shell_cmd_for_prompt(prompt: str) -> str:

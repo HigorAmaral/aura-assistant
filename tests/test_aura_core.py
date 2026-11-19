@@ -11,6 +11,8 @@ import free_ai_router  # noqa: E402
 import terminal_manager  # noqa: E402
 import system_optimizer  # noqa: E402
 import system_tools  # noqa: E402
+import ai_tools  # noqa: E402
+import ai_engine  # noqa: E402
 
 
 def test_chat_history_persistence():
@@ -103,6 +105,22 @@ def test_api_endpoints_and_pin_guard():
             r_opt_st = await client.get("/api/optimizer/status")
             assert r_opt_st.status_code == 200
             assert "running" in r_opt_st.json()
+
+            r_tools = await client.get("/api/ai/tools")
+            assert r_tools.status_code == 200
+            tool_names = {t["name"] for t in r_tools.json()["tools"]}
+            assert {"get_system_stats", "get_top_processes", "run_shell"} <= tool_names
+
+            r_stream = await client.post("/api/chat/stream", json={"message": "oi"})
+            assert r_stream.status_code == 200
+            assert "text/event-stream" in r_stream.headers.get("content-type", "")
+            body = r_stream.text
+            assert "event: token" in body
+            assert "event: done" in body
+
+            r_del = await client.delete("/api/chat/history")
+            assert r_del.status_code == 200
+            assert len(ai_engine._CHAT_HISTORY) == 0
 
         # Test remote PIN guard with non-local client IP
         orig_pin = storage.get_settings().get("remote_pin", "")
@@ -260,3 +278,125 @@ def test_ubuntu_shell_cross_platform(tmp_path):
             assert r_lf.json()["ok"] is True
 
     asyncio.run(_run())
+
+
+def test_stream_think_filter_chunk_boundaries():
+    flt = free_ai_router.StreamThinkFilter()
+    chunks = ["<thi", "nk>segredo ", "interno</th", "ink>\nResposta ", "final!"]
+    out = "".join(flt.feed(c) for c in chunks) + flt.flush()
+    assert out == "Resposta final!"
+
+
+def test_ai_tools_registry_parsing_and_safety():
+    sample = (
+        'Vou checar agora.\n'
+        '<tool_call>{"name": "get_system_stats", "arguments": {}}</tool_call>\n'
+        '<tool_call>{"name": "get_top_processes", "arguments": {"limit": 3, "sort_by": "ram"}}</tool_call>'
+    )
+    calls = ai_tools.extract_tool_calls(sample)
+    assert len(calls) == 2
+    assert calls[0]["name"] == "get_system_stats"
+    assert calls[1]["arguments"]["limit"] == 3
+    assert ai_tools.strip_tool_calls(sample) == "Vou checar agora."
+
+    stats_res = ai_tools.execute_tool("get_system_stats", {})
+    assert stats_res["ok"] is True
+    assert "cpu" in stats_res and "ram" in stats_res
+
+    blocked_res = ai_tools.execute_tool("run_shell", {"command": "rm -rf /"})
+    assert blocked_res["ok"] is False
+
+
+def test_compound_request_and_multi_tool_streaming_loop():
+    assert ai_engine._is_compound_request("feche o chrome e limpe os arquivos temporários") is True
+    assert ai_engine._is_compound_request("tire um print") is False
+
+    orig_stream = ai_engine.stream_with_free_ai_failover
+    orig_push = ai_engine.push_mobile_notification
+    round_counter = {"n": 0}
+
+    def fake_stream(*args, **kwargs):
+        round_counter["n"] += 1
+        yield {"type": "provider", "model_id": "mock:test", "provider_name": "Mock AI"}
+        if round_counter["n"] == 1:
+            txt = (
+                '<tool_call>{"name": "get_system_stats", "arguments": {}}</tool_call>'
+                '<tool_call>{"name": "get_top_processes", "arguments": {"limit": 3, "sort_by": "ram"}}</tool_call>'
+            )
+            yield {"type": "token", "text": txt[:25]}
+            yield {"type": "token", "text": txt[25:]}
+            yield {
+                "type": "done",
+                "success": True,
+                "reply": txt,
+                "model_id": "mock:test",
+                "provider_name": "Mock AI",
+                "failover_chain": [],
+                "tokens_estimated": 40,
+            }
+        else:
+            final_txt = "Resumo: CPU e processos analisados com sucesso."
+            yield {"type": "token", "text": final_txt[:15]}
+            yield {"type": "token", "text": final_txt[15:]}
+            yield {
+                "type": "done",
+                "success": True,
+                "reply": final_txt,
+                "model_id": "mock:test",
+                "provider_name": "Mock AI",
+                "failover_chain": [],
+                "tokens_estimated": 30,
+            }
+
+    try:
+        storage.init_db()
+        storage.clear_chat_history()
+        ai_engine.reset_chat_memory()
+        ai_engine.stream_with_free_ai_failover = fake_stream
+        ai_engine.push_mobile_notification = lambda **kw: None
+
+        events = list(ai_engine.stream_chat_message("verifique o uso de CPU e liste os top processos"))
+        ev_types = [e["type"] for e in events]
+        assert "tool_start" in ev_types
+        assert "tool_result" in ev_types
+        assert "token" in ev_types
+        assert ev_types[-1] == "done"
+
+        # Ensure raw <tool_call> never leaked into visible streamed tokens
+        streamed_text = "".join(e.get("text", "") for e in events if e["type"] == "token")
+        assert "<tool_call>" not in streamed_text
+        assert "Resumo: CPU e processos analisados com sucesso." in streamed_text
+
+        done_ev = events[-1]
+        assert len(done_ev["actions_taken"]) == 2
+        assert round_counter["n"] == 2
+        assert len(storage.get_chat_history(10)) >= 2
+    finally:
+        ai_engine.stream_with_free_ai_failover = orig_stream
+        ai_engine.push_mobile_notification = orig_push
+        storage.clear_chat_history()
+        ai_engine.reset_chat_memory()
+
+
+if __name__ == "__main__":
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        for fn in (
+            test_chat_history_persistence,
+            test_settings_remote_pin_and_workspace,
+            test_free_ai_router_clean_and_routing,
+            test_stream_think_filter_chunk_boundaries,
+            test_ai_tools_registry_parsing_and_safety,
+            test_compound_request_and_multi_tool_streaming_loop,
+            lambda: test_terminal_sync_cwd(Path(td)),
+            test_system_optimizer_smoke,
+            test_process_manager_smoke,
+            test_api_endpoints_and_pin_guard,
+            test_packs_dev_utils_and_toggle,
+            test_extended_system_and_api_endpoints,
+            lambda: test_ubuntu_shell_cross_platform(Path(td)),
+        ):
+            fn()
+            print(f"PASS: {getattr(fn, '__name__', 'tmp_path_test')}")
+    print("ALL TESTS PASSED!")

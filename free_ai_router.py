@@ -1,6 +1,7 @@
+import json
 import re
 import time
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Iterator, List, Optional
 import httpx
 from storage import get_settings, log_activity
 
@@ -160,6 +161,101 @@ def _clean_model_reply(text: str) -> str:
     return cleaned or text.strip()
 
 
+class StreamThinkFilter:
+    """Chunk-boundary-safe filter that strips <think>...</think> blocks during live streaming."""
+
+    def __init__(self) -> None:
+        self._buf: str = ""
+        self._in_think: bool = False
+
+    def feed(self, chunk: str) -> str:
+        if not chunk:
+            return ""
+        self._buf += chunk
+        out_parts: List[str] = []
+
+        while self._buf:
+            low = self._buf.lower()
+            if self._in_think:
+                end_idx = low.find("</think>")
+                if end_idx != -1:
+                    self._buf = self._buf[end_idx + len("</think>"):]
+                    self._in_think = False
+                    # Strip immediate leading newlines after </think>
+                    self._buf = self._buf.lstrip("\r\n")
+                    continue
+                # Keep tail in case '</think>' is split across chunks
+                if len(self._buf) > 10:
+                    self._buf = self._buf[-10:]
+                break
+            else:
+                start_idx = low.find("<think>")
+                if start_idx != -1:
+                    if start_idx > 0:
+                        out_parts.append(self._buf[:start_idx])
+                    self._buf = self._buf[start_idx + len("<think>"):]
+                    self._in_think = True
+                    continue
+                # Hold up to 6 trailing chars if they could start '<think>'
+                safe_len = len(self._buf)
+                for k in range(min(6, len(self._buf)), 0, -1):
+                    if "<think>".startswith(low[-k:]):
+                        safe_len = len(self._buf) - k
+                        break
+                if safe_len > 0:
+                    out_parts.append(self._buf[:safe_len])
+                    self._buf = self._buf[safe_len:]
+                break
+
+        return "".join(out_parts)
+
+    def flush(self) -> str:
+        if self._in_think:
+            self._buf = ""
+            return ""
+        rem = self._buf
+        self._buf = ""
+        return rem
+
+
+def _build_chat_messages(
+    system_prompt: str,
+    user_prompt: str,
+    messages: Optional[List[Dict[str, str]]] = None,
+) -> List[Dict[str, str]]:
+    """Build a standard OpenAI-style messages array from system_prompt + optional history + user_prompt."""
+    out: List[Dict[str, str]] = []
+    if system_prompt:
+        out.append({"role": "system", "content": system_prompt})
+    if messages:
+        for m in messages:
+            role = m.get("role", "user")
+            content = str(m.get("content", ""))
+            if role in ("user", "assistant", "system") and content:
+                out.append({"role": role, "content": content})
+    if user_prompt:
+        if not out or out[-1].get("role") != "user" or out[-1].get("content") != user_prompt:
+            out.append({"role": "user", "content": user_prompt})
+    return out
+
+
+def _flatten_messages_for_gemini(
+    user_prompt: str,
+    messages: Optional[List[Dict[str, str]]] = None,
+) -> str:
+    if not messages:
+        return user_prompt
+    parts: List[str] = []
+    for m in messages:
+        role = m.get("role", "user").upper()
+        content = str(m.get("content", "")).strip()
+        if content:
+            parts.append(f"{role}: {content}")
+    if user_prompt and (not messages or messages[-1].get("content") != user_prompt):
+        parts.append(f"USER: {user_prompt}")
+    return "\n\n".join(parts)
+
+
 def _resolve_task_config(task_type: str, preferred_model_id: Optional[str]) -> tuple[float, List[str]]:
     """Return optimal (temperature, priority_model_ids) for a given cognitive task type."""
     t = (task_type or "general").lower()
@@ -210,6 +306,7 @@ def _call_openai_compatible(
     api_key: str = "",
     provider_label: str = "Provider",
     timeout: float = 20.0,
+    messages: Optional[List[Dict[str, str]]] = None,
 ) -> str:
     """Unified caller for OpenAI-compatible chat completion APIs (Pollinations, Groq, OpenRouter, Cerebras, DeepSeek, Custom)."""
     headers: Dict[str, str] = {"Content-Type": "application/json"}
@@ -217,15 +314,12 @@ def _call_openai_compatible(
         headers["Authorization"] = f"Bearer {api_key}"
     payload = {
         "model": model_slug,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
+        "messages": _build_chat_messages(system_prompt, user_prompt, messages),
         "temperature": temperature,
     }
     client = _get_http_client()
     resp = client.post(url, headers=headers, json=payload, timeout=timeout)
-    if resp.status_code == 429 or resp.status_code >= 500:
+    if resp.status_code in (402, 429) or resp.status_code >= 500:
         raise RuntimeError(f"{provider_label} HTTP {resp.status_code} (Limite/Indisponível)")
     resp.raise_for_status()
     data = resp.json()
@@ -235,7 +329,13 @@ def _call_openai_compatible(
     raise RuntimeError(f"Resposta vazia de {provider_label}")
 
 
-def _call_pollinations_free(model_slug: str, system_prompt: str, user_prompt: str, temperature: float = 0.45) -> str:
+def _call_pollinations_free(
+    model_slug: str,
+    system_prompt: str,
+    user_prompt: str,
+    temperature: float = 0.45,
+    messages: Optional[List[Dict[str, str]]] = None,
+) -> str:
     """Call Pollinations Free OpenAI-compatible endpoint (zero API key required)."""
     return _call_openai_compatible(
         url="https://text.pollinations.ai/openai",
@@ -245,10 +345,18 @@ def _call_pollinations_free(model_slug: str, system_prompt: str, user_prompt: st
         temperature=temperature,
         provider_label="Pollinations",
         timeout=22.0,
+        messages=messages,
     )
 
 
-def _call_groq_free(api_key: str, model_slug: str, system_prompt: str, user_prompt: str, temperature: float = 0.4) -> str:
+def _call_groq_free(
+    api_key: str,
+    model_slug: str,
+    system_prompt: str,
+    user_prompt: str,
+    temperature: float = 0.4,
+    messages: Optional[List[Dict[str, str]]] = None,
+) -> str:
     return _call_openai_compatible(
         url="https://api.groq.com/openai/v1/chat/completions",
         model_slug=model_slug,
@@ -258,10 +366,18 @@ def _call_groq_free(api_key: str, model_slug: str, system_prompt: str, user_prom
         api_key=api_key,
         provider_label="Groq",
         timeout=18.0,
+        messages=messages,
     )
 
 
-def _call_openrouter_free(api_key: str, model_slug: str, system_prompt: str, user_prompt: str, temperature: float = 0.4) -> str:
+def _call_openrouter_free(
+    api_key: str,
+    model_slug: str,
+    system_prompt: str,
+    user_prompt: str,
+    temperature: float = 0.4,
+    messages: Optional[List[Dict[str, str]]] = None,
+) -> str:
     return _call_openai_compatible(
         url="https://openrouter.ai/api/v1/chat/completions",
         model_slug=model_slug,
@@ -271,10 +387,18 @@ def _call_openrouter_free(api_key: str, model_slug: str, system_prompt: str, use
         api_key=api_key,
         provider_label="OpenRouter",
         timeout=20.0,
+        messages=messages,
     )
 
 
-def _call_ollama_local(ollama_url: str, model_slug: str, system_prompt: str, user_prompt: str, temperature: float = 0.4) -> str:
+def _call_ollama_local(
+    ollama_url: str,
+    model_slug: str,
+    system_prompt: str,
+    user_prompt: str,
+    temperature: float = 0.4,
+    messages: Optional[List[Dict[str, str]]] = None,
+) -> str:
     client = _get_http_client()
     resp = client.post(
         f"{ollama_url.rstrip('/')}/api/chat",
@@ -282,10 +406,7 @@ def _call_ollama_local(ollama_url: str, model_slug: str, system_prompt: str, use
             "model": model_slug,
             "stream": False,
             "options": {"temperature": temperature},
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
+            "messages": _build_chat_messages(system_prompt, user_prompt, messages),
         },
         timeout=16.0,
     )
@@ -293,22 +414,175 @@ def _call_ollama_local(ollama_url: str, model_slug: str, system_prompt: str, use
     return _clean_model_reply(resp.json().get("message", {}).get("content", ""))
 
 
-def call_with_free_ai_failover(
-    user_prompt: str,
+def _stream_openai_compat(
+    url: str,
+    model_slug: str,
     system_prompt: str,
-    preferred_model_id: Optional[str] = None,
-    task_type: str = "general",
-    temperature: Optional[float] = None,
-) -> Dict[str, Any]:
-    """
-    Execute prompt using the Free AI Pool with task-aware routing & automatic failover.
-    """
-    settings = get_settings()
-    now = time.time()
-    auto_temp, priority_ids = _resolve_task_config(task_type, preferred_model_id)
-    eff_temp = auto_temp if temperature is None else temperature
+    user_prompt: str,
+    temperature: float = 0.45,
+    api_key: str = "",
+    timeout: float = 28.0,
+    messages: Optional[List[Dict[str, str]]] = None,
+) -> Iterator[str]:
+    headers: Dict[str, str] = {"Accept": "text/event-stream"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    payload = {
+        "model": model_slug,
+        "messages": _build_chat_messages(system_prompt, user_prompt, messages),
+        "temperature": temperature,
+        "stream": True,
+    }
+    think_filter = StreamThinkFilter()
+    with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+        with client.stream("POST", url, headers=headers, json=payload) as resp:
+            if resp.status_code in (402, 429) or resp.status_code >= 500:
+                raise RuntimeError(f"HTTP {resp.status_code} (Limite de tokens/requisições atingido)")
+            resp.raise_for_status()
+            content_type = (resp.headers.get("content-type") or "").lower()
+            if "application/json" in content_type:
+                raw = resp.read().decode("utf-8", errors="ignore")
+                data = json.loads(raw)
+                txt = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
+                cleaned = _clean_model_reply(txt)
+                if cleaned:
+                    yield cleaned
+                return
+            for line in resp.iter_lines():
+                if not line:
+                    continue
+                if isinstance(line, bytes):
+                    line = line.decode("utf-8", errors="ignore")
+                line = line.strip()
+                if not line.startswith("data:"):
+                    continue
+                data_str = line[5:].strip()
+                if data_str == "[DONE]":
+                    break
+                try:
+                    obj = json.loads(data_str)
+                    delta = (obj.get("choices") or [{}])[0].get("delta", {})
+                    piece = delta.get("content") or ""
+                    if piece:
+                        filtered = think_filter.feed(piece)
+                        if filtered:
+                            yield filtered
+                except Exception:
+                    continue
+            tail = think_filter.flush()
+            if tail:
+                yield tail
 
-    # Build candidate queue: priority_ids first, then remaining pool models
+
+def _stream_ollama_local(
+    ollama_url: str,
+    model_slug: str,
+    system_prompt: str,
+    user_prompt: str,
+    temperature: float = 0.4,
+    messages: Optional[List[Dict[str, str]]] = None,
+) -> Iterator[str]:
+    think_filter = StreamThinkFilter()
+    with httpx.Client(timeout=24.0) as client:
+        with client.stream(
+            "POST",
+            f"{ollama_url.rstrip('/')}/api/chat",
+            json={
+                "model": model_slug,
+                "stream": True,
+                "options": {"temperature": temperature},
+                "messages": _build_chat_messages(system_prompt, user_prompt, messages),
+            },
+        ) as resp:
+            resp.raise_for_status()
+            for line in resp.iter_lines():
+                if not line:
+                    continue
+                if isinstance(line, bytes):
+                    line = line.decode("utf-8", errors="ignore")
+                try:
+                    obj = json.loads(line)
+                    piece = (obj.get("message") or {}).get("content") or ""
+                    if piece:
+                        filtered = think_filter.feed(piece)
+                        if filtered:
+                            yield filtered
+                    if obj.get("done"):
+                        break
+                except Exception:
+                    continue
+            tail = think_filter.flush()
+            if tail:
+                yield tail
+
+
+def _stream_gemini(
+    api_key: str,
+    model_slug: str,
+    system_prompt: str,
+    user_prompt: str,
+    temperature: float = 0.4,
+    messages: Optional[List[Dict[str, str]]] = None,
+) -> Iterator[str]:
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client(api_key=api_key)
+    flat_input = _flatten_messages_for_gemini(user_prompt, messages)
+    think_filter = StreamThinkFilter()
+    try:
+        stream = client.models.generate_content_stream(
+            model=model_slug,
+            contents=flat_input,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                temperature=temperature,
+            ),
+        )
+        emitted = False
+        for chunk in stream:
+            piece = getattr(chunk, "text", None) or ""
+            if piece:
+                emitted = True
+                filtered = think_filter.feed(piece)
+                if filtered:
+                    yield filtered
+        tail = think_filter.flush()
+        if tail:
+            yield tail
+        if emitted:
+            return
+    except Exception:
+        pass
+
+    inter = client.interactions.create(
+        model=model_slug,
+        input=flat_input,
+        system_instruction=system_prompt,
+    )
+    txt = _clean_model_reply(inter.output_text or "")
+    if txt:
+        yield txt
+
+
+def _mark_provider_failure(pid: str, candidate: Dict[str, Any], err_str: str, failover_chain: List[str]) -> None:
+    state = _PROVIDER_STATE[pid]
+    cooldown_sec = 45.0 if ("402" in err_str or "429" in err_str or "FREE_LIMIT" in err_str) else 60.0
+    if pid.startswith("free:") and ("402" in err_str or "429" in err_str or "FREE_LIMIT" in err_str):
+        for p_id, p_st in _PROVIDER_STATE.items():
+            if p_id.startswith("free:"):
+                p_st["failover_count"] += 1
+                p_st["cooldown_until"] = time.time() + cooldown_sec
+                p_st["last_error"] = "Limite IP gratuito Pollinations (45s)"
+    else:
+        state["failover_count"] += 1
+        state["cooldown_until"] = time.time() + cooldown_sec
+        state["last_error"] = err_str[:120]
+    failover_chain.append(f"{candidate['name']} -> {err_str[:45]}")
+
+
+def _order_candidates(task_type: str, preferred_model_id: Optional[str]) -> tuple[float, List[Dict[str, Any]]]:
+    auto_temp, priority_ids = _resolve_task_config(task_type, preferred_model_id)
     pool_by_id = {p["id"]: p for p in FREE_AI_POOL}
     ordered_pool: List[Dict[str, Any]] = []
     for pid in priority_ids:
@@ -317,19 +591,34 @@ def call_with_free_ai_failover(
     for p in FREE_AI_POOL:
         if p not in ordered_pool:
             ordered_pool.append(p)
+    return auto_temp, ordered_pool
 
+
+def call_with_free_ai_failover(
+    user_prompt: str,
+    system_prompt: str,
+    preferred_model_id: Optional[str] = None,
+    task_type: str = "general",
+    temperature: Optional[float] = None,
+    messages: Optional[List[Dict[str, str]]] = None,
+) -> Dict[str, Any]:
+    """
+    Execute prompt using the Free AI Pool with task-aware routing & automatic failover.
+    """
+    settings = get_settings()
+    now = time.time()
+    auto_temp, ordered_pool = _order_candidates(task_type, preferred_model_id)
+    eff_temp = auto_temp if temperature is None else temperature
     failover_chain: List[str] = []
 
     for candidate in ordered_pool:
         pid = candidate["id"]
         state = _PROVIDER_STATE[pid]
 
-        # Skip if in cooldown (unless it's the only one)
         if now < state["cooldown_until"]:
             failover_chain.append(f"{candidate['name']} (em cooldown de quota)")
             continue
 
-        # Check if key is required
         if candidate.get("requires_key"):
             key_val = str(settings.get(candidate.get("key_setting", ""), "")).strip()
             if not key_val:
@@ -339,16 +628,19 @@ def call_with_free_ai_failover(
 
         try:
             if pid.startswith("free:"):
-                reply = _call_pollinations_free(candidate["model_slug"], system_prompt, user_prompt, temperature=eff_temp)
+                reply = _call_pollinations_free(
+                    candidate["model_slug"], system_prompt, user_prompt, temperature=eff_temp, messages=messages
+                )
             elif pid.startswith("gemini:"):
                 from google import genai
                 from google.genai import types
                 client = genai.Client(api_key=key_val)
-                gemini_model = settings.get("gemini_model") or "gemini-2.5-flash"
+                gemini_model = settings.get("gemini_model") or candidate["model_slug"]
+                flat_input = _flatten_messages_for_gemini(user_prompt, messages)
                 try:
                     resp = client.models.generate_content(
                         model=gemini_model,
-                        contents=user_prompt,
+                        contents=flat_input,
                         config=types.GenerateContentConfig(
                             system_instruction=system_prompt,
                             temperature=eff_temp,
@@ -358,14 +650,18 @@ def call_with_free_ai_failover(
                 except Exception:
                     inter = client.interactions.create(
                         model=gemini_model,
-                        input=user_prompt,
+                        input=flat_input,
                         system_instruction=system_prompt,
                     )
                     reply = _clean_model_reply(inter.output_text or "")
             elif pid.startswith("groq:"):
-                reply = _call_groq_free(key_val, candidate["model_slug"], system_prompt, user_prompt, temperature=eff_temp)
+                reply = _call_groq_free(
+                    key_val, candidate["model_slug"], system_prompt, user_prompt, temperature=eff_temp, messages=messages
+                )
             elif pid.startswith("openrouter:"):
-                reply = _call_openrouter_free(key_val, candidate["model_slug"], system_prompt, user_prompt, temperature=eff_temp)
+                reply = _call_openrouter_free(
+                    key_val, candidate["model_slug"], system_prompt, user_prompt, temperature=eff_temp, messages=messages
+                )
             elif pid.startswith("cerebras:"):
                 reply = _call_openai_compatible(
                     url="https://api.cerebras.ai/v1/chat/completions",
@@ -376,6 +672,7 @@ def call_with_free_ai_failover(
                     api_key=key_val,
                     provider_label="Cerebras",
                     timeout=15.0,
+                    messages=messages,
                 )
             elif pid.startswith("deepseek:"):
                 reply = _call_openai_compatible(
@@ -387,6 +684,7 @@ def call_with_free_ai_failover(
                     api_key=key_val,
                     provider_label="DeepSeek",
                     timeout=20.0,
+                    messages=messages,
                 )
             elif pid == "custom:openai":
                 custom_url = str(settings.get("custom_openai_url", "")).strip()
@@ -406,6 +704,7 @@ def call_with_free_ai_failover(
                     api_key=custom_key,
                     provider_label="Custom API",
                     timeout=22.0,
+                    messages=messages,
                 )
             elif pid == "ollama:local":
                 reply = _call_ollama_local(
@@ -414,6 +713,7 @@ def call_with_free_ai_failover(
                     system_prompt,
                     user_prompt,
                     temperature=eff_temp,
+                    messages=messages,
                 )
             else:
                 continue
@@ -437,24 +737,202 @@ def call_with_free_ai_failover(
                     "tokens_estimated": est_tokens,
                 }
         except Exception as e:
-            err_str = str(e)
-            # Pollinations shares one 45s IP rate limit across all free:* models:
-            # if one returns 402/429, put all free:* Pollinations models in 45s cooldown immediately.
-            cooldown_sec = 45.0 if ("402" in err_str or "429" in err_str or "FREE_LIMIT" in err_str) else 60.0
-            if pid.startswith("free:") and ("402" in err_str or "429" in err_str or "FREE_LIMIT" in err_str):
-                for p_id, p_st in _PROVIDER_STATE.items():
-                    if p_id.startswith("free:"):
-                        p_st["failover_count"] += 1
-                        p_st["cooldown_until"] = time.time() + cooldown_sec
-                        p_st["last_error"] = "Limite IP gratuito Pollinations (45s)"
-            else:
-                state["failover_count"] += 1
-                state["cooldown_until"] = time.time() + cooldown_sec
-                state["last_error"] = err_str[:120]
-            failover_chain.append(f"{candidate['name']} -> {err_str[:45]}")
+            _mark_provider_failure(pid, candidate, str(e), failover_chain)
             continue
 
     return {
+        "success": False,
+        "reply": "",
+        "model_id": "aura:local",
+        "provider_name": "AURA Neural Local (Offline)",
+        "failover_chain": failover_chain,
+        "tokens_estimated": 0,
+    }
+
+
+def stream_with_free_ai_failover(
+    user_prompt: str,
+    system_prompt: str,
+    preferred_model_id: Optional[str] = None,
+    task_type: str = "general",
+    temperature: Optional[float] = None,
+    messages: Optional[List[Dict[str, str]]] = None,
+) -> Iterator[Dict[str, Any]]:
+    """
+    Stream tokens live from the Free AI Pool with task-aware routing and automatic failover.
+    Yields dicts of shape:
+      - {"type": "status", "message": "..."}
+      - {"type": "provider", "model_id": ..., "provider_name": ...}
+      - {"type": "token", "text": "..."}
+      - {"type": "done", "success": bool, "reply": str, "model_id": str, "provider_name": str, "failover_chain": list, "tokens_estimated": int}
+    """
+    settings = get_settings()
+    now = time.time()
+    auto_temp, ordered_pool = _order_candidates(task_type, preferred_model_id)
+    eff_temp = auto_temp if temperature is None else temperature
+    failover_chain: List[str] = []
+
+    for candidate in ordered_pool:
+        pid = candidate["id"]
+        state = _PROVIDER_STATE[pid]
+
+        if now < state["cooldown_until"]:
+            failover_chain.append(f"{candidate['name']} (em cooldown de quota)")
+            continue
+
+        if candidate.get("requires_key"):
+            key_val = str(settings.get(candidate.get("key_setting", ""), "")).strip()
+            if not key_val:
+                continue
+        else:
+            key_val = ""
+
+        yield {"type": "status", "message": f"Conectando a {candidate['name']}..."}
+
+        chunks: List[str] = []
+        announced_provider = False
+        try:
+            if pid.startswith("free:"):
+                gen = _stream_openai_compat(
+                    "https://text.pollinations.ai/openai",
+                    candidate["model_slug"],
+                    system_prompt,
+                    user_prompt,
+                    temperature=eff_temp,
+                    timeout=26.0,
+                    messages=messages,
+                )
+            elif pid.startswith("gemini:"):
+                model_slug = settings.get("gemini_model") or candidate["model_slug"]
+                gen = _stream_gemini(
+                    key_val, model_slug, system_prompt, user_prompt, temperature=eff_temp, messages=messages
+                )
+            elif pid.startswith("groq:"):
+                gen = _stream_openai_compat(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    candidate["model_slug"],
+                    system_prompt,
+                    user_prompt,
+                    temperature=eff_temp,
+                    api_key=key_val,
+                    timeout=22.0,
+                    messages=messages,
+                )
+            elif pid.startswith("openrouter:"):
+                gen = _stream_openai_compat(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    candidate["model_slug"],
+                    system_prompt,
+                    user_prompt,
+                    temperature=eff_temp,
+                    api_key=key_val,
+                    timeout=24.0,
+                    messages=messages,
+                )
+            elif pid.startswith("cerebras:"):
+                gen = _stream_openai_compat(
+                    "https://api.cerebras.ai/v1/chat/completions",
+                    candidate["model_slug"],
+                    system_prompt,
+                    user_prompt,
+                    temperature=eff_temp,
+                    api_key=key_val,
+                    timeout=18.0,
+                    messages=messages,
+                )
+            elif pid.startswith("deepseek:"):
+                gen = _stream_openai_compat(
+                    "https://api.deepseek.com/chat/completions",
+                    candidate["model_slug"],
+                    system_prompt,
+                    user_prompt,
+                    temperature=eff_temp,
+                    api_key=key_val,
+                    timeout=24.0,
+                    messages=messages,
+                )
+            elif pid == "custom:openai":
+                custom_url = str(settings.get("custom_openai_url", "")).strip()
+                custom_key = str(settings.get("custom_openai_key", "")).strip()
+                custom_model = str(settings.get("custom_openai_model", "")).strip() or candidate["model_slug"]
+                if not custom_url:
+                    continue
+                endpoint = custom_url.rstrip("/")
+                if not endpoint.endswith("/chat/completions"):
+                    endpoint = f"{endpoint}/chat/completions"
+                gen = _stream_openai_compat(
+                    endpoint,
+                    custom_model,
+                    system_prompt,
+                    user_prompt,
+                    temperature=eff_temp,
+                    api_key=custom_key,
+                    timeout=24.0,
+                    messages=messages,
+                )
+            elif pid == "ollama:local":
+                gen = _stream_ollama_local(
+                    settings.get("ollama_url", "http://localhost:11434"),
+                    settings.get("ollama_model", "llama3.2"),
+                    system_prompt,
+                    user_prompt,
+                    temperature=eff_temp,
+                    messages=messages,
+                )
+            else:
+                continue
+
+            for piece in gen:
+                if not piece:
+                    continue
+                if not announced_provider:
+                    announced_provider = True
+                    yield {"type": "provider", "model_id": pid, "provider_name": candidate["name"]}
+                chunks.append(piece)
+                yield {"type": "token", "text": piece}
+
+            full_reply = "".join(chunks).strip()
+            if full_reply:
+                est_tokens = max(15, (len(user_prompt) + len(full_reply)) // 4)
+                state["success_count"] += 1
+                state["tokens_used"] += est_tokens
+                state["status"] = "online"
+                if failover_chain:
+                    log_activity(
+                        "FAILOVER IA",
+                        f"Rotacionado automaticamente para {candidate['name']} após limite em {len(failover_chain)} provedor(es)",
+                    )
+                yield {
+                    "type": "done",
+                    "success": True,
+                    "reply": full_reply,
+                    "model_id": pid,
+                    "provider_name": candidate["name"],
+                    "failover_chain": failover_chain,
+                    "tokens_estimated": est_tokens,
+                }
+                return
+            raise RuntimeError("Resposta vazia do provedor")
+        except Exception as e:
+            if chunks:
+                # Partial output already streamed; return what we got rather than garbling UI
+                partial = "".join(chunks).strip()
+                yield {
+                    "type": "done",
+                    "success": True,
+                    "reply": partial,
+                    "model_id": pid,
+                    "provider_name": candidate["name"],
+                    "failover_chain": failover_chain,
+                    "tokens_estimated": max(15, len(partial) // 4),
+                }
+                return
+            _mark_provider_failure(pid, candidate, str(e), failover_chain)
+            yield {"type": "status", "message": f"Rotacionando após falha em {candidate['name']}..."}
+            continue
+
+    yield {
+        "type": "done",
         "success": False,
         "reply": "",
         "model_id": "aura:local",
